@@ -508,5 +508,30 @@ declare namespace Api {
       superiorNotice: string;
       siteName: string;
     }
+    interface WorkorderItem {
+      gid: string;
+      uid: string;
+      userName: string;
+      displayName: string;
+      region: string;
+      title: string;
+      content: string;
+      state: string;
+      addtime: string;
+    }
+
+    interface WorkorderListResponse {
+      records: WorkorderItem[];
+      total: number;
+      page: number;
+      pageSize: number;
+      stats: {
+        pending: number;
+        answered: number;
+        finished: number;
+      };
+      isSuper: boolean;
+    }
   }
 }
+

@@ -483,3 +483,43 @@ export function updateUserPushToken(pushPlusToken: string) {
     data: { pushPlusToken }
   });
 }
+
+export function fetchWorkorderList(params?: { page?: number; pageSize?: number; keyword?: string; status?: string }) {
+  return request<Api.ProfileArea.WorkorderListResponse>({
+    url: 'admin-api/v1/index.php?action=workorder-list',
+    method: 'get',
+    params
+  });
+}
+
+export function createWorkorder(data: { type: 'order' | 'custom'; oid?: number; content: string }) {
+  return request<{ gid: string }>({
+    url: 'admin-api/v1/index.php?action=workorder-create',
+    method: 'post',
+    data
+  });
+}
+
+export function replyWorkorder(data: { gid: number; reply: string }) {
+  return request<null>({
+    url: 'admin-api/v1/index.php?action=workorder-reply',
+    method: 'post',
+    data
+  });
+}
+
+export function finishWorkorder(data: { gid: number; remark?: string }) {
+  return request<null>({
+    url: 'admin-api/v1/index.php?action=workorder-finish',
+    method: 'post',
+    data
+  });
+}
+
+export function deleteWorkorder(gid: number) {
+  return request<null>({
+    url: 'admin-api/v1/index.php?action=workorder-delete',
+    method: 'post',
+    data: { gid }
+  });
+}

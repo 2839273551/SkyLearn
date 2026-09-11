@@ -131,6 +131,24 @@ function api_user_avatar($user, $conf = array())
     return 'https://q1.qlogo.cn/g?b=qq&nk=10001&s=640';
 }
 
+function api_send_push($token, $title, $content)
+{
+    if (empty($token)) return false;
+    $apiUrl = 'https://push.showdoc.com.cn/server/api/push/' . urlencode($token)
+            . '?title=' . urlencode(mb_substr($title, 0, 100, 'UTF-8'))
+            . '&content=' . urlencode(mb_substr($content, 0, 500, 'UTF-8'));
+    $ch = curl_init();
+    curl_setopt_array($ch, array(
+        CURLOPT_URL => $apiUrl,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 5,
+        CURLOPT_SSL_VERIFYPEER => true
+    ));
+    $res = curl_exec($ch);
+    curl_close($ch);
+    return $res !== false;
+}
+
 function api_user_data($userrow, $conf)
 {
     $isSuper = intval($userrow['uid']) === 1;
@@ -2877,6 +2895,224 @@ if ($action === 'user-push-token-save') {
 
     $respMsg = $token !== '' ? '微信推送 Token 设置成功' : '微信推送 Token 已解绑清空';
     api_respond(0, $respMsg, array('pushPlusToken' => $token));
+}
+
+if ($action === 'workorder-list') {
+    api_require_login(isset($islogin) ? $islogin : 0);
+    $uid = intval($userrow['uid']);
+    $isSuper = ($uid === 1);
+
+    $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+    $pageSize = isset($_GET['pageSize']) ? max(1, min(100, intval($_GET['pageSize']))) : 15;
+    $offset = ($page - 1) * $pageSize;
+
+    $keyword = isset($_GET['keyword']) ? trim(strip_tags($_GET['keyword'])) : '';
+    $status = isset($_GET['status']) ? trim(strip_tags($_GET['status'])) : '';
+
+    $whereClauses = array();
+    if (!$isSuper) {
+        $whereClauses[] = "g.uid='$uid'";
+    }
+    if ($keyword !== '') {
+        $safeKw = daddslashes($keyword);
+        $whereClauses[] = "(g.title LIKE '%$safeKw%' OR g.content LIKE '%$safeKw%' OR g.region LIKE '%$safeKw%')";
+    }
+    if ($status !== '') {
+        $safeStatus = daddslashes($status);
+        $whereClauses[] = "g.state='$safeStatus'";
+    }
+
+    $where = count($whereClauses) > 0 ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
+
+    $total = $DB->count("SELECT count(g.gid) FROM qingka_wangke_gongdan g $where");
+    $rows = $DB->query("SELECT g.*, u.user as username, u.name as nickname FROM qingka_wangke_gongdan g LEFT JOIN qingka_wangke_user u ON g.uid=u.uid $where ORDER BY g.gid DESC LIMIT $pageSize OFFSET $offset");
+
+    $records = array();
+    while ($row = $DB->fetch($rows)) {
+        $records[] = array(
+            'gid' => (string) $row['gid'],
+            'uid' => (string) $row['uid'],
+            'userName' => isset($row['username']) ? (string) $row['username'] : '',
+            'displayName' => isset($row['nickname']) && $row['nickname'] !== '' ? (string) $row['nickname'] : (isset($row['username']) ? (string) $row['username'] : ''),
+            'region' => (string) $row['region'],
+            'title' => (string) $row['title'],
+            'content' => (string) $row['content'],
+            'state' => (string) $row['state'],
+            'addtime' => (string) $row['addtime']
+        );
+    }
+
+    $pendingCount = $DB->count("SELECT count(gid) FROM qingka_wangke_gongdan WHERE " . ($isSuper ? "1=1" : "uid='$uid'") . " AND state='待回复'");
+    $answeredCount = $DB->count("SELECT count(gid) FROM qingka_wangke_gongdan WHERE " . ($isSuper ? "1=1" : "uid='$uid'") . " AND state='已回复'");
+    $finishedCount = $DB->count("SELECT count(gid) FROM qingka_wangke_gongdan WHERE " . ($isSuper ? "1=1" : "uid='$uid'") . " AND state='已完成'");
+
+    api_respond(0, 'ok', array(
+        'records' => $records,
+        'total' => intval($total),
+        'page' => $page,
+        'pageSize' => $pageSize,
+        'stats' => array(
+            'pending' => intval($pendingCount),
+            'answered' => intval($answeredCount),
+            'finished' => intval($finishedCount)
+        ),
+        'isSuper' => $isSuper
+    ));
+}
+
+if ($action === 'workorder-create') {
+    api_require_post();
+    api_require_login(isset($islogin) ? $islogin : 0);
+    api_require_csrf();
+
+    $input = api_read_input();
+    $type = isset($input['type']) ? trim($input['type']) : 'order';
+    $oid = isset($input['oid']) ? intval($input['oid']) : 0;
+    $content = isset($input['content']) ? trim(strip_tags($input['content'])) : '';
+
+    if ($content === '') {
+        api_respond(422, '问题描述内容不能为空');
+    }
+    if (mb_strlen($content, 'UTF-8') > 500) {
+        api_respond(422, '内容长度不能超过 500 个字符');
+    }
+
+    $uid = intval($userrow['uid']);
+    $date = date('Y-m-d H:i:s');
+    $region = '其它问题';
+    $title = '其它问题咨询';
+
+    if ($type === 'order' && $oid > 0) {
+        $order = $DB->get_row("SELECT * FROM qingka_wangke_order WHERE oid='$oid' LIMIT 1");
+        if (!$order) {
+            api_respond(404, '关联的订单不存在，请核实订单号');
+        }
+        if ($uid !== 1 && intval($order['uid']) !== $uid) {
+            api_respond(403, '无权操作此订单');
+        }
+        $region = (string) $oid;
+        $title = (string)$order['ptname'] . " | " . (string)$order['school'] . " | " . (string)$order['kcname']
+               . " (状态: " . (string)$order['status'] . ", 下单时间: " . (string)$order['addtime'] . ")";
+    }
+
+    $safeTitle = daddslashes($title);
+    $safeRegion = daddslashes($region);
+    $initialLog = "【" . $date . " 用户提交工单】\n" . $content;
+    $safeLog = daddslashes($initialLog);
+
+    $DB->query("INSERT INTO qingka_wangke_gongdan (title, region, content, uid, state, addtime) VALUES ('$safeTitle', '$safeRegion', '$safeLog', '$uid', '待回复', '$date')");
+    $gid = $DB->insert_id();
+
+    $super = $DB->get_row("SELECT pushPlusToken FROM qingka_wangke_user WHERE uid='1' LIMIT 1");
+    if (!empty($super['pushPlusToken'])) {
+        $msg = "用户 {$userrow['user']}(UID:{$uid}) 提交了新工单 #{$gid}\n类型: {$region}\n内容: {$content}";
+        api_send_push($super['pushPlusToken'], '新工单提醒', $msg);
+    }
+
+    api_respond(0, '工单提交成功，站长将尽快为您处理！', array('gid' => (string) $gid));
+}
+
+if ($action === 'workorder-reply') {
+    api_require_post();
+    api_require_login(isset($islogin) ? $islogin : 0);
+    api_require_csrf();
+
+    $input = api_read_input();
+    $gid = isset($input['gid']) ? intval($input['gid']) : 0;
+    $reply = isset($input['reply']) ? trim(strip_tags($input['reply'])) : '';
+
+    if ($gid <= 0 || $reply === '') {
+        api_respond(422, '回复内容不能为空');
+    }
+
+    $ticket = $DB->get_row("SELECT * FROM qingka_wangke_gongdan WHERE gid='$gid' LIMIT 1");
+    if (!$ticket) {
+        api_respond(404, '工单不存在');
+    }
+
+    $uid = intval($userrow['uid']);
+    $isSuper = ($uid === 1);
+    if (!$isSuper && intval($ticket['uid']) !== $uid) {
+        api_respond(403, '无权操作此工单');
+    }
+
+    $date = date('Y-m-d H:i:s');
+    if ($isSuper) {
+        $actor = "管理员回复";
+        $newState = '已回复';
+    } else {
+        $actor = "用户追加反馈";
+        $newState = '待回复';
+    }
+
+    $append = "\n\n【" . $date . " " . $actor . "】\n" . $reply;
+    $newContent = daddslashes($ticket['content'] . $append);
+
+    $DB->query("UPDATE qingka_wangke_gongdan SET content='$newContent', state='$newState' WHERE gid='$gid'");
+
+    if ($isSuper) {
+        $userToken = $DB->get_row("SELECT pushPlusToken FROM qingka_wangke_user WHERE uid='{$ticket['uid']}' LIMIT 1");
+        if (!empty($userToken['pushPlusToken'])) {
+            api_send_push($userToken['pushPlusToken'], '工单回复通知', "您的工单 #{$gid} 有新回复：\n{$reply}");
+        }
+    } else {
+        $superToken = $DB->get_row("SELECT pushPlusToken FROM qingka_wangke_user WHERE uid='1' LIMIT 1");
+        if (!empty($superToken['pushPlusToken'])) {
+            api_send_push($superToken['pushPlusToken'], '工单追问提醒', "工单 #{$gid} 用户追加提问：\n{$reply}");
+        }
+    }
+
+    api_respond(0, $isSuper ? '工单回复成功' : '追加提问成功');
+}
+
+if ($action === 'workorder-finish') {
+    api_require_post();
+    api_require_super($userrow, $islogin);
+    api_require_csrf();
+
+    $input = api_read_input();
+    $gid = isset($input['gid']) ? intval($input['gid']) : 0;
+    $remark = isset($input['remark']) && trim($input['remark']) !== '' ? trim(strip_tags($input['remark'])) : '处理完成，结单';
+
+    $ticket = $DB->get_row("SELECT * FROM qingka_wangke_gongdan WHERE gid='$gid' LIMIT 1");
+    if (!$ticket) {
+        api_respond(404, '工单不存在');
+    }
+
+    $date = date('Y-m-d H:i:s');
+    $append = "\n\n【" . $date . " 管理员结单】\n" . $remark;
+    $newContent = daddslashes($ticket['content'] . $append);
+
+    $DB->query("UPDATE qingka_wangke_gongdan SET content='$newContent', state='已完成' WHERE gid='$gid'");
+
+    $userToken = $DB->get_row("SELECT pushPlusToken FROM qingka_wangke_user WHERE uid='{$ticket['uid']}' LIMIT 1");
+    if (!empty($userToken['pushPlusToken'])) {
+        api_send_push($userToken['pushPlusToken'], '工单结单通知', "您的工单 #{$gid} 已结单：\n{$remark}");
+    }
+
+    api_respond(0, '工单已结单完成');
+}
+
+if ($action === 'workorder-delete') {
+    api_require_post();
+    api_require_login(isset($islogin) ? $islogin : 0);
+    api_require_csrf();
+
+    $input = api_read_input();
+    $gid = isset($input['gid']) ? intval($input['gid']) : 0;
+
+    $ticket = $DB->get_row("SELECT * FROM qingka_wangke_gongdan WHERE gid='$gid' LIMIT 1");
+    if (!$ticket) {
+        api_respond(404, '工单不存在');
+    }
+
+    $uid = intval($userrow['uid']);
+    if ($uid !== 1 && intval($ticket['uid']) !== $uid) {
+        api_respond(403, '无权删除此工单');
+    }
+
+    $DB->query("DELETE FROM qingka_wangke_gongdan WHERE gid='$gid'");
+    api_respond(0, '工单已删除');
 }
 
 api_respond(404, '接口不存在', null, 404);
