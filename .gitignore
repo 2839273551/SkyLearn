@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+admin-web/node_modules/
+.pnpm-store/
+
+# Build artifacts
+admin-web/dist/
+
+# Logs
+*.log
+cron/*.log
+feedback_error.log
+push_complete.log
+
+# Temporary and cache files
+%SystemDrive%/
+.DS_Store
+Thumbs.db
+*.local
+
+# Editor directories
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

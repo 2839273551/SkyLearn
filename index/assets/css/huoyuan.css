@@ -1,0 +1,1306 @@
+body {
+    background: #f8f9fa;
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.main-container {
+    padding: 1rem 0;
+}
+
+.main-card {
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    background: white;
+}
+
+.card-header {
+    background: #fff;
+    color: #495057;
+    padding: 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.card-header h4 {
+    font-weight: 500;
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+.control-section {
+    background: #fff;
+    border-radius: 6px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid #e9ecef;
+}
+
+.form-label {
+    font-weight: 500;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.form-control {
+    border-radius: 4px;
+    border: 1px solid #ced4da;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    background: white;
+}
+
+.form-control:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* 统一按钮基础样式 */
+.btn {
+    border-radius: 6px;
+    padding: 0.6rem 1.2rem;
+    font-weight: 500;
+    font-size: 0.875rem;
+    transition: all 0.2s ease-in-out;
+    border: 1px solid transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.btn i {
+    font-size: 1rem;
+}
+
+/* 主要按钮样式 */
+.btn-primary {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    border-color: #007bff;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+    border-color: #0056b3;
+    color: white;
+}
+
+/* 成功按钮样式 */
+.btn-success {
+    background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+    border-color: #28a745;
+    color: white;
+}
+
+.btn-success:hover {
+    background: linear-gradient(135deg, #1e7e34 0%, #155724 100%);
+    border-color: #1e7e34;
+    color: white;
+}
+
+/* 信息按钮样式 */
+.btn-info {
+    background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+    border-color: #17a2b8;
+    color: white;
+}
+
+.btn-info:hover {
+    background: linear-gradient(135deg, #138496 0%, #0f6674 100%);
+    border-color: #138496;
+    color: white;
+}
+
+/* 警告按钮样式 */
+.btn-warning {
+    background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+    border-color: #ffc107;
+    color: #212529;
+}
+
+.btn-warning:hover {
+    background: linear-gradient(135deg, #e0a800 0%, #d39e00 100%);
+    border-color: #e0a800;
+    color: #212529;
+}
+
+/* 次要按钮样式 */
+.btn-secondary {
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+    border-color: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: linear-gradient(135deg, #5a6268 0%, #495057 100%);
+    border-color: #5a6268;
+    color: white;
+}
+
+/* 小尺寸按钮 */
+.btn-sm {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+}
+
+.btn-sm i {
+    font-size: 0.9rem;
+}
+
+/* 大尺寸按钮 */
+.btn-lg {
+    padding: 0.8rem 1.6rem;
+    font-size: 1rem;
+}
+
+.btn-lg i {
+    font-size: 1.1rem;
+}
+
+/* 特殊按钮样式 */
+.close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1;
+    color: #000;
+    text-shadow: 0 1px 0 #fff;
+    opacity: 0.5;
+    cursor: pointer;
+    padding: 0;
+    transition: opacity 0.15s ease-in-out;
+}
+
+.close:hover {
+    opacity: 0.75;
+}
+
+/* 批量操作按钮组样式 */
+.batch-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.batch-actions .btn {
+    margin: 0;
+}
+
+/* 全宽按钮 */
+.btn.w-100 {
+    width: 100% !important;
+}
+
+/* 按钮加载状态 */
+.btn .loading-spinner {
+    margin-right: 0.5rem;
+}
+
+/* 按钮焦点状态 */
+.btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+}
+
+.btn-success:focus {
+    box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.25);
+}
+
+.btn-warning:focus {
+    box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.25);
+}
+
+.btn-info:focus {
+    box-shadow: 0 0 0 3px rgba(23, 162, 184, 0.25);
+}
+
+.btn-secondary:focus {
+    box-shadow: 0 0 0 3px rgba(108, 117, 125, 0.25);
+}
+
+.data-section {
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+}
+
+.data-header {
+    background: #f8f9fa;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.data-header h5 {
+    margin: 0;
+    color: #495057;
+    font-weight: 500;
+    font-size: 1.1rem;
+}
+
+.table-container {
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.table {
+    margin: 0;
+    font-size: 0.875rem;
+    table-layout: fixed;
+    width: 100%;
+}
+
+.table thead th {
+    background: #f8f9fa;
+    color: #495057;
+    border-bottom: 2px solid #dee2e6;
+    padding: 0.75rem;
+    font-weight: 500;
+    font-size: 0.875rem;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.table tbody tr {
+    border-bottom: 1px solid #dee2e6;
+}
+
+.table td {
+    vertical-align: middle;
+    padding: 0.75rem;
+    text-align: center;
+}
+
+.table th {
+    text-align: center;
+}
+
+.table td small {
+    display: block;
+    word-wrap: break-word;
+    word-break: break-all;
+    line-height: 1.4;
+    text-align: left;
+    max-height: 60px;
+    overflow: hidden;
+}
+
+.table td:last-child {
+    text-align: left;
+}
+
+.badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.badge-primary {
+    background: #007bff;
+    color: white;
+}
+
+.badge-info {
+    background: #17a2b8;
+    color: white;
+}
+
+.badge-warning {
+    background: #ffc107;
+    color: #212529;
+}
+
+.badge-success {
+    background: #28a745;
+    color: white;
+}
+
+.badge-secondary {
+    background: #6c757d;
+    color: white;
+}
+
+.price-tag {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #28a745;
+}
+
+.alert {
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 0.75rem 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.alert-info {
+    background: #d1ecf1;
+    border-color: #bee5eb;
+    color: #0c5460;
+}
+
+.alert-success {
+    background: #d4edda;
+    border-color: #c3e6cb;
+    color: #155724;
+}
+
+.alert-danger {
+    background: #f8d7da;
+    border-color: #f5c6cb;
+    color: #721c24;
+}
+
+.empty-state {
+    padding: 3rem 2rem;
+    text-align: center;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.empty-state i {
+    font-size: 3rem;
+    color: #6c757d;
+    margin-bottom: 1rem;
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255,255,255,.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+    margin-right: 0.5rem;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.stats-info {
+    background: #f8f9fa;
+    border-radius: 4px;
+    padding: 0.75rem;
+    margin-top: 1rem;
+    border-left: 3px solid #28a745;
+}
+
+.stats-info small {
+    color: #495057;
+    font-weight: 500;
+}
+
+.search-stats {
+    text-align: center;
+    padding: 0.5rem;
+    background: #f8f9fa;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+}
+
+.search-stats small {
+    font-weight: 500;
+    color: #495057;
+}
+    
+.table tbody tr.hidden {
+    display: none;
+}
+
+/* 批量改价弹窗样式 */
+.price-change-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.price-change-option {
+    display: flex;
+    align-items: flex-start;
+    padding: 1rem;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    cursor: pointer;
+    background: white;
+    transition: all 0.15s ease-in-out;
+}
+
+.price-change-option.selected {
+    border-color: #007bff;
+    background: #f8f9ff;
+}
+
+.price-input-group {
+    opacity: 0.5;
+    pointer-events: none;
+    transition: all 0.15s ease-in-out;
+}
+
+.price-change-option.selected .price-input-group {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.input-group-text {
+    background: #007bff;
+    color: white;
+    border: 1px solid #007bff;
+    font-weight: 500;
+}
+
+.price-preview {
+    margin-top: 1rem;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.price-preview .alert {
+    margin: 0;
+}
+
+.preview-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.preview-item:last-child {
+    border-bottom: none;
+}
+
+.preview-name {
+    flex: 1;
+    font-weight: 500;
+    margin-right: 1rem;
+}
+
+.preview-price {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.old-price {
+    color: #718096;
+    text-decoration: line-through;
+    font-size: 0.9rem;
+}
+
+.new-price {
+    color: #38a169;
+    font-weight: 600;
+}
+
+.price-arrow {
+    color: #667eea;
+    font-weight: bold;
+}
+
+/* 重复课程处理弹窗样式 */
+.duplicate-courses-list {
+    background: #f8f9fa;
+}
+
+.duplicate-item {
+    background: white;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    border: 1px solid #e2e8f0;
+    transition: all 0.3s ease;
+}
+
+.duplicate-item:last-child {
+    margin-bottom: 0;
+}
+
+/* 分类选择样式 */
+.category-select-group,
+.category-input-group {
+    opacity: 0.5;
+    pointer-events: none;
+    transition: all 0.15s ease-in-out;
+}
+
+.copy-mode-option.selected .category-select-group,
+.copy-mode-option.selected .category-input-group {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* 复制模式弹窗样式 */
+.copy-modal {
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+}
+
+.copy-modal-header {
+    background: #f8f9fa;
+    color: #495057;
+    border-bottom: 1px solid #dee2e6;
+    padding: 1rem 1.5rem;
+}
+
+.copy-modal-header .modal-title {
+    font-weight: 500;
+    font-size: 1.1rem;
+}
+
+.copy-modal-body {
+    padding: 1.5rem;
+}
+
+.copy-modal-desc {
+    color: #495057;
+    font-weight: 400;
+    margin-bottom: 1rem;
+}
+
+.copy-mode-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.copy-mode-option {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    cursor: pointer;
+    background: white;
+    transition: all 0.15s ease-in-out;
+}
+
+.copy-mode-option.selected {
+    border-color: #007bff;
+    background: #f8f9ff;
+}
+
+.copy-mode-icon {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+    background: #007bff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+}
+
+.copy-mode-icon i {
+    font-size: 1.2rem;
+    color: white;
+}
+
+.copy-mode-content {
+    flex: 1;
+}
+
+.copy-mode-content h6 {
+    margin: 0 0 0.25rem 0;
+    font-weight: 500;
+    color: #495057;
+}
+
+.copy-mode-content p {
+    margin: 0;
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
+.copy-mode-check {
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.15s ease-in-out;
+}
+
+.copy-mode-option.selected .copy-mode-check {
+    opacity: 1;
+}
+
+.copy-mode-check i {
+    font-size: 1.2rem;
+    color: #28a745;
+}
+
+.copy-modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #dee2e6;
+    background: #f8f9fa;
+}
+
+/* 自定义复选框样式 */
+.custom-checkbox {
+    position: relative;
+    display: inline-block;
+}
+
+.custom-checkbox-input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+.custom-checkbox-label {
+    position: relative;
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    background: white;
+    border: 1px solid #ced4da;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.custom-checkbox-input:checked + .custom-checkbox-label {
+    background: #007bff;
+    border-color: #007bff;
+}
+
+.custom-checkbox-input:checked + .custom-checkbox-label::after {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 2px;
+    width: 5px;
+    height: 8px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+.custom-checkbox-input:indeterminate + .custom-checkbox-label {
+    background: #007bff;
+    border-color: #007bff;
+}
+
+.custom-checkbox-input:indeterminate + .custom-checkbox-label::after {
+    content: '';
+    position: absolute;
+    left: 3px;
+    top: 7px;
+    width: 10px;
+    height: 2px;
+    background: white;
+    border-radius: 1px;
+}
+
+/* 简洁分页样式 */
+.simple-pagination-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    background: #fff;
+    border-top: 1px solid #e9ecef;
+    border-radius: 0 0 8px 8px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.pagination-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #666;
+    font-size: 14px;
+}
+
+.page-size-select {
+    padding: 4px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    background: white;
+    cursor: pointer;
+}
+
+.page-size-select:focus {
+    outline: none;
+    border-color: #007bff;
+}
+
+.simple-pagination {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    gap: 2px;
+}
+
+.simple-pagination li {
+    display: flex;
+    align-items: center;
+}
+
+.simple-pagination .page-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 32px;
+    padding: 0 8px;
+    color: #333;
+    text-decoration: none;
+    border: 1px solid #ddd;
+    background: white;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.simple-pagination .page-link:hover {
+    background: #f8f9fa;
+    border-color: #adb5bd;
+}
+
+.simple-pagination .page-link.active {
+    background: #007bff;
+    color: white;
+    border-color: #007bff;
+    font-weight: 500;
+}
+
+.simple-pagination .page-ellipsis {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 32px;
+    color: #999;
+    font-size: 14px;
+}
+
+.pagination-summary {
+    color: #666;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+    .main-container {
+        padding: 0.5rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .control-section {
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    /* 货源选择区域移动端布局 */
+    .control-section .row .col-md-6,
+    .control-section .row .col-md-3 {
+        margin-bottom: 0.75rem;
+    }
+    
+    .control-section .row .col-md-6:last-child,
+    .control-section .row .col-md-3:last-child {
+        margin-bottom: 0;
+    }
+    
+    /* 搜索区域移动端布局 */
+    #searchSection .row .col-md-5,
+    #searchSection .row .col-md-2,
+    #searchSection .row .col-md-3 {
+        margin-bottom: 0.75rem;
+    }
+    
+    #searchSection .row .col-md-3:last-child {
+        margin-bottom: 0;
+    }
+    
+    /* 数据区域头部移动端布局 */
+    .data-header .row .col-md-6 {
+        margin-bottom: 1rem;
+        text-align: center;
+    }
+    
+    .data-header .col-md-6.text-right {
+        text-align: center !important;
+    }
+    
+    /* 批量操作按钮移动端样式 */
+    .batch-actions {
+        justify-content: center;
+        margin-top: 0;
+    }
+    
+    .batch-actions .btn {
+        flex: 1;
+        min-width: 70px;
+        max-width: 100px;
+        white-space: nowrap;
+    }
+    
+    /* 表格容器移动端样式 */
+    .table-container {
+        max-height: 60vh;
+        overflow-x: auto;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+    }
+    
+    /* 表格移动端样式 */
+    .table {
+        font-size: 0.65rem;
+        min-width: 700px; /* 确保表格有最小宽度，可以横向滚动 */
+        margin: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    
+    .table th,
+    .table td {
+        padding: 0.4rem 0.25rem;
+        vertical-align: middle;
+        text-align: center;
+    }
+    
+    /* 表格列宽调整 */
+    .table th:nth-child(1), .table td:nth-child(1) { 
+        width: 35px; 
+        min-width: 35px; 
+        max-width: 35px;
+    } /* 复选框 */
+    
+    .table th:nth-child(2), .table td:nth-child(2) { 
+        width: 50px; 
+        min-width: 50px; 
+        max-width: 50px;
+    } /* CID */
+    
+    .table th:nth-child(3), .table td:nth-child(3) { 
+        width: 120px; 
+        min-width: 120px; 
+        max-width: 120px;
+        text-align: left;
+    } /* 名称 */
+    
+    .table th:nth-child(4), .table td:nth-child(4) { 
+        width: 60px; 
+        min-width: 60px; 
+        max-width: 60px;
+    } /* 价格 */
+    
+    .table th:nth-child(5), .table td:nth-child(5) { 
+        width: 50px; 
+        min-width: 50px; 
+        max-width: 50px;
+    } /* 分类ID */
+    
+    .table th:nth-child(6), .table td:nth-child(6) { 
+        width: 80px; 
+        min-width: 80px; 
+        max-width: 80px;
+    } /* 分类名称 */
+    
+    .table th:nth-child(7), .table td:nth-child(7) { 
+        width: 70px; 
+        min-width: 70px; 
+        max-width: 70px;
+    } /* 状态 */
+    
+    .table th:nth-child(8), .table td:nth-child(8) { 
+        width: 150px; 
+        min-width: 150px; 
+        max-width: 150px;
+        text-align: left;
+    } /* 描述 */
+    
+    /* 表格内容移动端优化 */
+    .table td small {
+        font-size: 0.55rem;
+        line-height: 1.2;
+        max-height: 30px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        word-break: break-all;
+    }
+    
+    .table td strong {
+        font-size: 0.65rem;
+        line-height: 1.2;
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    
+    .badge {
+        font-size: 0.55rem;
+        padding: 0.15rem 0.3rem;
+        border-radius: 4px;
+        white-space: nowrap;
+    }
+    
+    .price-tag {
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    /* 自定义复选框移动端样式 */
+    .custom-checkbox-label {
+        width: 16px;
+        height: 16px;
+    }
+    
+    .custom-checkbox-input:checked + .custom-checkbox-label::after {
+        left: 4px;
+        top: 1px;
+        width: 5px;
+        height: 8px;
+        border-width: 0 1.5px 1.5px 0;
+    }
+    
+    .custom-checkbox-input:indeterminate + .custom-checkbox-label::after {
+        left: 3px;
+        top: 6px;
+        width: 8px;
+        height: 1.5px;
+    }
+    
+    /* 搜索统计移动端样式 */
+    .search-stats {
+        padding: 0.5rem;
+        font-size: 0.7rem;
+        text-align: center;
+    }
+    
+    .search-stats small {
+        font-size: 0.65rem;
+        line-height: 1.3;
+    }
+    
+    /* 统计信息移动端样式 */
+    .stats-info {
+        padding: 0.75rem;
+        margin-top: 0.75rem;
+        text-align: center;
+    }
+    
+    .stats-info small {
+        font-size: 0.75rem;
+    }
+    
+    /* 模态框移动端样式 */
+    .modal-dialog {
+        margin: 0.5rem;
+        max-width: calc(100% - 1rem);
+    }
+    
+    .copy-modal-body {
+        padding: 1rem;
+    }
+    
+    .copy-mode-options {
+        gap: 0.75rem;
+    }
+    
+    .copy-mode-option {
+        padding: 1rem;
+        flex-direction: row;
+        align-items: center;
+    }
+    
+    .copy-mode-icon {
+        width: 35px;
+        height: 35px;
+        margin-right: 0.75rem;
+        flex-shrink: 0;
+    }
+    
+    .copy-mode-icon i {
+        font-size: 1rem;
+    }
+    
+    .copy-mode-content h6 {
+        font-size: 0.9rem;
+        margin-bottom: 0.25rem;
+    }
+    
+    .copy-mode-content p {
+        font-size: 0.75rem;
+        margin: 0;
+    }
+    
+    /* 价格改变选项移动端样式 */
+    .price-change-option {
+        padding: 1rem;
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .price-change-option .copy-mode-icon {
+        margin-right: 0;
+        margin-bottom: 0.5rem;
+    }
+    
+    .price-change-option .copy-mode-content {
+        margin-bottom: 0.5rem;
+        width: 100%;
+    }
+    
+    .price-input-group {
+        margin-top: 0.5rem;
+        width: 100%;
+    }
+    
+    /* 空状态移动端样式 */
+    .empty-state {
+        padding: 2rem 1rem;
+    }
+    
+    .empty-state i {
+        font-size: 2.5rem;
+    }
+    
+    .empty-state h5 {
+        font-size: 1.1rem;
+    }
+    
+    .empty-state p {
+        font-size: 0.9rem;
+    }
+    
+    /* 表单控件移动端样式 */
+    .form-control {
+        font-size: 0.85rem;
+        padding: 0.6rem 0.75rem;
+    }
+    
+    /* 移动端按钮样式 */
+    .btn {
+        font-size: 0.8rem;
+        padding: 0.5rem 0.9rem;
+        gap: 0.4rem;
+    }
+    
+    .btn i {
+        font-size: 0.9rem;
+    }
+    
+    .btn-sm {
+        font-size: 0.7rem;
+        padding: 0.35rem 0.6rem;
+        gap: 0.3rem;
+    }
+    
+    .btn-sm i {
+        font-size: 0.8rem;
+    }
+    
+    .btn-lg {
+        font-size: 0.9rem;
+        padding: 0.7rem 1.2rem;
+    }
+    
+    .btn-lg i {
+        font-size: 1rem;
+    }
+    
+    /* 移动端分页样式 */
+    .simple-pagination-container {
+        flex-direction: column;
+        padding: 10px 15px;
+        gap: 10px;
+    }
+    
+    .pagination-info {
+        justify-content: center;
+        font-size: 12px;
+    }
+    
+    .page-size-select {
+        font-size: 12px;
+        padding: 3px 6px;
+    }
+    
+    .simple-pagination {
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 1px;
+    }
+    
+    .simple-pagination .page-link {
+        min-width: 28px;
+        height: 28px;
+        font-size: 12px;
+        padding: 0 6px;
+    }
+    
+    .simple-pagination .page-ellipsis {
+        min-width: 28px;
+        height: 28px;
+        font-size: 12px;
+    }
+    
+    .pagination-summary {
+        text-align: center;
+        font-size: 12px;
+    }
+    
+    /* 卡片头部移动端样式 */
+    .card-header {
+        padding: 1.25rem 1rem;
+        text-align: center;
+    }
+    
+    .card-header h4 {
+        font-size: 1.1rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .card-header p {
+        font-size: 0.75rem;
+        margin-top: 0.5rem;
+        line-height: 1.4;
+    }
+    
+    /* 表单标签移动端样式 */
+    .form-label {
+        font-size: 0.85rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* 模态框标题移动端样式 */
+    .modal-title {
+        font-size: 1rem;
+    }
+    
+    .copy-modal-desc {
+        font-size: 0.85rem;
+        margin-bottom: 1rem;
+    }
+}
+
+/* 超小屏幕优化 (手机竖屏) */
+@media (max-width: 480px) {
+    .main-container {
+        padding: 0.25rem;
+    }
+    
+    .card-body {
+        padding: 0.75rem;
+    }
+    
+    .control-section {
+        padding: 0.75rem;
+    }
+    
+    .table {
+        font-size: 0.6rem;
+        min-width: 650px;
+    }
+    
+    .table th,
+    .table td {
+        padding: 0.3rem 0.15rem;
+    }
+    
+    .badge {
+        font-size: 0.5rem;
+        padding: 0.1rem 0.25rem;
+    }
+    
+    .price-tag {
+        font-size: 0.65rem;
+    }
+    
+    .batch-actions .btn {
+        min-width: 60px;
+        max-width: 90px;
+    }
+    
+    .card-header h4 {
+        font-size: 1rem;
+    }
+    
+    .card-header p {
+        font-size: 0.7rem;
+    }
+    
+    .form-control {
+        font-size: 0.8rem;
+        padding: 0.5rem 0.6rem;
+    }
+    
+    /* 超小屏幕按钮样式 */
+    .btn {
+        font-size: 0.75rem;
+        padding: 0.45rem 0.7rem;
+        gap: 0.3rem;
+    }
+    
+    .btn i {
+        font-size: 0.8rem;
+    }
+    
+    .btn-sm {
+        font-size: 0.65rem;
+        padding: 0.3rem 0.5rem;
+        gap: 0.25rem;
+    }
+    
+    .btn-sm i {
+        font-size: 0.7rem;
+    }
+    
+    .btn-lg {
+        font-size: 0.8rem;
+        padding: 0.6rem 1rem;
+    }
+    
+    .btn-lg i {
+        font-size: 0.9rem;
+    }
+} 
