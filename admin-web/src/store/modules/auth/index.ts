@@ -80,7 +80,8 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
       await toLogin();
     }
 
-    tabStore.cacheTabs();
+    localStg.remove('globalTabs');
+    tabStore.clearTabs();
     routeStore.resetStore();
   }
 
@@ -100,23 +101,10 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
    * @returns {boolean} Whether to clear all tabs
    */
   function checkTabClear(): boolean {
-    if (!userInfo.userId) {
-      return false;
-    }
-
-    const lastLoginUserId = localStg.get('lastLoginUserId');
-
-    // Clear all tabs if current user is different from previous user
-    if (!lastLoginUserId || lastLoginUserId !== userInfo.userId) {
-      localStg.remove('globalTabs');
-      tabStore.clearTabs();
-
-      localStg.remove('lastLoginUserId');
-      return true;
-    }
-
+    localStg.remove('globalTabs');
+    tabStore.clearTabs();
     localStg.remove('lastLoginUserId');
-    return false;
+    return true;
   }
 
   /**

@@ -39,7 +39,7 @@
   },
   "tab": {
     "visible": true,
-    "cache": true,
+    "cache": false,
     "height": 44,
     "mode": "chrome",
     "closeTabByMiddleClick": false

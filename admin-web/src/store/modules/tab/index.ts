@@ -60,13 +60,8 @@ export const useTabStore = defineStore(SetupStoreId.Tab, () => {
    * @param currentRoute Current route
    */
   function initTabStore(currentRoute: App.Global.TabRoute) {
-    const storageTabs = localStg.get('globalTabs');
-
-    if (themeStore.tab.cache && storageTabs) {
-      const extractedTabs = extractTabsByAllRoutes(router, storageTabs);
-      tabs.value = updateTabsByI18nKey(extractedTabs);
-    }
-
+    localStg.remove('globalTabs');
+    tabs.value = [];
     addTab(currentRoute);
   }
 
@@ -347,9 +342,7 @@ export const useTabStore = defineStore(SetupStoreId.Tab, () => {
 
   /** Cache tabs */
   function cacheTabs() {
-    if (!themeStore.tab.cache) return;
-
-    localStg.set('globalTabs', tabs.value);
+    localStg.remove('globalTabs');
   }
 
   // cache tabs when page is closed or refreshed
