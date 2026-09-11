@@ -248,6 +248,7 @@ const local: App.I18n.Schema = {
     ddtj: '货源统计',
     dingdan: '可用项目',
     docking: '串货对接',
+    dockinglog: '对接监控',
     fenlei: '分类设置',
     gglist: '公告列表',
     help: '必看说明',

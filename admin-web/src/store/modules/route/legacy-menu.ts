@@ -31,6 +31,12 @@ const menuSections: MenuSection[] = [
         routes: ['class', 'fenlei', 'huoyuan', 'yjdj']
       },
       {
+        key: 'settings-docking',
+        label: '对接监控',
+        icon: 'ph:plugs-connected',
+        routes: ['dockinglog']
+      },
+      {
         key: 'settings-pricing',
         label: '分销定价',
         icon: 'ph:users-three',

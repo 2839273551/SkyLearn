@@ -537,5 +537,46 @@ declare namespace Api {
       isSuper: boolean;
     }
   }
-}
 
+  namespace DockingLog {
+    interface Item {
+      id: string;
+      direction: 'in' | 'out';
+      action: string;
+      caller: string;
+      uid: number;
+      target: string;
+      method: string;
+      ip: string;
+      params: string;
+      response: string;
+      status: number;
+      cost_ms: number;
+      bytes_in: number;
+      bytes_out: number;
+      traffic_total: number;
+      traffic_text: string;
+      traffic_detail: string;
+      created_at: string;
+    }
+
+    interface Metrics {
+      today_total: number;
+      today_in: number;
+      today_out: number;
+      today_traffic: string;
+      today_traffic_bytes: number;
+      avg_cost_ms: number;
+      success_rate: string;
+      is_admin: boolean;
+    }
+
+    interface ListResponse {
+      records: Item[];
+      current: number;
+      size: number;
+      total: number;
+      metrics: Metrics;
+    }
+  }
+}

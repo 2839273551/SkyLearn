@@ -183,6 +183,15 @@ export const generatedRoutes: GeneratedRoute[] = [
     }
   },
   {
+    name: 'dockinglog',
+    path: '/dockinglog',
+    component: 'layout.base$view.dockinglog',
+    meta: {
+      title: '对接监控',
+      icon: 'ph:plugs-connected'
+    }
+  },
+  {
     name: 'fenlei',
     path: '/fenlei',
     component: 'layout.base$view.fenlei',

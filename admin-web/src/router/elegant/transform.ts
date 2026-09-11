@@ -180,6 +180,7 @@ const routeMap: RouteMap = {
   "dengji": "/dengji",
   "dingdan": "/dingdan",
   "docking": "/docking",
+  "dockinglog": "/dockinglog",
   "fenlei": "/fenlei",
   "gglist": "/gglist",
   "guanx": "/guanx",

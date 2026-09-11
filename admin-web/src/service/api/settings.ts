@@ -523,3 +523,32 @@ export function deleteWorkorder(gid: number) {
     data: { gid }
   });
 }
+
+// ==========================================
+// 对接监控与调用流水 (dockinglog)
+// ==========================================
+
+export function fetchDockingLogList(params?: {
+  page?: number;
+  pageSize?: number;
+  direction?: string;
+  action_filter?: string;
+  keyword?: string;
+  status?: number;
+  start_time?: string;
+  end_time?: string;
+}) {
+  return request<Api.DockingLog.ListResponse>({
+    url: 'admin-api/v1/index.php?action=docking-log-list',
+    method: 'get',
+    params
+  });
+}
+
+export function clearDockingLogs(data: { range: 'all' | '7days' | '30days' }) {
+  return request<null>({
+    url: 'admin-api/v1/index.php?action=docking-log-clear',
+    method: 'post',
+    data
+  });
+}

@@ -252,6 +252,7 @@ const local: App.I18n.Schema = {
     ddtj: 'Supply Statistics',
     dingdan: 'Available Projects',
     docking: 'Docking',
+    dockinglog: 'Docking Monitor',
     fenlei: 'Categories',
     gglist: 'Announcements',
     help: 'Help',

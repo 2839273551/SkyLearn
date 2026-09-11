@@ -34,6 +34,7 @@ declare module "@elegant-router/types" {
     "dengji": "/dengji";
     "dingdan": "/dingdan";
     "docking": "/docking";
+    "dockinglog": "/dockinglog";
     "fenlei": "/fenlei";
     "gglist": "/gglist";
     "guanx": "/guanx";
@@ -115,6 +116,7 @@ declare module "@elegant-router/types" {
     | "dengji"
     | "dingdan"
     | "docking"
+    | "dockinglog"
     | "fenlei"
     | "gglist"
     | "guanx"
@@ -183,6 +185,7 @@ declare module "@elegant-router/types" {
     | "dengji"
     | "dingdan"
     | "docking"
+    | "dockinglog"
     | "fenlei"
     | "gglist"
     | "guanx"

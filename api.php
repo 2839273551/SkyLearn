@@ -1,4 +1,5 @@
 <?php
+$dockingStartTime = microtime(true);
 include('confing/common.php'); 
 $act=isset($_GET['act'])?daddslashes($_GET['act']):null;
 @header('Content-Type: application/json; charset=UTF-8');
@@ -17,6 +18,86 @@ if (!empty($rawInput)) {
         }
     }
 }
+
+$dockingBytesIn = !empty($rawInput) ? strlen($rawInput) : (strlen(http_build_query($_POST)) + strlen(isset($_SERVER['QUERY_STRING']) ? $_SERVER['QUERY_STRING'] : ''));
+
+ob_start();
+
+register_shutdown_function(function() use ($dockingStartTime, $dockingBytesIn, $act) {
+    $output = ob_get_contents();
+    ob_end_clean();
+    echo $output;
+
+    if (!function_exists('record_docking_log')) {
+        return;
+    }
+
+    $costMs = round((microtime(true) - $dockingStartTime) * 1000);
+    $bytesOut = strlen($output);
+
+    $status = 0;
+    $respData = null;
+    if (!empty($output)) {
+        $respData = json_decode($output, true);
+        if (is_array($respData) && isset($respData['code']) && intval($respData['code']) === 1) {
+            $status = 1;
+        }
+    }
+
+    $actionMap = array(
+        'balance' => '查询余额',
+        'getmoney' => '查询余额',
+        'query' => '在线查课',
+        'get' => '在线查课',
+        'order' => '提交下单',
+        'add' => '提交下单',
+        'docking_add' => '一步查课下单',
+        'docking' => '一步查课下单',
+        'status' => '查询订单进度',
+        'order_status' => '查询订单进度',
+        'cx' => '查询订单进度',
+        'reorder' => '申请补单重跑',
+        'bs' => '申请补单重跑',
+        'goods' => '获取商品列表',
+        'class' => '获取商品列表',
+        'getcid' => '获取商品列表',
+        'goods_detail' => '商品详情',
+        'cid' => '商品详情',
+        'login' => '账号鉴权登录',
+        'dl' => '账号鉴权登录',
+        'cancel' => '订单退款/取消'
+    );
+    $actionLabel = isset($actionMap[$act]) ? ($actionMap[$act] . " ({$act})") : ($act ? "外部对接 ({$act})" : "未识别动作");
+
+    $uid = isset($_POST['uid']) ? intval($_POST['uid']) : (isset($_GET['uid']) ? intval($_GET['uid']) : 0);
+    $caller = $uid > 0 ? "UID: {$uid}" : "外部商户/匿名";
+    if ($uid > 0) {
+        global $DB;
+        if (isset($DB) && is_object($DB)) {
+            $u = $DB->get_row("SELECT user FROM qingka_wangke_user WHERE uid='$uid' LIMIT 1");
+            if (!empty($u['user'])) {
+                $caller = "UID: {$uid} ({$u['user']})";
+            }
+        }
+    }
+
+    $inputParams = !empty($_POST) ? $_POST : (isset($_GET) ? $_GET : array());
+
+    record_docking_log(array(
+        'direction' => 'in',
+        'action' => $actionLabel,
+        'caller' => $caller,
+        'uid' => $uid,
+        'target' => '/api.php?act=' . ($act ?: 'unknown'),
+        'method' => isset($_SERVER['REQUEST_METHOD']) ? $_SERVER['REQUEST_METHOD'] : 'POST',
+        'params' => $inputParams,
+        'response' => $respData !== null ? $respData : (strlen($output) > 300 ? substr($output, 0, 300) . '...' : $output),
+        'status' => $status,
+        'cost_ms' => $costMs,
+        'bytes_in' => $dockingBytesIn,
+        'bytes_out' => $bytesOut
+    ));
+});
 
 switch($act){
 	case 'getmoney':

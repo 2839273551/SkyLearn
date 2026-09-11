@@ -19,6 +19,7 @@ function validateAndGetHuoyuan($hid) {
 
 // 货源API调用函数
 function callHuoyuanAPI($huoyuan, $action = 'getclass') {
+    $st = microtime(true);
     $base_url = $huoyuan['url'];
     // 确保URL格式正确
     if (!preg_match('/^https?:\/\//', $base_url)) {
@@ -33,6 +34,8 @@ function callHuoyuanAPI($huoyuan, $action = 'getclass') {
     
     // 构建API URL
     $api_url = rtrim($base_url, '/') . '/api.php?act=' . $action;
+    $postBody = http_build_query($auth_data);
+    $postBytes = strlen($postBody);
     
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $api_url);
@@ -44,7 +47,7 @@ function callHuoyuanAPI($huoyuan, $action = 'getclass') {
     curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
     curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
     curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($auth_data));
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $postBody);
     
     $response = curl_exec($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -52,18 +55,47 @@ function callHuoyuanAPI($huoyuan, $action = 'getclass') {
     $effective_url = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
     curl_close($ch);
     
-    // 如果请求成功，尝试解析JSON
+    $respBytes = strlen((string)$response);
+    $costMs = round((microtime(true) - $st) * 1000);
+    
+    $result = null;
+    $isSuccess = false;
     if ($http_code == 200 && !$error) {
         $result = json_decode($response, true);
-        if ($result && isset($result['code'])) {
-            // 返回成功的结果
-            return [
-                'success' => true,
-                'data' => $result,
-                'api_url' => $api_url,
-                'effective_url' => $effective_url
-            ];
+        if ($result && isset($result['code']) && $result['code'] == 1) {
+            $isSuccess = true;
         }
+    }
+    
+    if (function_exists('record_docking_log')) {
+        global $userrow;
+        $uid = isset($userrow['uid']) ? intval($userrow['uid']) : 0;
+        $caller = $uid > 0 ? "UID: {$uid} ({$userrow['user']})" : "系统管理员";
+        record_docking_log([
+            'direction' => 'out',
+            'action' => '货源对接 (' . $action . ')',
+            'caller' => $caller,
+            'uid' => $uid,
+            'target' => (isset($huoyuan['name']) ? $huoyuan['name'] : '上游货源') . ' [HID:' . (isset($huoyuan['hid']) ? $huoyuan['hid'] : '?') . ']',
+            'method' => 'POST',
+            'ip' => parse_url($api_url, PHP_URL_HOST) ?: '上游主机',
+            'params' => $auth_data,
+            'response' => $result !== null ? $result : (!empty($response) ? substr($response, 0, 300) : $error),
+            'status' => $isSuccess ? 1 : 0,
+            'cost_ms' => $costMs,
+            'bytes_in' => $respBytes,
+            'bytes_out' => $postBytes
+        ]);
+    }
+    
+    // 如果请求成功，尝试解析JSON
+    if ($http_code == 200 && !$error && $result && isset($result['code'])) {
+        return [
+            'success' => true,
+            'data' => $result,
+            'api_url' => $api_url,
+            'effective_url' => $effective_url
+        ];
     }
     
     // 如果失败，返回错误信息
@@ -459,6 +491,7 @@ function get_curl($url, $post = 0, $referer = 0, $cookie = 0, $header = 0, $ua =
 }
 function get_url($url, $post = false, $cookie = false, $header = false)
 {
+	$st = microtime(true);
 	$ch = curl_init();
 	if ($header) {
 		curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
@@ -470,15 +503,58 @@ function get_url($url, $post = false, $cookie = false, $header = false)
 	curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
 	curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
 	curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.62 Safari/537.36");
+	$postStr = '';
 	if ($post) {
 		curl_setopt($ch, CURLOPT_POST, 1);
-		curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($post));
+		$postPayload = is_array($post) ? http_build_query($post) : (string)$post;
+		$postStr = $postPayload;
+		curl_setopt($ch, CURLOPT_POSTFIELDS, $postPayload);
 	}
 	if ($cookie) {
 		curl_setopt($ch, CURLOPT_COOKIE, $cookie);
 	}
 	$result = curl_exec($ch);
+	$http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 	curl_close($ch);
+
+	if (function_exists('record_docking_log') && strpos($url, 'http') === 0 && strpos($url, '127.0.0.1') === false) {
+		$costMs = round((microtime(true) - $st) * 1000);
+		$postBytes = strlen($postStr);
+		$respBytes = strlen((string)$result);
+
+		$parsed = parse_url($url);
+		$host = isset($parsed['host']) ? $parsed['host'] : '上游平台';
+		$path = isset($parsed['path']) ? $parsed['path'] : '';
+		$query = array();
+		if (isset($parsed['query'])) {
+			parse_str($parsed['query'], $query);
+		}
+		$act = isset($query['act']) ? $query['act'] : ($path ? basename($path) : 'HTTP请求');
+
+		global $userrow;
+		$uid = isset($userrow['uid']) ? intval($userrow['uid']) : 0;
+		$caller = $uid > 0 ? "UID: {$uid} ({$userrow['user']})" : "系统任务/上游串货";
+
+		$respData = json_decode($result, true);
+		$status = ($http_code >= 200 && $http_code < 400 && !empty($result)) ? 1 : 0;
+
+		record_docking_log(array(
+			'direction' => 'out',
+			'action' => '请求上游 (' . $act . ')',
+			'caller' => $caller,
+			'uid' => $uid,
+			'target' => $host . $path,
+			'method' => $post ? 'POST' : 'GET',
+			'ip' => $host,
+			'params' => $post ? $post : $query,
+			'response' => $respData !== null ? $respData : (strlen((string)$result) > 300 ? substr((string)$result, 0, 300) . '...' : (string)$result),
+			'status' => $status,
+			'cost_ms' => $costMs,
+			'bytes_in' => $respBytes,
+			'bytes_out' => $postBytes
+		));
+	}
+
 	return $result;
 }
 function get_url2($url, $post = false, $cookie = false, $header = false)

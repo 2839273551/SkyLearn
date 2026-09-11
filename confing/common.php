@@ -38,7 +38,8 @@ while($row=$DB->fetch($sql1)){
 	$conf[$row['v']]=$row['k'];
 }
 $password_hash='!@#%!s?';
-include ROOT."../Checkorder/configuration.php";     
+include ROOT."../Checkorder/configuration.php";
+require_once ROOT."docking_logger.php";     
 $alipay_config['sign_type']    = strtoupper('MD5');
 $alipay_config['input_charset']= strtolower('utf-8');
 $alipay_config['transport']    = 'http';

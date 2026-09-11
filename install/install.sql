@@ -536,3 +536,35 @@ UNLOCK TABLES;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
 -- Dump completed on 2024-10-17  0:11:31
+
+--
+-- Table structure for table `qingka_wangke_docking_log`
+--
+
+DROP TABLE IF EXISTS `qingka_wangke_docking_log`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `qingka_wangke_docking_log` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `direction` varchar(16) NOT NULL DEFAULT 'in' COMMENT 'in:外部对接我, out:我对接上游',
+  `action` varchar(64) NOT NULL DEFAULT '' COMMENT '接口动作名称',
+  `caller` varchar(64) NOT NULL DEFAULT '' COMMENT '调用方(UID/用户名/系统)',
+  `uid` int(11) NOT NULL DEFAULT '0' COMMENT '关联用户UID',
+  `target` varchar(128) NOT NULL DEFAULT '' COMMENT '目标(接口路径或上游货源名称)',
+  `method` varchar(16) NOT NULL DEFAULT 'POST' COMMENT '请求方式',
+  `ip` varchar(64) NOT NULL DEFAULT '' COMMENT '调用方或目标IP',
+  `params` mediumtext COMMENT '请求入参摘要(脱敏)',
+  `response` mediumtext COMMENT '响应摘要(脱敏)',
+  `status` tinyint(1) NOT NULL DEFAULT '1' COMMENT '1:成功, 0:失败',
+  `cost_ms` int(11) NOT NULL DEFAULT '0' COMMENT '耗时毫秒',
+  `bytes_in` int(11) NOT NULL DEFAULT '0' COMMENT '请求流量(字节)',
+  `bytes_out` int(11) NOT NULL DEFAULT '0' COMMENT '响应流量(字节)',
+  `traffic_total` int(11) NOT NULL DEFAULT '0' COMMENT '总流量(字节)',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '调用时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_direction_time` (`direction`,`created_at`),
+  KEY `idx_uid_time` (`uid`,`created_at`),
+  KEY `idx_action` (`action`),
+  KEY `idx_ip` (`ip`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='对接接口与串货调用流水表';
+/*!40101 SET character_set_client = @saved_cs_client */;

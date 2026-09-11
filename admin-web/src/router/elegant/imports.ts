@@ -34,6 +34,7 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   dengji: () => import("@/views/dengji/index.vue"),
   dingdan: () => import("@/views/dingdan/index.vue"),
   docking: () => import("@/views/docking/index.vue"),
+  dockinglog: () => import("@/views/dockinglog/index.vue"),
   fenlei: () => import("@/views/fenlei/index.vue"),
   gglist: () => import("@/views/gglist/index.vue"),
   guanx: () => import("@/views/guanx/index.vue"),

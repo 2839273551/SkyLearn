@@ -3119,4 +3119,150 @@ if ($action === 'workorder-delete') {
     api_respond(0, '工单已删除');
 }
 
+function api_format_bytes($bytes) {
+    $bytes = max(0, floatval($bytes));
+    if ($bytes < 1024) {
+        return round($bytes) . ' B';
+    } elseif ($bytes < 1048576) {
+        return round($bytes / 1024, 2) . ' KB';
+    } elseif ($bytes < 1073741824) {
+        return round($bytes / 1048576, 2) . ' MB';
+    } else {
+        return round($bytes / 1073741824, 2) . ' GB';
+    }
+}
+
+if ($action === 'docking-log-list') {
+    api_require_login(isset($islogin) ? $islogin : 0);
+    $currentUid = intval($userrow['uid']);
+    $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+    $pageSize = isset($_GET['pageSize']) ? min(100, max(5, intval($_GET['pageSize']))) : 20;
+    $offset = ($page - 1) * $pageSize;
+
+    $direction = isset($_GET['direction']) ? trim(strip_tags($_GET['direction'])) : '';
+    $actionParam = isset($_GET['action_filter']) ? trim(strip_tags($_GET['action_filter'])) : '';
+    $keyword = isset($_GET['keyword']) ? trim(strip_tags($_GET['keyword'])) : '';
+    $status = isset($_GET['status']) && $_GET['status'] !== '' ? intval($_GET['status']) : null;
+    $startTime = isset($_GET['start_time']) ? trim(strip_tags($_GET['start_time'])) : '';
+    $endTime = isset($_GET['end_time']) ? trim(strip_tags($_GET['end_time'])) : '';
+
+    $where = array();
+    if ($currentUid !== 1) {
+        $where[] = "direction='in'";
+        $where[] = "uid='$currentUid'";
+    } else {
+        if ($direction === 'in' || $direction === 'out') {
+            $where[] = "direction='$direction'";
+        }
+    }
+
+    if ($actionParam !== '') {
+        $where[] = "action LIKE '%" . daddslashes($actionParam) . "%'";
+    }
+    if ($status !== null) {
+        $where[] = "status='$status'";
+    }
+    if ($startTime !== '') {
+        $where[] = "created_at >= '" . daddslashes($startTime) . "'";
+    }
+    if ($endTime !== '') {
+        $where[] = "created_at <= '" . daddslashes($endTime) . "'";
+    }
+    if ($keyword !== '') {
+        $kw = daddslashes($keyword);
+        $where[] = "(caller LIKE '%$kw%' OR ip LIKE '%$kw%' OR target LIKE '%$kw%' OR action LIKE '%$kw%' OR params LIKE '%$kw%')";
+    }
+
+    $whereSql = !empty($where) ? ('WHERE ' . implode(' AND ', $where)) : '';
+
+    $total = $DB->count("SELECT COUNT(*) FROM `qingka_wangke_docking_log` $whereSql");
+    $listRes = $DB->query("SELECT * FROM `qingka_wangke_docking_log` $whereSql ORDER BY id DESC LIMIT $offset, $pageSize");
+
+    $records = array();
+    while ($row = $DB->fetch($listRes)) {
+        $bytesIn = intval($row['bytes_in']);
+        $bytesOut = intval($row['bytes_out']);
+        $trafficTotal = intval($row['traffic_total']);
+        if ($trafficTotal === 0 && ($bytesIn > 0 || $bytesOut > 0)) {
+            $trafficTotal = $bytesIn + $bytesOut;
+        }
+
+        $records[] = array(
+            'id' => (string)$row['id'],
+            'direction' => (string)$row['direction'],
+            'action' => (string)$row['action'],
+            'caller' => (string)$row['caller'],
+            'uid' => intval($row['uid']),
+            'target' => (string)$row['target'],
+            'method' => (string)$row['method'],
+            'ip' => (string)$row['ip'],
+            'params' => (string)$row['params'],
+            'response' => (string)$row['response'],
+            'status' => intval($row['status']),
+            'cost_ms' => intval($row['cost_ms']),
+            'bytes_in' => $bytesIn,
+            'bytes_out' => $bytesOut,
+            'traffic_total' => $trafficTotal,
+            'traffic_text' => api_format_bytes($trafficTotal),
+            'traffic_detail' => '入: ' . api_format_bytes($bytesIn) . ' | 出: ' . api_format_bytes($bytesOut),
+            'created_at' => (string)$row['created_at']
+        );
+    }
+
+    $today = date('Y-m-d');
+    $statWhere = $currentUid !== 1 ? "WHERE direction='in' AND uid='$currentUid' AND created_at >= '{$today} 00:00:00'" : "WHERE created_at >= '{$today} 00:00:00'";
+    $todayTotal = $DB->count("SELECT COUNT(*) FROM `qingka_wangke_docking_log` $statWhere");
+    $todayIn = $DB->count("SELECT COUNT(*) FROM `qingka_wangke_docking_log` $statWhere AND direction='in'");
+    $todayOut = $DB->count("SELECT COUNT(*) FROM `qingka_wangke_docking_log` $statWhere AND direction='out'");
+    $todaySuccess = $DB->count("SELECT COUNT(*) FROM `qingka_wangke_docking_log` $statWhere AND status=1");
+    
+    $trafficRow = $DB->get_row("SELECT SUM(traffic_total) as total_traffic, AVG(cost_ms) as avg_cost FROM `qingka_wangke_docking_log` $statWhere");
+    $todayTrafficBytes = isset($trafficRow['total_traffic']) ? floatval($trafficRow['total_traffic']) : 0;
+    $avgCostMs = isset($trafficRow['avg_cost']) ? round(floatval($trafficRow['avg_cost']), 1) : 0;
+    $successRate = $todayTotal > 0 ? (round(($todaySuccess / $todayTotal) * 100, 1) . '%') : '100%';
+
+    api_respond(0, 'ok', array(
+        'records' => $records,
+        'current' => $page,
+        'size' => $pageSize,
+        'total' => intval($total),
+        'metrics' => array(
+            'today_total' => intval($todayTotal),
+            'today_in' => intval($todayIn),
+            'today_out' => intval($todayOut),
+            'today_traffic' => api_format_bytes($todayTrafficBytes),
+            'today_traffic_bytes' => $todayTrafficBytes,
+            'avg_cost_ms' => $avgCostMs,
+            'success_rate' => $successRate,
+            'is_admin' => $currentUid === 1
+        )
+    ));
+}
+
+if ($action === 'docking-log-clear') {
+    api_require_post();
+    api_require_login(isset($islogin) ? $islogin : 0);
+    api_require_csrf();
+    
+    $currentUid = intval($userrow['uid']);
+    if ($currentUid !== 1) {
+        api_respond(403, '仅管理员可清理对接日志');
+    }
+
+    $input = api_read_input();
+    $range = isset($input['range']) ? trim(strip_tags($input['range'])) : '7days';
+
+    if ($range === 'all') {
+        $DB->query("TRUNCATE TABLE `qingka_wangke_docking_log`");
+    } elseif ($range === '30days') {
+        $limitDate = date('Y-m-d H:i:s', strtotime('-30 days'));
+        $DB->query("DELETE FROM `qingka_wangke_docking_log` WHERE created_at < '$limitDate'");
+    } else {
+        $limitDate = date('Y-m-d H:i:s', strtotime('-7 days'));
+        $DB->query("DELETE FROM `qingka_wangke_docking_log` WHERE created_at < '$limitDate'");
+    }
+
+    api_respond(0, '对接日志清理成功');
+}
+
 api_respond(404, '接口不存在', null, 404);
