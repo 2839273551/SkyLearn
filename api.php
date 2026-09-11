@@ -2,8 +2,25 @@
 include('confing/common.php'); 
 $act=isset($_GET['act'])?daddslashes($_GET['act']):null;
 @header('Content-Type: application/json; charset=UTF-8');
+
+$rawInput = file_get_contents('php://input');
+if (!empty($rawInput)) {
+    $decoded = json_decode($rawInput, true);
+    if (is_array($decoded)) {
+        foreach ($decoded as $k => $v) {
+            if (!isset($_POST[$k])) {
+                $_POST[$k] = $v;
+            }
+            if (!isset($_REQUEST[$k])) {
+                $_REQUEST[$k] = $v;
+            }
+        }
+    }
+}
+
 switch($act){
-	case 'getmoney'://查询当前余额
+	case 'getmoney':
+    case 'balance'://查询当前余额
        $uid=trim(strip_tags(daddslashes($_POST['uid'])));
        $key=trim(strip_tags(daddslashes($_POST['key'])));
         if($uid=='' || $key==''){
@@ -25,7 +42,8 @@ switch($act){
 		    exit(json_encode($result));
      }
   break;
-  case 'get'://单查询
+  case 'get':
+  case 'query'://单查询
        $zdmoney=$conf['zddy'];
        $uid=daddslashes($_POST['uid']);
        $key=daddslashes($_POST['key']);
@@ -87,7 +105,8 @@ switch($act){
      }}else{exit('{"code":-1,"msg":"管理员已关闭api查课，调用请联系管理员！"}');}
   break;
 
- case 'add'://单下单
+ case 'add':
+ case 'order'://单下单
        $uid=daddslashes($_POST['uid']);
        $key=daddslashes($_POST['key']);
        $platform=daddslashes($_POST['platform']);
@@ -331,6 +350,7 @@ switch($act){
        }
   break;
 //   case 'chadan':
+  case 'status':
 //       $username=trim(strip_tags(daddslashes($_POST['username'])));
 //       if($username==""){
 //       	    $data=array('code'=>-1,'msg'=>"账号不能为空");
@@ -476,6 +496,7 @@ if($username != ""){
     	       exit('{"code":1,"msg":"同步成功"}');
   break;
 //   case 'getclass':
+case 'goods':
 //      	$a=$DB->query("select * from qingka_wangke_class where status=1 ");
 // 	    while($row=$DB->fetch($a)){
 // 	   	   $data[]=array(

@@ -1,0 +1,17 @@
+feat(API开放平台): 全面补齐“平台串货与 API 对接中心”7大核心接口与双协议支持
+
+【版本更新说明】
+1. 对接文档与开发中心（/index/docking）全面升级：
+   - 补齐为 7 大完整业务接口全流程：
+     ① 查询账户余额（act=getmoney / balance）
+     ② 获取商品与平台列表（act=getclass / goods，含实时代理成本单价）
+     ③ 在线查课接口（act=get / query）
+     ④ 课程下单接口（act=add / order）
+     ⑤ 查课并自动下单[一步到位]（act=getadd，专为小储/发卡网定制）
+     ⑥ 订单进度与状态查询（act=chadan / status）
+     ⑦ 补单与重跑任务（act=budan）
+   - 新增小储商城 / 卡易信 / 外部发卡系统标准串货对照指南。
+
+2. 底层对外接口（api.php）协议自适应升级：
+   - 新增 JSON Payload 自动解析，完美兼容 application/json 与 x-www-form-urlencoded 双传输协议；
+   - 新增接口动作兼容别名（getmoney/balance, get/query, add/order, chadan/status, getclass/goods），彻底避免外部系统命名不一致导致的调用失败。

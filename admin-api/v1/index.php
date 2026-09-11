@@ -2496,10 +2496,14 @@ if ($action === 'docking-info') {
     api_respond(0, 'ok', array(
         'uid' => (string) $userrow['uid'],
         'key' => isset($userrow['key']) ? (string) $userrow['key'] : '',
+        'apiBaseUrl' => $baseUrl . '/api.php',
+        'apiBalanceUrl' => $baseUrl . '/api.php?act=getmoney',
+        'apiGoodsUrl' => $baseUrl . '/api.php?act=getclass',
+        'apiQueryUrl' => $baseUrl . '/api.php?act=get',
         'apiAddUrl' => $baseUrl . '/api.php?act=add',
-        'apiQueryUrl' => $baseUrl . '/api.php?act=query',
-        'apiStatusUrl' => $baseUrl . '/api.php?act=status',
-        'apiRefreshUrl' => $baseUrl . '/api.php?act=refresh'
+        'apiAutoAddUrl' => $baseUrl . '/api.php?act=getadd',
+        'apiStatusUrl' => $baseUrl . '/api.php?act=chadan',
+        'apiBudanUrl' => $baseUrl . '/api.php?act=budan'
     ));
 }
 

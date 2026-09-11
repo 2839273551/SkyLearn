@@ -446,10 +446,14 @@ declare namespace Api {
     interface DockingInfo {
       uid: string;
       key: string;
-      apiAddUrl: string;
+      apiBaseUrl: string;
+      apiBalanceUrl: string;
+      apiGoodsUrl: string;
       apiQueryUrl: string;
+      apiAddUrl: string;
+      apiAutoAddUrl: string;
       apiStatusUrl: string;
-      apiRefreshUrl: string;
+      apiBudanUrl: string;
     }
 
     interface PchangeRecord {
