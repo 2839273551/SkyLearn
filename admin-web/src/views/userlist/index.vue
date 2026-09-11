@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { h, onMounted, reactive, ref } from 'vue';
 import type { DataTableColumns } from 'naive-ui';
-import { NButton, NInput, NInputNumber, NSpace, NSwitch, NTag } from 'naive-ui';
+import { NAvatar, NButton, NInput, NInputNumber, NSpace, NSwitch, NTag } from 'naive-ui';
 import { fetchUserlistList, rechargeUserBalance, updateUserRate, updateUserStatus } from '@/service/api';
 
 defineOptions({ name: 'Userlist' });
@@ -27,7 +27,21 @@ const targetRate = ref('0.30');
 const columns: DataTableColumns<Api.ProfileArea.UserItem> = [
   { title: 'UID', key: 'uid', width: 70, fixed: 'left' },
   { title: '上级', key: 'uuid', width: 70 },
-  { title: '账号', key: 'user', width: 140 },
+  {
+    title: '账号',
+    key: 'user',
+    width: 170,
+    render: row => {
+      const digits = (row.user || '').replace(/\D/g, '');
+      const avatarSrc = (digits.length >= 5 && digits.length <= 11)
+        ? `https://q1.qlogo.cn/g?b=qq&nk=${digits}&s=100`
+        : 'https://q1.qlogo.cn/g?b=qq&nk=10001&s=100';
+      return h('div', { class: 'flex items-center gap-8px' }, [
+        h(NAvatar, { round: true, size: 26, src: avatarSrc, fallbackSrc: 'https://q1.qlogo.cn/g?b=qq&nk=10001&s=100' }),
+        h('span', { class: 'font-mono' }, row.user)
+      ]);
+    }
+  },
   { title: '昵称', key: 'name', minWidth: 120 },
   {
     title: '成本费率',

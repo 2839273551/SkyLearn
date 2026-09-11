@@ -47,6 +47,10 @@ export const request = createFlatRequest(
         return;
       }
 
+      if (Number(error.response?.data?.code) === 1002) {
+        return;
+      }
+
       let message = error.message;
       if (error.code === BACKEND_ERROR_CODE) {
         message = error.response?.data?.msg || message;

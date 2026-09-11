@@ -820,7 +820,7 @@ CREATE TABLE `qingka_wangke_user` (
 
 LOCK TABLES `qingka_wangke_user` WRITE;
 /*!40000 ALTER TABLE `qingka_wangke_user` DISABLE KEYS */;
-INSERT INTO `qingka_wangke_user` VALUES (1,1,'admin','123456','admin','','','',88359.49,'99999',0.20,'1','6666','0.5','大量招代理，稳定无忧\r\n','','2026-03-23 15:19:33','','','1',0,'2024-10-18',0,'','SPT_7mtAg2lbHtPOGSHljOYsbR4WTF01','1');
+INSERT INTO `qingka_wangke_user` VALUES (1,1,'2839273551','123456','管理员','','','',88359.49,'99999',0.20,'1','6666','0.5','大量招代理，稳定无忧\r\n','','2026-03-23 15:19:33','','','1',0,'2024-10-18',0,'','SPT_7mtAg2lbHtPOGSHljOYsbR4WTF01','1');
 /*!40000 ALTER TABLE `qingka_wangke_user` ENABLE KEYS */;
 UNLOCK TABLES;
 

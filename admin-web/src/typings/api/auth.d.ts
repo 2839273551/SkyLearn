@@ -14,6 +14,7 @@ declare namespace Api {
       userId: string;
       userName: string;
       displayName: string;
+      avatar?: string;
       siteName: string;
       balance: string;
       freeAdd: number;

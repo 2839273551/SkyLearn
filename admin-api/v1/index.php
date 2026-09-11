@@ -99,6 +99,38 @@ function api_csrf_token()
     return $_SESSION['admin_api_csrf'];
 }
 
+function api_random_string($length = 12, $numeric = false)
+{
+    if ($numeric) {
+        $chars = '0123456789';
+    } else {
+        $chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    }
+    $max = strlen($chars) - 1;
+    $res = '';
+    for ($i = 0; $i < $length; $i++) {
+        $res .= $chars[mt_rand(0, $max)];
+    }
+    return $res;
+}
+
+function api_user_avatar($user, $conf = array())
+{
+    $digits = preg_replace('/\D/', '', (string) $user);
+    if (strlen($digits) >= 5 && strlen($digits) <= 11) {
+        return 'https://q1.qlogo.cn/g?b=qq&nk=' . $digits . '&s=640';
+    }
+
+    if (!empty($conf['zzqq'])) {
+        $zzqqDigits = preg_replace('/\D/', '', (string) $conf['zzqq']);
+        if (strlen($zzqqDigits) >= 5 && strlen($zzqqDigits) <= 11) {
+            return 'https://q1.qlogo.cn/g?b=qq&nk=' . $zzqqDigits . '&s=640';
+        }
+    }
+
+    return 'https://q1.qlogo.cn/g?b=qq&nk=10001&s=640';
+}
+
 function api_user_data($userrow, $conf)
 {
     $isSuper = intval($userrow['uid']) === 1;
@@ -121,6 +153,7 @@ function api_user_data($userrow, $conf)
         'userId' => (string) $userrow['uid'],
         'userName' => (string) $userrow['user'],
         'displayName' => isset($userrow['name']) ? (string) $userrow['name'] : (string) $userrow['user'],
+        'avatar' => api_user_avatar($userrow['user'], $conf),
         'siteName' => isset($conf['sitename']) ? (string) $conf['sitename'] : '网课管理中心',
         'balance' => isset($userrow['money']) ? number_format((float) $userrow['money'], 2, '.', '') : '0.00',
         'freeAdd' => isset($userrow['freeadd']) ? intval($userrow['freeadd']) : 0,
@@ -347,8 +380,13 @@ if ($action === 'login') {
         api_respond(403, '账号已被禁用');
     }
 
-    if (intval($row['uid']) === 1 && !hash_equals((string) $verification, (string) $adminVerification)) {
-        api_respond(1001, '请输入正确的管理员二次验证');
+    if (intval($row['uid']) === 1) {
+        if ($adminVerification === '') {
+            api_respond(1002, '检测到管理员账号登录，请输入二次验证码', array('needVerification' => true));
+        }
+        if (!hash_equals((string) $verification, (string) $adminVerification)) {
+            api_respond(1001, '管理员二次验证码不正确');
+        }
     }
 
     session_regenerate_id(true);
@@ -2562,6 +2600,283 @@ if ($action === 'user-signin') {
         'freeAdd' => intval($freshUser['freeadd']),
         'hasSignedIn' => true
     ));
+}
+
+if ($action === 'user-profile') {
+    api_require_login(isset($islogin) ? $islogin : 0);
+    $uid = intval($userrow['uid']);
+    $currentUser = $DB->get_row("SELECT * FROM qingka_wangke_user WHERE uid='$uid' LIMIT 1");
+    if (!$currentUser) {
+        api_respond(404, '用户不存在');
+    }
+
+    $superiorUser = '无';
+    $superiorNotice = '';
+    $uuid = intval($currentUser['uuid']);
+    if ($uuid > 0 && $uuid !== $uid) {
+        $superior = $DB->get_row("SELECT uid, user, notice FROM qingka_wangke_user WHERE uid='$uuid' LIMIT 1");
+        if ($superior) {
+            $superiorUser = (string) $superior['user'];
+            $superiorNotice = isset($superior['notice']) ? (string) $superior['notice'] : '';
+        }
+    }
+
+    $today = date('Y-m-d');
+    $totalOrders = $DB->count("SELECT count(oid) FROM qingka_wangke_order WHERE uid='$uid'");
+    $agentTotal = $DB->count("SELECT count(uid) FROM qingka_wangke_user WHERE uuid='$uid'");
+    $agentRegToday = $DB->count("SELECT count(uid) FROM qingka_wangke_user WHERE uuid='$uid' AND addtime>='$today'");
+    $agentLoginToday = $DB->count("SELECT count(uid) FROM qingka_wangke_user WHERE uuid='$uid' AND endtime>='$today'");
+    $orderToday = $DB->count("SELECT count(oid) FROM qingka_wangke_order WHERE uid='$uid' AND addtime>='$today'");
+
+    $rawKey = isset($currentUser['key']) ? trim((string) $currentUser['key']) : '';
+    $hasKey = ($rawKey !== '' && $rawKey !== '0' && $rawKey !== '-1');
+    $key = $hasKey ? $rawKey : '';
+
+    $yqm = isset($currentUser['yqm']) ? trim((string) $currentUser['yqm']) : '';
+    $host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : '';
+    $protocol = (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off') ? 'https://' : 'http://';
+    $inviteUrl = ($yqm !== '' && $host !== '') ? "${protocol}${host}/index/login?yqm=${yqm}" : '';
+
+    api_respond(0, 'ok', array(
+        'uid' => (string) $currentUser['uid'],
+        'user' => (string) $currentUser['user'],
+        'name' => isset($currentUser['name']) && trim($currentUser['name']) !== '' ? (string) $currentUser['name'] : (string) $currentUser['user'],
+        'avatar' => api_user_avatar($currentUser['user'], $conf),
+        'money' => number_format(floatval($currentUser['money']), 2, '.', ''),
+        'zcz' => isset($currentUser['zcz']) ? (string) $currentUser['zcz'] : '0',
+        'addprice' => isset($currentUser['addprice']) ? (string) $currentUser['addprice'] : '1.00',
+        'vip' => intval($currentUser['vip']),
+        'freeAdd' => isset($currentUser['freeadd']) ? intval($currentUser['freeadd']) : 0,
+        'yqm' => $yqm,
+        'yqprice' => isset($currentUser['yqprice']) && trim($currentUser['yqprice']) !== '' ? (string) $currentUser['yqprice'] : '',
+        'inviteUrl' => $inviteUrl,
+        'superiorUser' => $superiorUser,
+        'key' => $key,
+        'hasKey' => $hasKey,
+        'pushPlusToken' => isset($currentUser['pushPlusToken']) && trim($currentUser['pushPlusToken']) !== '' ? (string) $currentUser['pushPlusToken'] : '',
+        'totalOrders' => intval($totalOrders),
+        'stats' => array(
+            'agentTotal' => intval($agentTotal),
+            'agentRegToday' => intval($agentRegToday),
+            'agentLoginToday' => intval($agentLoginToday),
+            'orderToday' => intval($orderToday)
+        ),
+        'siteNotice' => isset($conf['notice']) ? (string) $conf['notice'] : '',
+        'superiorNotice' => $superiorNotice,
+        'siteName' => isset($conf['sitename']) && trim($conf['sitename']) !== '' ? (string) $conf['sitename'] : '网课管理中心'
+    ));
+}
+
+if ($action === 'user-profile-save') {
+    api_require_post();
+    api_require_login(isset($islogin) ? $islogin : 0);
+    api_require_csrf();
+
+    $input = api_read_input();
+    $name = isset($input['name']) ? trim(strip_tags($input['name'])) : '';
+    if ($name === '') {
+        api_respond(422, '用户昵称不能为空');
+    }
+    if (mb_strlen($name, 'UTF-8') > 30) {
+        api_respond(422, '用户昵称长度不能超过 30 个字符');
+    }
+
+    $uid = intval($userrow['uid']);
+    $safeName = daddslashes($name);
+    $DB->query("UPDATE qingka_wangke_user SET name='$safeName' WHERE uid='$uid'");
+
+    if (function_exists('wlog')) {
+        wlog($uid, '修改资料', "修改用户昵称为: ${name}", '0');
+    }
+
+    api_respond(0, '个人资料更新成功', array('name' => $name));
+}
+
+if ($action === 'user-password-save') {
+    api_require_post();
+    api_require_login(isset($islogin) ? $islogin : 0);
+    api_require_csrf();
+
+    $input = api_read_input();
+    $oldPassword = isset($input['oldPassword']) ? trim($input['oldPassword']) : '';
+    $newPassword = isset($input['newPassword']) ? trim($input['newPassword']) : '';
+    $confirmPassword = isset($input['confirmPassword']) ? trim($input['confirmPassword']) : '';
+
+    if ($oldPassword === '') {
+        api_respond(422, '原密码不能为空');
+    }
+    if ($newPassword === '') {
+        api_respond(422, '新密码不能为空');
+    }
+    if (strlen($newPassword) < 6) {
+        api_respond(422, '新密码长度至少需要 6 位');
+    }
+    if ($newPassword !== $confirmPassword) {
+        api_respond(422, '两次输入的新密码不一致');
+    }
+
+    $uid = intval($userrow['uid']);
+    $currentUser = $DB->get_row("SELECT user, pass FROM qingka_wangke_user WHERE uid='$uid' LIMIT 1");
+    if (!$currentUser || !hash_equals((string) $currentUser['pass'], (string) $oldPassword)) {
+        api_respond(422, '原密码不正确');
+    }
+
+    $safeNewPass = daddslashes($newPassword);
+    $DB->query("UPDATE qingka_wangke_user SET pass='$safeNewPass' WHERE uid='$uid'");
+
+    $session = md5($currentUser['user'] . $newPassword . $password_hash);
+    $token = authcode($currentUser['user'] . "\t" . $session, 'ENCODE', SYS_KEY);
+    api_set_auth_cookie($token, time() + 216000);
+
+    if (function_exists('wlog')) {
+        wlog($uid, '修改密码', '用户成功修改登录密码', '0');
+    }
+
+    api_respond(0, '密码修改成功，请牢记新密码');
+}
+
+if ($action === 'user-yqprice-save') {
+    api_require_post();
+    api_require_login(isset($islogin) ? $islogin : 0);
+    api_require_csrf();
+
+    $input = api_read_input();
+    $yqprice = isset($input['yqprice']) ? trim(strip_tags($input['yqprice'])) : '';
+    if (!is_numeric($yqprice)) {
+        api_respond(422, '请正确输入费率，必须为数字');
+    }
+
+    $floatYqprice = round(floatval($yqprice), 2);
+    $myAddprice = floatval($userrow['addprice']);
+    if ($floatYqprice < $myAddprice) {
+        api_respond(422, "下级默认费率不能低于您自身的成本费率 (${myAddprice})");
+    }
+    if ($floatYqprice < 0.20) {
+        api_respond(422, '邀请费率最低不能低于 0.20');
+    }
+
+    $uid = intval($userrow['uid']);
+    $currentUser = $DB->get_row("SELECT yqm FROM qingka_wangke_user WHERE uid='$uid' LIMIT 1");
+    $yqm = isset($currentUser['yqm']) ? trim($currentUser['yqm']) : '';
+
+    if ($yqm === '') {
+        $yqm = api_random_string(5, true);
+        if ($DB->get_row("SELECT uid FROM qingka_wangke_user WHERE yqm='$yqm' LIMIT 1")) {
+            $yqm = api_random_string(6, true);
+        }
+        $sql = "yqm='$yqm', yqprice='$floatYqprice'";
+    } else {
+        $sql = "yqprice='$floatYqprice'";
+    }
+
+    $DB->query("UPDATE qingka_wangke_user SET ${sql} WHERE uid='$uid'");
+
+    if (function_exists('wlog')) {
+        wlog($uid, '修改费率', "设置下级默认邀请费率为: ${floatYqprice}", '0');
+    }
+
+    $host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : '';
+    $protocol = (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off') ? 'https://' : 'http://';
+    $inviteUrl = ($yqm !== '' && $host !== '') ? "${protocol}${host}/index/login?yqm=${yqm}" : '';
+
+    api_respond(0, '下级默认费率设置成功', array(
+        'yqprice' => (string) $floatYqprice,
+        'yqm' => $yqm,
+        'inviteUrl' => $inviteUrl
+    ));
+}
+
+if ($action === 'user-api-key-create') {
+    api_require_post();
+    api_require_login(isset($islogin) ? $islogin : 0);
+    api_require_csrf();
+
+    $uid = intval($userrow['uid']);
+    $currentUser = $DB->get_row("SELECT money, `key` FROM qingka_wangke_user WHERE uid='$uid' LIMIT 1");
+    if (!$currentUser) {
+        api_respond(404, '用户不存在');
+    }
+
+    $rawKey = isset($currentUser['key']) ? trim((string) $currentUser['key']) : '';
+    if ($rawKey !== '' && $rawKey !== '0' && $rawKey !== '-1') {
+        api_respond(400, '您已开通 API 接口，无需重复开通');
+    }
+
+    $key = api_random_string(12);
+    $money = floatval($currentUser['money']);
+
+    if ($money < 50.00) {
+        if ($money >= 5.00) {
+            $DB->query("UPDATE qingka_wangke_user SET `key`='$key', money=money-5 WHERE uid='$uid'");
+            if (function_exists('wlog')) {
+                wlog($uid, '开通接口', '花费 5 元开通 API 接口成功', '-5');
+            }
+            $freshUser = $DB->get_row("SELECT money FROM qingka_wangke_user WHERE uid='$uid' LIMIT 1");
+            api_respond(0, '已扣除 5 元手续费，API 接口开通成功！', array(
+                'key' => $key,
+                'balance' => number_format(floatval($freshUser['money']), 2, '.', '')
+            ));
+        } else {
+            api_respond(400, '余额不足 5 元（满 50 元可免手续费开通），请先充值');
+        }
+    } else {
+        $DB->query("UPDATE qingka_wangke_user SET `key`='$key' WHERE uid='$uid'");
+        if (function_exists('wlog')) {
+            wlog($uid, '开通接口', '满足余额条件，免费开通 API 接口成功', '0');
+        }
+        api_respond(0, '满足免费开通条件，API 接口开通成功！', array(
+            'key' => $key,
+            'balance' => number_format($money, 2, '.', '')
+        ));
+    }
+}
+
+if ($action === 'user-api-key-refresh') {
+    api_require_post();
+    api_require_login(isset($islogin) ? $islogin : 0);
+    api_require_csrf();
+
+    $uid = intval($userrow['uid']);
+    $currentUser = $DB->get_row("SELECT `key` FROM qingka_wangke_user WHERE uid='$uid' LIMIT 1");
+    if (!$currentUser) {
+        api_respond(404, '用户不存在');
+    }
+
+    $rawKey = isset($currentUser['key']) ? trim((string) $currentUser['key']) : '';
+    if ($rawKey === '' || $rawKey === '0' || $rawKey === '-1') {
+        api_respond(400, '尚未开通 API 接口，请先点击开通');
+    }
+
+    $newKey = api_random_string(12);
+    $DB->query("UPDATE qingka_wangke_user SET `key`='$newKey' WHERE uid='$uid'");
+
+    if (function_exists('wlog')) {
+        wlog($uid, '更换接口', '更换 API 接口密钥成功', '0');
+    }
+
+    api_respond(0, 'API 密钥更换成功，旧密钥已即时失效', array('key' => $newKey));
+}
+
+if ($action === 'user-push-token-save') {
+    api_require_post();
+    api_require_login(isset($islogin) ? $islogin : 0);
+    api_require_csrf();
+
+    $input = api_read_input();
+    $token = isset($input['pushPlusToken']) ? trim(strip_tags($input['pushPlusToken'])) : '';
+
+    $uid = intval($userrow['uid']);
+    $safeToken = daddslashes($token);
+
+    $DB->query("UPDATE qingka_wangke_user SET pushPlusToken='$safeToken' WHERE uid='$uid'");
+
+    if (function_exists('wlog')) {
+        $msg = $token !== '' ? "更新微信推送 Token 为: ${token}" : '清空/解绑微信推送 Token';
+        wlog($uid, '更新推送Token', $msg, '0');
+    }
+
+    $respMsg = $token !== '' ? '微信推送 Token 设置成功' : '微信推送 Token 已解绑清空';
+    api_respond(0, $respMsg, array('pushPlusToken' => $token));
 }
 
 api_respond(404, '接口不存在', null, 404);

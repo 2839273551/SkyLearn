@@ -2,6 +2,7 @@ declare namespace Api {
   namespace Settings {
     interface Values {
       sitename: string;
+      avatar?: string;
       keywords: string;
       description: string;
       logo: string;
@@ -477,6 +478,35 @@ declare namespace Api {
       isAlipay: boolean;
       isWxpay: boolean;
       isQqpay: boolean;
+    }
+
+    interface UserProfile {
+      uid: string;
+      user: string;
+      name: string;
+      avatar?: string;
+      money: string;
+      zcz: string;
+      addprice: string;
+      vip: number;
+      freeAdd: number;
+      yqm: string;
+      yqprice: string;
+      inviteUrl: string;
+      superiorUser: string;
+      key: string;
+      hasKey: boolean;
+      pushPlusToken: string;
+      totalOrders: number;
+      stats: {
+        agentTotal: number;
+        agentRegToday: number;
+        agentLoginToday: number;
+        orderToday: number;
+      };
+      siteNotice: string;
+      superiorNotice: string;
+      siteName: string;
     }
   }
 }

@@ -24,6 +24,7 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
     userId: '',
     userName: '',
     displayName: '',
+    avatar: '',
     siteName: '',
     balance: '0.00',
     freeAdd: 0,
@@ -150,11 +151,20 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
           duration: 4500
         });
       }
+
+      endLoading();
+      return { success: true };
     } else {
       resetStore();
     }
 
     endLoading();
+    const code = Number(error.response?.data?.code);
+    return {
+      success: false,
+      needVerification: code === 1002,
+      code
+    };
   }
 
   async function loginByToken(loginToken: Api.Auth.LoginToken) {

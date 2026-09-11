@@ -31,6 +31,18 @@ type DropdownOption =
       key: string;
     };
 
+const avatarUrl = computed(() => {
+  if (authStore.userInfo.avatar) {
+    return authStore.userInfo.avatar;
+  }
+  const user = authStore.userInfo.userName || '';
+  const digits = user.replace(/\D/g, '');
+  if (digits.length >= 5 && digits.length <= 11) {
+    return `https://q1.qlogo.cn/g?b=qq&nk=${digits}&s=100`;
+  }
+  return 'https://q1.qlogo.cn/g?b=qq&nk=10001&s=100';
+});
+
 const options = computed(() => {
   const opts: DropdownOption[] = [
     {
@@ -89,9 +101,15 @@ function handleDropdown(key: DropdownKey) {
   </NButton>
   <NDropdown v-else placement="bottom" trigger="click" :options="options" @select="handleDropdown">
     <div>
-      <ButtonIcon>
-        <SvgIcon icon="ph:user-circle" class="text-icon-large" />
-        <span class="text-16px font-medium">{{ authStore.userInfo.userName }}</span>
+      <ButtonIcon class="px-8px py-4px">
+        <NAvatar
+          round
+          :size="28"
+          :src="avatarUrl"
+          fallback-src="https://q1.qlogo.cn/g?b=qq&nk=10001&s=100"
+          class="mr-8px border border-primary/20 shadow-sm"
+        />
+        <span class="text-15px font-medium">{{ authStore.userInfo.displayName || authStore.userInfo.userName }}</span>
       </ButtonIcon>
     </div>
   </NDropdown>

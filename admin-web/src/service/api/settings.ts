@@ -433,3 +433,53 @@ export function submitPayCard(content: string) {
 export function fetchChargeInfo() {
   return request<Api.ProfileArea.ChargeInfo>({ url: 'admin-api/v1/index.php?action=charge-info' });
 }
+
+export function fetchUserProfile() {
+  return request<Api.ProfileArea.UserProfile>({ url: 'admin-api/v1/index.php?action=user-profile' });
+}
+
+export function updateUserProfile(name: string) {
+  return request<{ name: string }>({
+    url: 'admin-api/v1/index.php?action=user-profile-save',
+    method: 'post',
+    data: { name }
+  });
+}
+
+export function updateUserPassword(data: { oldPassword: string; newPassword: string; confirmPassword: string }) {
+  return request<null>({
+    url: 'admin-api/v1/index.php?action=user-password-save',
+    method: 'post',
+    data
+  });
+}
+
+export function updateUserYqprice(yqprice: string) {
+  return request<{ yqprice: string; yqm: string; inviteUrl: string }>({
+    url: 'admin-api/v1/index.php?action=user-yqprice-save',
+    method: 'post',
+    data: { yqprice }
+  });
+}
+
+export function createUserApiKey() {
+  return request<{ key: string; balance: string }>({
+    url: 'admin-api/v1/index.php?action=user-api-key-create',
+    method: 'post'
+  });
+}
+
+export function refreshUserApiKey() {
+  return request<{ key: string }>({
+    url: 'admin-api/v1/index.php?action=user-api-key-refresh',
+    method: 'post'
+  });
+}
+
+export function updateUserPushToken(pushPlusToken: string) {
+  return request<{ pushPlusToken: string }>({
+    url: 'admin-api/v1/index.php?action=user-push-token-save',
+    method: 'post',
+    data: { pushPlusToken }
+  });
+}
