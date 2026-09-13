@@ -1,13 +1,31 @@
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref } from 'vue';
 import type { DataTableColumns } from 'naive-ui';
-import { NAlert, NButton, NCard, NDataTable, NInput, NPagination, NPopconfirm, NProgress, NSelect, NSpace, NTag } from 'naive-ui';
+import {
+  NAlert,
+  NButton,
+  NCard,
+  NDataTable,
+  NDescriptions,
+  NDescriptionsItem,
+  NDivider,
+  NInput,
+  NModal,
+  NPagination,
+  NPopconfirm,
+  NProgress,
+  NSelect,
+  NSpace,
+  NTag
+} from 'naive-ui';
 import { dockOrder, fetchOrders, rebrushOrder, syncOrderProgress } from '@/service/api';
 import { useAuthStore } from '@/store/modules/auth';
+import { useAppStore } from '@/store/modules/app';
 
 defineOptions({ name: 'List' });
 
 const authStore = useAuthStore();
+const appStore = useAppStore();
 const isSuperAdmin = computed(() => authStore.userInfo.roles.includes('R_SUPER'));
 
 const loading = ref(false);
@@ -16,6 +34,15 @@ const total = ref(0);
 const query = reactive<Api.Orders.Query>({ page: 1, pageSize: 20, keyword: '', status: '' });
 
 const actionLoadingMap = reactive<Record<string, boolean>>({});
+
+// 详情弹窗相关
+const detailModalVisible = ref(false);
+const currentDetail = ref<Api.Orders.Record | null>(null);
+
+function openDetail(row: Api.Orders.Record) {
+  currentDetail.value = row;
+  detailModalVisible.value = true;
+}
 
 const statusOptions = [
   { label: '全部状态', value: '' },
@@ -57,6 +84,24 @@ function copyAll(row: Api.Orders.Record) {
   copyText(lines.join('\n'), '学员全部信息');
 }
 
+// 复制详细模态框整套格式化文本
+function copyFormattedDetail(row: Api.Orders.Record) {
+  const text = [
+    `课程类型：${row.platform || '无'}`,
+    `1. 账号信息：${row.school ? row.school + ' ' : ''}${row.account} ${row.password || ''}`,
+    `2. 课程名字：${row.courseName}`,
+    `3. KCID：${row.kcid || '无'}`,
+    `4. 站内反馈id：${row.orderId}`,
+    `5. 上游返回YID：${row.yid || '无'}`,
+    `6. 下单时间：${row.createdAt}`,
+    `7. 上次同步时间：${row.finalupdate || '暂无'}`,
+    `8. 订单状态：${row.status}`,
+    `9. 进度：${row.progress || '0%'}`,
+    `10. 备注：${row.remarks || '无'}`
+  ].join('\n');
+  copyText(text, '订单完整详情');
+}
+
 // 同步最新进度
 async function handleSync(row: Api.Orders.Record) {
   const key = `sync_${row.orderId}`;
@@ -67,6 +112,11 @@ async function handleSync(row: Api.Orders.Record) {
     if (data.process) row.progress = data.process;
     if (data.status) row.status = data.status;
     if (data.remarks) row.remarks = data.remarks;
+    if (currentDetail.value && currentDetail.value.orderId === row.orderId) {
+      if (data.process) currentDetail.value.progress = data.process;
+      if (data.status) currentDetail.value.status = data.status;
+      if (data.remarks) currentDetail.value.remarks = data.remarks;
+    }
     window.$message?.success(`订单 #${row.orderId} 进度同步成功: ${data.process || data.status}`);
   }
 }
@@ -79,6 +129,9 @@ async function handleRebrush(row: Api.Orders.Record) {
   actionLoadingMap[key] = false;
   if (!error && data) {
     row.status = data.status || '补刷中';
+    if (currentDetail.value && currentDetail.value.orderId === row.orderId) {
+      currentDetail.value.status = data.status || '补刷中';
+    }
     window.$message?.success(`订单 #${row.orderId} 已成功加入补刷排队！`);
   }
 }
@@ -92,6 +145,10 @@ async function handleDock(row: Api.Orders.Record) {
   if (!error && data) {
     row.dockStatus = String(data.dockstatus);
     row.status = data.status || '进行中';
+    if (currentDetail.value && currentDetail.value.orderId === row.orderId) {
+      currentDetail.value.dockStatus = String(data.dockstatus);
+      currentDetail.value.status = data.status || '进行中';
+    }
     window.$message?.success(`订单 #${row.orderId} 重新向上游货源提交成功！`);
   }
 }
@@ -101,10 +158,20 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
     {
       title: '操作',
       key: 'actions',
-      width: 140,
+      width: 200,
       fixed: 'left',
       render: row =>
         h(NSpace, { size: 6, align: 'center' }, () => [
+          h(
+            NButton,
+            {
+              size: 'tiny',
+              type: 'info',
+              secondary: true,
+              onClick: () => openDetail(row)
+            },
+            { default: () => '🔍 详细' }
+          ),
           h(
             NButton,
             {
@@ -138,7 +205,17 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
           )
         ])
     },
-    { title: '平台', key: 'platform', width: 140, ellipsis: { tooltip: true } },
+    {
+      title: '订单所属平台',
+      key: 'platform',
+      minWidth: 150,
+      render: row =>
+        h(
+          'div',
+          { class: 'whitespace-normal break-words font-medium leading-relaxed text-gray-800 dark:text-gray-100' },
+          row.platform || '无'
+        )
+    },
     {
       title: '账号信息',
       key: 'account',
@@ -152,7 +229,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
                   { size: 'tiny', tertiary: true, type: 'primary', class: 'px-4px h-18px text-10px', onClick: () => copyText(row.school, '学校') },
                   { default: () => '学校' }
                 ),
-                h('span', { class: 'text-gray-600 dark:text-gray-300 truncate max-w-150px', title: row.school }, row.school)
+                h('span', { class: 'text-gray-600 dark:text-gray-300 break-words whitespace-normal leading-normal font-medium' }, row.school)
               ])
             : null,
           h('div', { class: 'flex items-center gap-4px' }, [
@@ -182,7 +259,17 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
           ])
         ])
     },
-    { title: '任务名称', key: 'courseName', minWidth: 180, ellipsis: { tooltip: true } },
+    {
+      title: '任务名称',
+      key: 'courseName',
+      minWidth: 180,
+      render: row =>
+        h(
+          'div',
+          { class: 'whitespace-normal break-words font-medium leading-relaxed text-gray-800 dark:text-gray-100' },
+          row.courseName || '无'
+        )
+    },
     {
       title: '状态',
       key: 'status',
@@ -212,7 +299,17 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
         ]);
       }
     },
-    { title: '订单详细信息', key: 'remarks', minWidth: 160, ellipsis: { tooltip: true } },
+    {
+      title: '订单详细信息',
+      key: 'remarks',
+      minWidth: 260,
+      render: row =>
+        h(
+          'div',
+          { class: 'whitespace-normal break-words text-12px leading-relaxed text-gray-600 dark:text-gray-300 font-mono py-2px' },
+          row.remarks || '无'
+        )
+    },
     { title: '时间', key: 'createdAt', width: 155 }
   ];
 
@@ -346,7 +443,7 @@ onMounted(loadOrders);
         :row-key="(row: Api.Orders.Record) => row.orderId"
         :pagination="false"
         striped
-        :scroll-x="isSuperAdmin ? 1520 : 1380"
+        :scroll-x="isSuperAdmin ? 1720 : 1580"
       />
 
       <div class="mt-16px flex justify-end">
@@ -362,6 +459,128 @@ onMounted(loadOrders);
         />
       </div>
     </NCard>
+
+    <!-- 订单详细参数弹窗（完全吻合小沐11项参数规范） -->
+    <NModal
+      v-model:show="detailModalVisible"
+      preset="card"
+      :title="`订单详细参数 [反向反馈ID: ${currentDetail?.orderId || ''}]`"
+      :style="{ width: appStore.isMobile ? '92vw' : '620px' }"
+    >
+      <div v-if="currentDetail" class="flex flex-col gap-12px text-13px">
+        <!-- 课程类型 / 平台标题 -->
+        <div class="rounded-8px bg-slate-50 p-12px dark:bg-dark-600 border border-slate-200 dark:border-dark-500">
+          <span class="text-gray-500">课程类型：</span>
+          <strong class="text-primary text-15px">{{ currentDetail.platform || '无' }}</strong>
+        </div>
+
+        <div class="flex flex-col gap-10px rounded-8px border border-gray-100 dark:border-dark-500 p-14px bg-white dark:bg-dark-700 leading-relaxed">
+          <!-- 1. 账号信息 -->
+          <div class="flex flex-col gap-4px border-b pb-8px">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-gray-700 dark:text-gray-200">1. 账号信息：</span>
+              <NButton size="tiny" secondary type="primary" @click="copyText(`${currentDetail.school ? currentDetail.school + ' ' : ''}${currentDetail.account} ${currentDetail.password || ''}`, '账号信息')">
+                复制完整信息
+              </NButton>
+            </div>
+            <div class="font-mono text-14px font-bold text-gray-800 dark:text-gray-100 flex flex-wrap gap-8px mt-2px">
+              <span v-if="currentDetail.school" class="bg-blue-50 dark:bg-dark-500 px-6px py-2px rounded text-primary">{{ currentDetail.school }}</span>
+              <span class="bg-slate-100 dark:bg-dark-500 px-6px py-2px rounded">{{ currentDetail.account }}</span>
+              <span v-if="currentDetail.password" class="bg-slate-100 dark:bg-dark-500 px-6px py-2px rounded text-gray-600 dark:text-gray-300">{{ currentDetail.password }}</span>
+            </div>
+          </div>
+
+          <!-- 2. 课程名字 -->
+          <div class="flex items-start justify-between border-b pb-8px">
+            <span class="font-bold text-gray-700 dark:text-gray-200 min-w-80px">2. 课程名字：</span>
+            <span class="text-right text-gray-800 dark:text-gray-100 font-medium">{{ currentDetail.courseName }}</span>
+          </div>
+
+          <!-- 3. KCID -->
+          <div class="flex items-center justify-between border-b pb-8px">
+            <span class="font-bold text-gray-700 dark:text-gray-200">3. KCID：</span>
+            <span class="font-mono text-gray-800 dark:text-gray-200">{{ currentDetail.kcid || '无' }}</span>
+          </div>
+
+          <!-- 4. 站内反馈id -->
+          <div class="flex items-center justify-between border-b pb-8px">
+            <span class="font-bold text-gray-700 dark:text-gray-200">4. 站内反馈id：</span>
+            <strong class="font-mono text-primary font-bold">#{{ currentDetail.orderId }}</strong>
+          </div>
+
+          <!-- 5. 上游返回YID -->
+          <div class="flex items-center justify-between border-b pb-8px">
+            <span class="font-bold text-gray-700 dark:text-gray-200">5. 上游返回YID：</span>
+            <span class="font-mono text-emerald-600 font-bold">{{ currentDetail.yid || '暂无YID' }}</span>
+          </div>
+
+          <!-- 6. 下单时间 -->
+          <div class="flex items-center justify-between border-b pb-8px">
+            <span class="font-bold text-gray-700 dark:text-gray-200">6. 下单时间：</span>
+            <span class="font-mono text-gray-600 dark:text-gray-300">{{ currentDetail.createdAt }}</span>
+          </div>
+
+          <!-- 7. 上次同步时间 -->
+          <div class="flex items-center justify-between border-b pb-8px">
+            <span class="font-bold text-gray-700 dark:text-gray-200">7. 上次同步时间：</span>
+            <span class="font-mono text-gray-600 dark:text-gray-300">{{ currentDetail.finalupdate || '暂未同步' }}</span>
+          </div>
+
+          <!-- 8. 订单状态 -->
+          <div class="flex items-center justify-between border-b pb-8px">
+            <span class="font-bold text-gray-700 dark:text-gray-200">8. 订单状态：</span>
+            <NTag :type="statusType(currentDetail.status)" size="small" round>{{ currentDetail.status }}</NTag>
+          </div>
+
+          <!-- 9. 操作快捷项 -->
+          <div class="flex items-center justify-between border-b pb-8px">
+            <span class="font-bold text-gray-700 dark:text-gray-200">9. 操作：</span>
+            <NSpace :size="8">
+              <NButton size="tiny" type="primary" ghost :loading="Boolean(actionLoadingMap[`sync_${currentDetail.orderId}`])" @click="handleSync(currentDetail)">
+                🔄 立即同步最新进度
+              </NButton>
+              <NButton size="tiny" type="warning" ghost :loading="Boolean(actionLoadingMap[`rebrush_${currentDetail.orderId}`])" @click="handleRebrush(currentDetail)">
+                🚀 发起排队补刷
+              </NButton>
+              <NButton v-if="isSuperAdmin && String(currentDetail.dockStatus) === '2'" size="tiny" type="error" dashed :loading="Boolean(actionLoadingMap[`dock_${currentDetail.orderId}`])" @click="handleDock(currentDetail)">
+                重新向货源交单
+              </NButton>
+            </NSpace>
+          </div>
+
+          <!-- 10. 进度 -->
+          <div class="flex flex-col gap-4px border-b pb-8px">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-gray-700 dark:text-gray-200">10. 进度：</span>
+              <strong class="font-mono text-primary">{{ currentDetail.progress || '0%' }}</strong>
+            </div>
+            <NProgress
+              type="line"
+              :percentage="parseFloat((currentDetail.progress || '0').replace(/[^0-9.]/g, '')) || (currentDetail.status === '已完成' ? 100 : 0)"
+              :height="8"
+              :status="currentDetail.status === '已完成' ? 'success' : (currentDetail.status === '异常' ? 'error' : 'info')"
+            />
+          </div>
+
+          <!-- 11. 备注 -->
+          <div class="flex flex-col gap-4px">
+            <span class="font-bold text-gray-700 dark:text-gray-200">11. 备注：</span>
+            <div class="rounded-6px bg-slate-50 dark:bg-dark-600 p-8px text-gray-600 dark:text-gray-300 font-mono text-12px whitespace-pre-wrap leading-relaxed">
+              {{ currentDetail.remarks || '无特别备注' }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex justify-between items-center">
+          <NButton secondary type="primary" size="small" @click="currentDetail && copyFormattedDetail(currentDetail)">
+            📋 复制11项详细文本
+          </NButton>
+          <NButton size="small" @click="detailModalVisible = false">关闭窗口</NButton>
+        </div>
+      </template>
+    </NModal>
   </NSpace>
 </template>
 
