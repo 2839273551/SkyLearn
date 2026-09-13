@@ -499,37 +499,48 @@ onMounted(loadCatalog);
             </div>
           </NFormItem>
 
-          <!-- 动作操作条 -->
-          <div class="mt-12px flex flex-wrap items-center gap-12px">
-            <NButton type="primary" size="large" :loading="queryLoading" class="px-24px font-bold" @click="queryCourses">
+          <!-- 动作操作条 (移动端整齐两段式，杜绝高低错位) -->
+          <div class="mt-14px flex flex-col gap-10px sm:flex-row sm:flex-wrap sm:items-center sm:gap-12px">
+            <!-- 主按钮：查课 (手机端全宽突出，PC端自然尺寸) -->
+            <NButton
+              type="primary"
+              size="large"
+              :loading="queryLoading"
+              class="w-full sm:w-auto px-28px font-bold shadow-sm"
+              @click="queryCourses"
+            >
               🔍 立即在线查课
             </NButton>
 
-            <NPopconfirm
-              positive-text="确认立即提交"
-              negative-text="取消"
-              @positive-click="submitOrders"
-            >
-              <template #trigger>
-                <NButton
-                  type="success"
-                  size="large"
-                  :loading="submitLoading"
-                  :disabled="selections.length === 0"
-                  class="px-24px font-bold"
-                >
-                  🚀 提交已选课程（{{ selections.length }} 门）
-                </NButton>
-              </template>
-              确定提交已勾选的 {{ selections.length }} 门课程吗？预计扣除 ¥{{ estimatedSubmitCost }} 积分。
-            </NPopconfirm>
+            <!-- 辅助按钮组：手机端并排等高，PC端紧跟 -->
+            <div class="flex items-center gap-10px w-full sm:w-auto">
+              <NPopconfirm
+                positive-text="确认立即提交"
+                negative-text="取消"
+                @positive-click="submitOrders"
+              >
+                <template #trigger>
+                  <NButton
+                    type="success"
+                    size="large"
+                    :loading="submitLoading"
+                    :disabled="selections.length === 0"
+                    class="flex-1 sm:flex-none sm:px-24px font-bold"
+                  >
+                    🚀 提交订单 ({{ selections.length }} 门)
+                  </NButton>
+                </template>
+                确定提交已勾选的 {{ selections.length }} 门课程吗？预计扣除 ¥{{ estimatedSubmitCost }} 积分。
+              </NPopconfirm>
 
-            <NButton size="large" secondary @click="clearForm">
-              清空数据
-            </NButton>
+              <NButton size="large" secondary class="w-96px sm:w-auto shrink-0" @click="clearForm">
+                清空数据
+              </NButton>
+            </div>
 
-            <span v-if="selections.length > 0" class="ml-auto font-mono text-14px text-gray-500">
-              已选 <strong class="text-primary font-bold">{{ selections.length }}</strong> 门课程 | 预计扣费：<strong class="text-rose-500 font-bold">¥ {{ estimatedSubmitCost }}</strong>
+            <!-- 选课金额提示 -->
+            <span v-if="selections.length > 0" class="sm:ml-auto font-mono text-13px sm:text-14px text-gray-500 bg-gray-50 dark:bg-dark-600 px-10px py-6px rounded-6px border sm:border-none">
+              已选 <strong class="text-primary font-bold">{{ selections.length }}</strong> 门 | 预计扣费：<strong class="text-rose-500 font-bold">¥ {{ estimatedSubmitCost }}</strong>
             </span>
           </div>
         </NForm>
