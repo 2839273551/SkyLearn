@@ -3402,6 +3402,216 @@ if ($action === 'docking-log-clear') {
     api_respond(0, '对接日志清理成功');
 }
 
+
+// ==========================================
+// 代理管理：重置下级登录密码
+// ==========================================
+if ($action === 'userlist-reset-password') {
+    api_require_post();
+    api_require_login(isset($islogin) ? $islogin : 0);
+    api_require_csrf();
+
+    $currentUid = intval($userrow['uid']);
+    $isSuper = ($currentUid === 1);
+    $input = api_read_input();
+    $uid = isset($input['uid']) ? intval($input['uid']) : 0;
+    $password = isset($input['password']) ? trim($input['password']) : '12345678';
+
+    if ($uid <= 0) api_respond(422, '参数错误');
+    if ($password === '') api_respond(422, '新密码不能为空');
+    if (strlen($password) < 6) api_respond(422, '密码长度至少6位');
+
+    if ($currentUid === $uid && !$isSuper) {
+        api_respond(422, '自己不能在此重置自己的密码，请前往修改密码页面');
+    }
+
+    $target = $DB->get_row("SELECT uid, uuid, user, name FROM qingka_wangke_user WHERE uid='$uid' LIMIT 1");
+    if (!$target) api_respond(404, '目标代理不存在');
+
+    if (!$isSuper) {
+        if (intval($target['uuid']) !== $currentUid) {
+            api_respond(403, '只能重置属于您名下的直属下级代理密码');
+        }
+    }
+
+    $passSafe = daddslashes($password);
+    $DB->query("UPDATE qingka_wangke_user SET pass='$passSafe' WHERE uid='$uid'");
+
+    if (function_exists('wlog')) {
+        wlog($uid, "重置密码", "上级 " . ($isSuper ? "管理员" : $userrow['user']) . " 重置了代理 [{$target['user']}] 的登录密码", 0);
+    }
+
+    api_respond(0, "代理 [{$target['user']}] 密码已成功重置为: {$password}");
+}
+
+// ==========================================
+// 订单管理：同步最新进度
+// ==========================================
+if ($action === 'order-sync') {
+    api_require_post();
+    api_require_login(isset($islogin) ? $islogin : 0);
+    api_require_csrf();
+
+    $currentUid = intval($userrow['uid']);
+    $isSuper = ($currentUid === 1);
+    $input = api_read_input();
+    $oid = isset($input['oid']) ? intval($input['oid']) : 0;
+    if ($oid <= 0) api_respond(422, '订单参数错误');
+
+    $order = $DB->get_row("SELECT * FROM qingka_wangke_order WHERE oid='$oid' LIMIT 1");
+    if (!$order) api_respond(404, '订单不存在');
+
+    if (!$isSuper && intval($order['uid']) !== $currentUid) {
+        api_respond(403, '无权操作此订单');
+    }
+
+    if (strval($order['dockstatus']) === '4') {
+        api_respond(400, '该订单已取消，无需同步');
+    }
+    if (strval($order['hid']) === '0') {
+        api_respond(0, '该订单为实时进度，无需向上游同步');
+    }
+
+    if (!function_exists('processCx') && file_exists(ROOT . '../Checkorder/jdjk.php')) {
+        require_once ROOT . '../Checkorder/jdjk.php';
+    }
+
+    if (!function_exists('processCx')) {
+        api_respond(500, '系统暂未加载进度驱动');
+    }
+
+    $result = processCx($oid);
+    if (!empty($result) && is_array($result)) {
+        for ($i = 0; $i < count($result); $i++) {
+            $uName = daddslashes(isset($result[$i]['name']) ? $result[$i]['name'] : $order['name']);
+            $uStatus = daddslashes(isset($result[$i]['status_text']) ? $result[$i]['status_text'] : $order['status']);
+            $uProcess = daddslashes(isset($result[$i]['process']) ? $result[$i]['process'] : $order['process']);
+            $uRemarks = daddslashes(isset($result[$i]['remarks']) ? $result[$i]['remarks'] : $order['remarks']);
+            $uZhgx = daddslashes(isset($result[$i]['zhgx']) ? $result[$i]['zhgx'] : date('Y-m-d H:i:s'));
+
+            $DB->query("UPDATE qingka_wangke_order SET 
+                `name`='$uName',
+                `status`='$uStatus',
+                `process`='$uProcess',
+                `finalupdate`='$uZhgx',
+                `remarks`='$uRemarks' 
+                WHERE `oid`='$oid'");
+        }
+    }
+
+    $fresh = $DB->get_row("SELECT oid, process, status, remarks, finalupdate FROM qingka_wangke_order WHERE oid='$oid' LIMIT 1");
+    $displayProg = $fresh['process'] ? $fresh['process'] : $fresh['status'];
+    api_respond(0, "进度同步完成！当前状态: {$displayProg}", array(
+        'oid' => $oid,
+        'process' => $fresh['process'],
+        'status' => $fresh['status'],
+        'remarks' => $fresh['remarks']
+    ));
+}
+
+// ==========================================
+// 订单管理：申请补刷
+// ==========================================
+if ($action === 'order-rebrush') {
+    api_require_post();
+    api_require_login(isset($islogin) ? $islogin : 0);
+    api_require_csrf();
+
+    $currentUid = intval($userrow['uid']);
+    $isSuper = ($currentUid === 1);
+    $input = api_read_input();
+    $oid = isset($input['oid']) ? intval($input['oid']) : 0;
+    if ($oid <= 0) api_respond(422, '订单参数错误');
+
+    $order = $DB->get_row("SELECT * FROM qingka_wangke_order WHERE oid='$oid' LIMIT 1");
+    if (!$order) api_respond(404, '订单不存在');
+
+    if (!$isSuper && intval($order['uid']) !== $currentUid) {
+        api_respond(403, '无权操作此订单');
+    }
+
+    if (!function_exists('budanWk') && file_exists(ROOT . '../Checkorder/bsjk.php')) {
+        require_once ROOT . '../Checkorder/bsjk.php';
+    }
+
+    $DB->query("UPDATE qingka_wangke_order SET status='补刷中', `bsnum`=bsnum+1 WHERE oid='$oid'");
+
+    $msg = '补刷请求已成功提交！状态已变更为补刷中';
+    if (function_exists('budanWk') && strval($order['dockstatus']) !== '99') {
+        $res = budanWk($oid);
+        if (isset($res['msg']) && !empty($res['msg'])) {
+            $msg = $res['msg'];
+        }
+    }
+
+    if (function_exists('wlog')) {
+        wlog($currentUid, "申请补刷", "为订单 #{$oid} 发起补刷", 0);
+    }
+
+    api_respond(0, $msg, array('oid' => $oid, 'status' => '补刷中'));
+}
+
+// ==========================================
+// 订单管理：管理员手动重新对接提交
+// ==========================================
+if ($action === 'order-dock') {
+    api_require_post();
+    api_require_super($userrow, $islogin);
+    api_require_csrf();
+
+    $input = api_read_input();
+    $oid = isset($input['oid']) ? intval($input['oid']) : 0;
+    if ($oid <= 0) api_respond(422, '订单参数错误');
+
+    $order = $DB->get_row("SELECT * FROM qingka_wangke_order WHERE oid='$oid' LIMIT 1");
+    if (!$order) api_respond(404, '订单不存在');
+
+    if (!function_exists('addWk') && file_exists(ROOT . '../Checkorder/xdjk.php')) {
+        require_once ROOT . '../Checkorder/xdjk.php';
+    }
+
+    if (!function_exists('addWk')) {
+        api_respond(500, '系统暂未加载交单驱动');
+    }
+
+    $cls = $DB->get_row("SELECT docking FROM qingka_wangke_class WHERE cid='{$order['cid']}' LIMIT 1");
+    $result = addWk($oid);
+
+    if (isset($result['code']) && strval($result['code']) === '1') {
+        $hid = $cls ? $cls['docking'] : $order['hid'];
+        $yid = daddslashes(isset($result['yid']) ? $result['yid'] : '');
+        $DB->query("UPDATE qingka_wangke_order SET 
+            `hid`='$hid',
+            `status`='进行中',
+            `dockstatus`=1,
+            `yid`='$yid',
+            `remarks`='管理员手动重新提交货源成功' 
+            WHERE oid='$oid'");
+        api_respond(0, "订单 #{$oid} 向上游提交成功！状态已变更为进行中", array('dockstatus' => '1', 'status' => '进行中'));
+    } else {
+        $failMsg = isset($result['msg']) ? $result['msg'] : '货源接口返回失败';
+        $DB->query("UPDATE qingka_wangke_order SET `dockstatus`=2 WHERE oid='$oid'");
+        api_respond(400, "提交失败: {$failMsg}", array('dockstatus' => '2'));
+    }
+}
+
+// ==========================================
+// 网课设置：便捷调整网课排序
+// ==========================================
+if ($action === 'class-quick-sort') {
+    api_require_post();
+    api_require_super($userrow, $islogin);
+    api_require_csrf();
+
+    $input = api_read_input();
+    $cid = isset($input['cid']) ? intval($input['cid']) : 0;
+    $sort = isset($input['sort']) ? intval($input['sort']) : 0;
+    if ($cid <= 0) api_respond(422, '网课参数错误');
+
+    $DB->query("UPDATE qingka_wangke_class SET sort='$sort' WHERE cid='$cid' LIMIT 1");
+    api_respond(0, "排序已更新为: {$sort}");
+}
+
 require_once __DIR__ . '/actions_user_order.php';
 require_once __DIR__ . '/scheduler_worker.php';
 

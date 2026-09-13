@@ -6,6 +6,7 @@ import {
   batchUpdateClassPriceSort,
   batchUpdateClassStatus,
   deleteClass,
+  quickSortClass,
   fetchClassList,
   fetchClassOptions,
   saveClass
@@ -77,16 +78,68 @@ const columns: DataTableColumns<Api.Class.Item> = [
   {
     title: '快捷排序',
     key: 'sort',
-    width: 110,
-    render: row =>
-      h(NInputNumber, {
-        size: 'small',
-        value: dirtyMap[row.cid]?.sort !== undefined ? dirtyMap[row.cid].sort : row.sort,
-        onUpdateValue: (val: number | null) => {
-          if (!dirtyMap[row.cid]) dirtyMap[row.cid] = {};
-          dirtyMap[row.cid].sort = val || 0;
-        }
-      })
+    width: 155,
+    render: row => {
+      const currentSort = dirtyMap[row.cid]?.sort !== undefined ? dirtyMap[row.cid].sort! : row.sort;
+      return h('div', { class: 'flex items-center gap-4px' }, [
+        h(NInputNumber, {
+          size: 'small',
+          style: { width: '80px' },
+          showButton: false,
+          value: currentSort,
+          onUpdateValue: (val: number | null) => {
+            if (!dirtyMap[row.cid]) dirtyMap[row.cid] = {};
+            dirtyMap[row.cid].sort = val ?? 0;
+          },
+          onBlur: async () => {
+            if (dirtyMap[row.cid]?.sort !== undefined && dirtyMap[row.cid].sort !== row.sort) {
+              const res = await quickSortClass(row.cid, dirtyMap[row.cid].sort!);
+              if (res !== null) {
+                row.sort = dirtyMap[row.cid].sort!;
+                delete dirtyMap[row.cid].sort;
+                window.$message?.success(`【${row.name}】排序已更新为: ${row.sort}`);
+              }
+            }
+          }
+        }),
+        h(
+          NButton,
+          {
+            size: 'tiny',
+            quaternary: true,
+            title: '顺序提前',
+            onClick: async () => {
+              const newSort = Math.max(0, (row.sort || 0) - 1);
+              const res = await quickSortClass(row.cid, newSort);
+              if (res !== null) {
+                row.sort = newSort;
+                if (dirtyMap[row.cid]) delete dirtyMap[row.cid].sort;
+                window.$message?.success(`【${row.name}】排序提前为: ${newSort}`);
+              }
+            }
+          },
+          { default: () => '⬆' }
+        ),
+        h(
+          NButton,
+          {
+            size: 'tiny',
+            quaternary: true,
+            title: '顺序延后',
+            onClick: async () => {
+              const newSort = (row.sort || 0) + 1;
+              const res = await quickSortClass(row.cid, newSort);
+              if (res !== null) {
+                row.sort = newSort;
+                if (dirtyMap[row.cid]) delete dirtyMap[row.cid].sort;
+                window.$message?.success(`【${row.name}】排序延后为: ${newSort}`);
+              }
+            }
+          },
+          { default: () => '⬇' }
+        )
+      ]);
+    }
   },
   {
     title: '定价(元)',

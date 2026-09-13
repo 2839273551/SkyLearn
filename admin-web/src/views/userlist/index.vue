@@ -5,7 +5,7 @@ import type { DataTableColumns } from 'naive-ui';
 import { NAvatar, NButton, NInput, NInputNumber, NSpace, NSwitch, NTag } from 'naive-ui';
 import { useAppStore } from '@/store/modules/app';
 import { useAuthStore } from '@/store/modules/auth';
-import { createUser, fetchGradeOptions, fetchUserlistList, rechargeUserBalance, updateUserRate, updateUserStatus } from '@/service/api';
+import { createUser, fetchGradeOptions, fetchUserlistList, rechargeUserBalance, resetUserPassword, updateUserRate, updateUserStatus } from '@/service/api';
 
 defineOptions({ name: 'Userlist' });
 
@@ -32,6 +32,33 @@ const currentUid = ref('');
 const currentUserName = ref('');
 const rechargeAmount = ref(100);
 const targetRate = ref('0.30');
+const pwdModal = ref(false);
+const pwdLoading = ref(false);
+const resetPwdForm = reactive({
+  password: '12345678'
+});
+
+function openResetPwdModal(row: Api.ProfileArea.UserItem) {
+  currentUid.value = row.uid;
+  currentUserName.value = row.name || row.user;
+  resetPwdForm.password = '12345678';
+  pwdModal.value = true;
+}
+
+async function handleResetPassword() {
+  if (!resetPwdForm.password.trim()) {
+    window.$message?.warning('请输入新密码');
+    return;
+  }
+  pwdLoading.value = true;
+  const res = await resetUserPassword(currentUid.value, resetPwdForm.password.trim());
+  pwdLoading.value = false;
+  if (res !== null) {
+    window.$message?.success(`已成功重置代理 [${currentUserName.value}] 的登录密码！`);
+    pwdModal.value = false;
+  }
+}
+
 
 // 开户相关
 const createModal = ref(false);
@@ -172,7 +199,7 @@ const columns: DataTableColumns<Api.ProfileArea.UserItem> = [
   {
     title: '操作',
     key: 'actions',
-    width: 150,
+    width: 230,
     fixed: 'right',
     render: row =>
       h(NSpace, { size: 'small' }, () => [
@@ -205,6 +232,16 @@ const columns: DataTableColumns<Api.ProfileArea.UserItem> = [
             }
           },
           { default: () => '调费率' }
+        ),
+        h(
+          NButton,
+          {
+            size: 'small',
+            type: 'warning',
+            ghost: true,
+            onClick: () => openResetPwdModal(row)
+          },
+          { default: () => '重置密码' }
         )
       ])
   }
@@ -318,7 +355,23 @@ onMounted(() => {
         <div class="text-14px">目标代理：<strong>[UID: {{ currentUid }}] {{ currentUserName }}</strong></div>
         <NFormItem :label="isSuperAdmin ? '调整金额 (正数增加，负数扣除)' : '充值金额 (将从您的账户余额扣除)'">
           <NInputNumber v-model:value="rechargeAmount" :step="10" class="w-full">
-            <template #prefix>¥</template>
+            <template #prefix>¥
+    <!-- 重置密码弹窗 -->
+    <NModal v-model:show="pwdModal" preset="card" title="重置代理登录密码" :style="{ width: appStore.isMobile ? '92vw' : '440px' }">
+      <div class="flex flex-col gap-12px">
+        <div class="text-14px">目标代理：<strong>[UID: {{ currentUid }}] {{ currentUserName }}</strong></div>
+        <NFormItem label="设置新登录密码 (默认初始密码 12345678)" required>
+          <NInput v-model:value="resetPwdForm.password" placeholder="输入新密码，至少6位" />
+        </NFormItem>
+      </div>
+      <template #footer>
+        <div class="flex justify-end gap-12px">
+          <NButton @click="pwdModal = false">取消</NButton>
+          <NButton type="primary" :loading="pwdLoading" @click="handleResetPassword">确认重置密码</NButton>
+        </div>
+      </template>
+    </NModal>
+</template>
           </NInputNumber>
         </NFormItem>
       </div>

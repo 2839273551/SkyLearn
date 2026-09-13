@@ -667,3 +667,19 @@ export function fetchMyReferrals() {
     method: 'get'
   });
 }
+
+export function resetUserPassword(uid: string | number, password?: string) {
+  return request<null>({
+    url: 'admin-api/v1/index.php?action=userlist-reset-password',
+    method: 'post',
+    data: { uid: Number(uid), password }
+  });
+}
+
+export function quickSortClass(cid: string | number, sort: number) {
+  return request<null>({
+    url: 'admin-api/v1/index.php?action=class-quick-sort',
+    method: 'post',
+    data: { cid: Number(cid), sort }
+  });
+}
