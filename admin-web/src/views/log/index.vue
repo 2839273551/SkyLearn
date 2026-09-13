@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { h, onMounted, reactive, ref } from 'vue';
 import type { DataTableColumns } from 'naive-ui';
-import { NTag } from 'naive-ui';
+import { NButton, NCard, NDataTable, NInput, NPagination, NSelect, NTag, NTooltip } from 'naive-ui';
 import { fetchLogList } from '@/service/api';
 
 defineOptions({ name: 'Log' });
@@ -12,12 +12,13 @@ const total = ref(0);
 
 const query = reactive({
   page: 1,
+  pageSize: 20,
   type: '',
   keyword: ''
 });
 
 const typeOptions = [
-  { label: '全部类型', value: '' },
+  { label: '全部类型 (All Types)', value: '' },
   { label: '登录', value: '登录' },
   { label: '添加任务', value: '添加任务' },
   { label: '批量提交', value: '批量提交' },
@@ -29,33 +30,85 @@ const typeOptions = [
   { label: '订单退款', value: '订单退款' }
 ];
 
+function getTypeTagType(type: string): 'default' | 'info' | 'success' | 'warning' | 'error' {
+  if (type.includes('充值') || type.includes('退款')) return 'success';
+  if (type.includes('扣费')) return 'warning';
+  if (type.includes('任务') || type.includes('提交')) return 'info';
+  if (type.includes('登录')) return 'default';
+  return 'info';
+}
+
 const columns: DataTableColumns<Api.ProfileArea.LogItem> = [
-  { title: 'ID', key: 'id', width: 70 },
-  { title: '用户 UID', key: 'uid', width: 90 },
+  {
+    title: '流水ID',
+    key: 'id',
+    width: 80,
+    render: row => h('span', { class: 'font-mono text-12px text-gray-400' }, `#${row.id}`)
+  },
+  {
+    title: '用户 UID',
+    key: 'uid',
+    width: 95,
+    render: row => h('span', { class: 'font-mono font-bold text-primary' }, row.uid)
+  },
   {
     title: '操作类型',
     key: 'type',
-    width: 120,
-    render: row => h(NTag, { size: 'small', type: 'info', round: true }, { default: () => row.type })
+    width: 125,
+    render: row =>
+      h(
+        NTag,
+        { size: 'small', type: getTypeTagType(row.type), round: true, class: 'font-medium' },
+        { default: () => row.type }
+      )
   },
-  { title: '详情说明', key: 'text', minWidth: 260 },
+  {
+    title: '详情说明',
+    key: 'text',
+    minWidth: 280,
+    render: row => h('span', { class: 'text-13px leading-relaxed' }, row.text)
+  },
   {
     title: '资金变动',
     key: 'money',
-    width: 120,
+    width: 125,
     render: row => {
-      const isPositive = row.money.startsWith('+') || Number(row.money) > 0;
-      const isZero = row.money === '0' || Number(row.money) === 0;
+      const num = Number(row.money);
+      const isPositive = row.money.startsWith('+') || num > 0;
+      const isZero = row.money === '0' || num === 0;
       return h(
         'span',
-        { class: isZero ? 'text-gray-400' : isPositive ? 'font-bold text-success' : 'font-bold text-error' },
-        row.money
+        {
+          class: [
+            'font-mono font-bold text-13px',
+            isZero ? 'text-gray-400' : isPositive ? 'text-emerald-500' : 'text-rose-500'
+          ]
+        },
+        isZero ? '0.00' : (isPositive && !row.money.startsWith('+') ? `+${row.money}` : row.money)
       );
     }
   },
-  { title: '当前余额', key: 'smoney', width: 110, render: row => (row.smoney ? `¥ ${row.smoney}` : '-') },
-  { title: '操作 IP', key: 'ip', width: 130 },
-  { title: '记录时间', key: 'addtime', width: 170 }
+  {
+    title: '变动后余额',
+    key: 'smoney',
+    width: 120,
+    render: row =>
+      row.smoney
+        ? h('span', { class: 'font-mono text-12px font-medium' }, `¥ ${row.smoney}`)
+        : h('span', { class: 'text-gray-400' }, '-')
+  },
+  {
+    title: '客户端 IP',
+    key: 'ip',
+    width: 135,
+    render: row => h('span', { class: 'font-mono text-11px text-gray-500' }, row.ip || '-')
+  },
+  {
+    title: '记录时间',
+    key: 'addtime',
+    width: 175,
+    render: row => h('span', { class: 'font-mono text-12px text-gray-500' }, row.addtime)
+  }
 ];
 
 async function loadData() {
@@ -78,6 +131,42 @@ function handleSearch() {
   loadData();
 }
 
+function handleReset() {
+  query.type = '';
+  query.keyword = '';
+  query.page = 1;
+  loadData();
+}
+
+function exportLogCsv() {
+  if (!list.value.length) {
+    window.$message?.warning('当前无可导出的日志数据');
+    return;
+  }
+  const headers = ['流水ID', 'UID', '操作类型', '详情说明', '资金变动', '当前余额', 'IP', '记录时间'];
+  const rows = list.value.map(i => [
+    i.id,
+    i.uid,
+    i.type,
+    `"${(i.text || '').replace(/"/g, '""')}"`,
+    i.money,
+    i.smoney || '',
+    i.ip || '',
+    i.addtime
+  ]);
+  const bom = String.fromCharCode(0xFEFF);
+  const csv = bom + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `operation_log_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.$message?.success('操作日志报表已导出');
+}
+
 onMounted(() => {
   loadData();
 });
@@ -85,14 +174,44 @@ onMounted(() => {
 
 <template>
   <div class="flex flex-col gap-16px p-16px">
-    <NCard title="操作与资金日志" :bordered="false" class="rounded-8px shadow-sm">
-      <div class="mb-16px flex flex-wrap items-center justify-between gap-12px">
-        <div class="flex flex-wrap items-center gap-10px">
-          <NSelect v-model:value="query.type" :options="typeOptions" placeholder="日志类型" clearable class="w-150px" />
-          <NInput v-model:value="query.keyword" placeholder="详情内容 / UID 搜索" clearable class="w-220px" @keyup.enter="handleSearch" />
-          <NButton type="primary" @click="handleSearch">查询</NButton>
+    <NCard title="用户操作与资金变动流水" :bordered="false" class="rounded-12px shadow-sm">
+      <template #header-extra>
+        <div class="flex items-center gap-8px">
+          <NButton size="small" secondary @click="exportLogCsv">
+            📥 导出日志报表
+          </NButton>
+          <NButton size="small" :loading="loading" @click="loadData">
+            刷新
+          </NButton>
         </div>
-        <NButton :loading="loading" @click="loadData">刷新</NButton>
+      </template>
+
+      <!-- 搜索筛选栏 -->
+      <div class="mb-16px flex flex-wrap items-center justify-between gap-12px rounded-8px bg-gray-50/70 p-12px dark:bg-dark-600/50">
+        <div class="flex flex-wrap items-center gap-10px">
+          <NSelect
+            v-model:value="query.type"
+            :options="typeOptions"
+            placeholder="日志操作类型"
+            clearable
+            class="w-180px"
+          />
+          <NInput
+            v-model:value="query.keyword"
+            placeholder="搜索详情内容 / 用户 UID"
+            clearable
+            class="w-240px"
+            @keyup.enter="handleSearch"
+          />
+          <NButton type="primary" @click="handleSearch">
+            <template #icon><span>🔍</span></template>
+            查询
+          </NButton>
+          <NButton secondary @click="handleReset">重置</NButton>
+        </div>
+        <div class="text-12px text-gray-400">
+          共计 <strong class="text-primary font-mono font-bold">{{ total }}</strong> 条资金与行为审计流水
+        </div>
       </div>
 
       <NDataTable
@@ -102,10 +221,14 @@ onMounted(() => {
         :row-key="(row: Api.ProfileArea.LogItem) => row.id"
         :pagination="false"
         striped
+        size="small"
         :scroll-x="1100"
       />
 
-      <div class="mt-16px flex justify-end">
+      <div class="mt-16px flex items-center justify-between border-t border-gray-100 dark:border-gray-800 pt-12px">
+        <span class="text-12px text-gray-400">
+          精确记录全站用户的登录态、费率调整、扣费充值与订单变动
+        </span>
         <NPagination
           v-model:page="query.page"
           :page-size="20"
