@@ -22,13 +22,13 @@ const menuSections: MenuSection[] = [
         key: 'settings-system',
         label: '系统配置',
         icon: 'ph:sliders',
-        routes: ['webset', 'gglist', 'webmsg', 'zzbz']
+        routes: ['webset', 'gglist', 'webmsg', 'zzbz', 'smgz']
       },
       {
         key: 'settings-goods',
         label: '商品货源',
         icon: 'ph:package',
-        routes: ['class', 'fenlei', 'huoyuan', 'yjdj']
+        routes: ['class', 'fenlei', 'huoyuan', 'yjdj', 'jgjk']
       },
       {
         key: 'settings-docking',
@@ -46,7 +46,7 @@ const menuSections: MenuSection[] = [
         key: 'settings-pricing',
         label: '分销定价',
         icon: 'ph:users-three',
-        routes: ['dengji', 'mijia']
+        routes: ['dengji', 'mijia', 'usergj']
       },
       {
         key: 'settings-finance',
@@ -73,7 +73,7 @@ const menuSections: MenuSection[] = [
         key: 'profile-account',
         label: '账户与代理',
         icon: 'ph:user-circle',
-        routes: ['userinfo', 'userlist', 'log']
+        routes: ['userinfo', 'userlist', 'adduser', 'tjuser', 'sjqy', 'usernotice', 'log']
       },
       {
         key: 'profile-recharge',

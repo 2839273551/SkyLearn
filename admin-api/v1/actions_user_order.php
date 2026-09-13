@@ -296,3 +296,113 @@ if ($action === 'user-create') {
         'deducted' => $totalNeed
     ));
 }
+
+if ($action === 'user-migrate') {
+    api_require_post();
+    api_require_login(isset($islogin) ? $islogin : 0);
+    api_require_csrf();
+
+    $currentUid = intval($userrow['uid']);
+    $openMigrate = isset($conf['sjqykg']) ? strval($conf['sjqykg']) : '0';
+    if ($openMigrate !== '1') {
+        api_respond(403, '当前系统未开启上级迁移功能');
+    }
+
+    $input = api_read_input();
+    $targetUid = isset($input['target_uid']) ? intval($input['target_uid']) : 0;
+    $yqm = isset($input['yqm']) ? trim(strip_tags($input['yqm'])) : '';
+
+    if ($targetUid <= 0 || empty($yqm)) {
+        api_respond(422, '目标上级 UID 与邀请码不能为空');
+    }
+    if ($targetUid === $currentUid) {
+        api_respond(422, '不能将上级迁移为自己');
+    }
+
+    $targetUser = $DB->get_row("SELECT uid, user, name, yqm, addprice FROM `qingka_wangke_user` WHERE uid='$targetUid' LIMIT 1");
+    if (!$targetUser) {
+        api_respond(404, '目标上级用户不存在');
+    }
+    if ($targetUser['yqm'] !== $yqm) {
+        api_respond(400, '目标上级专属邀请码校验不匹配');
+    }
+
+    // 检查自己当前是否已经是该上级
+    if (intval($userrow['uuid']) === $targetUid) {
+        api_respond(400, '您当前已经在该上级团队名下，无需重复迁移');
+    }
+
+    // 执行迁移
+    $DB->query("UPDATE `qingka_wangke_user` SET uuid='$targetUid' WHERE uid='$currentUid' LIMIT 1");
+    if (function_exists('wlog')) {
+        wlog($currentUid, "上级迁移", "成功将团队上级迁移至 UID: {$targetUid} ({$targetUser['user']})", 0);
+    }
+
+    api_respond(0, "团队上级已成功迁移至: [UID {$targetUid}] {$targetUser['name']}");
+}
+
+if ($action === 'user-batch-rate') {
+    api_require_post();
+    api_require_login(isset($islogin) ? $islogin : 0);
+    api_require_csrf();
+
+    $currentUid = intval($userrow['uid']);
+    $input = api_read_input();
+    $targetUids = isset($input['uids']) && is_array($input['uids']) ? array_map('intval', $input['uids']) : array();
+    $rate = isset($input['rate']) ? floatval($input['rate']) : 0.0;
+
+    if ($rate < 0.1 || $rate > 5.0) {
+        api_respond(422, '费率系数必须在 0.10 ~ 5.00 之间');
+    }
+
+    $myRate = floatval($userrow['addprice']);
+    if ($currentUid !== 1 && $rate < $myRate) {
+        api_respond(422, "下级费率不能低于您自身的费率 ({$myRate}×)");
+    }
+
+    $uidScope = $currentUid === 1 ? '' : " AND uuid='$currentUid'";
+    $updated = 0;
+
+    if (!empty($targetUids)) {
+        $uidsStr = implode(',', $targetUids);
+        $res = $DB->query("UPDATE `qingka_wangke_user` SET addprice='$rate' WHERE uid IN ($uidsStr) $uidScope");
+        $updated = count($targetUids);
+    } else {
+        // 全量下级改价
+        if ($currentUid !== 1) {
+            $res = $DB->query("UPDATE `qingka_wangke_user` SET addprice='$rate' WHERE uuid='$currentUid'");
+        } else {
+            $res = $DB->query("UPDATE `qingka_wangke_user` SET addprice='$rate' WHERE uid > 1");
+        }
+    }
+
+    api_respond(0, "批量费率调整已生效！新费率: {$rate}×");
+}
+
+if ($action === 'my-referrals') {
+    api_require_login(isset($islogin) ? $islogin : 0);
+    $currentUid = intval($userrow['uid']);
+
+    $res = $DB->query("SELECT uid, user, name, addprice, money, addtime, active FROM `qingka_wangke_user` WHERE uuid='$currentUid' ORDER BY uid DESC LIMIT 100");
+    $list = array();
+    while ($r = $DB->fetch($res)) {
+        $orderCount = $DB->count("SELECT COUNT(*) FROM `qingka_wangke_order` WHERE uid='{$r['uid']}'");
+        $list[] = array(
+            'uid' => (string)$r['uid'],
+            'user' => (string)$r['user'],
+            'name' => (string)$r['name'],
+            'rate' => floatval($r['addprice']),
+            'money' => floatval($r['money']),
+            'addtime' => (string)$r['addtime'],
+            'order_count' => intval($orderCount)
+        );
+    }
+
+    $myInfo = $DB->get_row("SELECT yqm, addprice FROM `qingka_wangke_user` WHERE uid='$currentUid' LIMIT 1");
+    api_respond(0, 'ok', array(
+        'list' => $list,
+        'my_yqm' => isset($myInfo['yqm']) ? (string)$myInfo['yqm'] : '',
+        'total_referrals' => count($list),
+        'site_url' => (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? 'sk.yunxnet.cn')
+    ));
+}

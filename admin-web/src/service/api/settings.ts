@@ -640,3 +640,30 @@ export function clearSchedulerTaskLogs(task_id?: string) {
     data: { task_id }
   });
 }
+
+// ==========================================
+// 迁移、批量改价与分销明细
+// ==========================================
+
+export function userMigrate(data: { target_uid: number; yqm: string }) {
+  return request<null>({
+    url: 'admin-api/v1/index.php?action=user-migrate',
+    method: 'post',
+    data
+  });
+}
+
+export function batchUpdateRate(data: { uids?: number[]; rate: number }) {
+  return request<null>({
+    url: 'admin-api/v1/index.php?action=user-batch-rate',
+    method: 'post',
+    data
+  });
+}
+
+export function fetchMyReferrals() {
+  return request<{ list: any[]; my_yqm: string; total_referrals: number; site_url: string }>({
+    url: 'admin-api/v1/index.php?action=my-referrals',
+    method: 'get'
+  });
+}

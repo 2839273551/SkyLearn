@@ -843,6 +843,45 @@ if ($action === 'dashboard') {
         ? $DB->count('SELECT COUNT(*) FROM qingka_wangke_user')
         : $DB->count("SELECT COUNT(*) FROM qingka_wangke_user WHERE uuid='" . $uid . "'");
 
+    // 真实近7日订单趋势
+    $trendDates = array();
+    $trendCounts = array();
+    for ($i = 6; $i >= 0; $i--) {
+        $day = date('Y-m-d', strtotime("-$i day"));
+        $dayStart = $day . ' 00:00:00';
+        $dayEnd = $day . ' 23:59:59';
+        $dayWhere = $uid === 1 
+            ? " WHERE addtime >= '$dayStart' AND addtime <= '$dayEnd'" 
+            : " WHERE uid='$uid' AND addtime >= '$dayStart' AND addtime <= '$dayEnd'";
+        $c = $DB->count("SELECT COUNT(*) FROM qingka_wangke_order" . $dayWhere);
+        $trendDates[] = date('m/d', strtotime($day));
+        $trendCounts[] = intval($c);
+    }
+
+    // 真实订单状态分布
+    $statusMap = array(
+        '进行中' => intval($runningOrders),
+        '已完成' => intval($completedOrders),
+        '待处理' => intval($DB->count("SELECT COUNT(*) FROM qingka_wangke_order" . ($uid === 1 ? " WHERE status='待处理' OR dockstatus=0" : " WHERE uid='$uid' AND (status='待处理' OR dockstatus=0)"))),
+        '异常/其他' => intval(max(0, $orderTotal - $runningOrders - $completedOrders))
+    );
+    $distribution = array();
+    foreach ($statusMap as $k => $v) {
+        $distribution[] = array('name' => $k, 'value' => $v);
+    }
+
+    // 真实最新系统公告列表（前5条）
+    $notices = array();
+    $gQuery = $DB->query("SELECT * FROM qingka_wangke_gonggao ORDER BY id DESC LIMIT 5");
+    while ($gr = $DB->fetch($gQuery)) {
+        $notices[] = array(
+            'id' => intval($gr['id']),
+            'title' => (string)$gr['title'],
+            'content' => trim(strip_tags((string)$gr['content'])),
+            'time' => !empty($gr['time']) ? (string)$gr['time'] : (string)$gr['addtime']
+        );
+    }
+
     api_respond(0, 'ok', array(
         'orderTotal' => intval($orderTotal),
         'todayOrders' => intval($todayOrders),
@@ -850,7 +889,13 @@ if ($action === 'dashboard') {
         'completedOrders' => intval($completedOrders),
         'userTotal' => intval($userTotal),
         'balance' => isset($userrow['money']) ? number_format((float) $userrow['money'], 2, '.', '') : '0.00',
-        'announcement' => isset($conf['zsgonggao']) ? trim(strip_tags($conf['zsgonggao'])) : ''
+        'announcement' => isset($conf['zsgonggao']) ? trim(strip_tags($conf['zsgonggao'])) : '',
+        'trend' => array(
+            'dates' => $trendDates,
+            'counts' => $trendCounts
+        ),
+        'distribution' => $distribution,
+        'notices' => $notices
     ));
 }
 
