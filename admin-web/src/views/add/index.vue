@@ -4,7 +4,6 @@ import {
   NAlert,
   NAvatar,
   NButton,
-  NButtonGroup,
   NCard,
   NCheckbox,
   NCollapse,
@@ -17,12 +16,11 @@ import {
   NGrid,
   NInput,
   NPopconfirm,
-  NRadioGroup,
   NRadioButton,
+  NRadioGroup,
   NSelect,
   NSpace,
   NSpin,
-  NStatistic,
   NSwitch,
   NTag,
   NTimeline,
@@ -48,7 +46,7 @@ const products = ref<Api.OrderEntry.Product[]>([]);
 const categoryId = ref('all');
 const productId = ref('');
 const userinfo = ref('');
-const batchMode = ref(false);
+const batchMode = ref<'single' | 'batch'>('single');
 const aiCorrection = ref(false);
 const results = ref<Api.OrderEntry.QueryResult[]>([]);
 const selections = ref<Api.OrderEntry.Selection[]>([]);
@@ -85,14 +83,13 @@ const inputLines = computed(() =>
 );
 
 const totalCourses = computed(() => results.value.reduce((total, result) => total + result.courses.length, 0));
+const allSelected = computed(() => totalCourses.value > 0 && selections.value.length === totalCourses.value);
 
 const inputPlaceholder = computed(() => {
-  return batchMode.value
+  return batchMode.value === 'batch'
     ? '请输入多行账号，每行一条：\n北京大学 2024001122 Abc123456\n清华大学 2024009988 Pwd@1234'
     : '请输入下单信息：学校 账号 密码（空格分隔，如无学校可直接：账号 密码）';
 });
-
-const allSelected = computed(() => totalCourses.value > 0 && selections.value.length === totalCourses.value);
 
 // 预计提交总扣费
 const estimatedSubmitCost = computed(() => {
@@ -150,10 +147,6 @@ function toggleFavorite() {
     window.$message?.success('已添加到收藏');
   }
   saveFavorites();
-}
-
-function toggleInputMode() {
-  batchMode.value = !batchMode.value;
 }
 
 function replaceFullWidthSymbols(value: string) {
@@ -290,7 +283,6 @@ function toggleSelectAll() {
   selections.value = next;
 }
 
-// 仅选开课中
 function selectOnlyOngoing() {
   const next: Api.OrderEntry.Selection[] = [];
   results.value.forEach(result => {
@@ -359,58 +351,59 @@ onMounted(loadCatalog);
 
 <template>
   <div class="flex flex-col gap-16px p-10px sm:p-16px">
-    <!-- 顶部高光 Hero 资产看板 -->
-    <div class="rounded-12px bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-16px text-white shadow-sm border border-slate-700/50">
-      <div class="flex flex-wrap items-center justify-between gap-12px">
-        <div class="flex items-center gap-12px">
-          <div class="flex h-44px w-44px items-center justify-center rounded-10px bg-primary/20 border border-primary/40 text-22px">
+    <!-- 顶部极简通透白底资产与控制横幅 (彻底告别突兀黑块，色彩柔和清晰) -->
+    <NCard :bordered="false" class="rounded-12px shadow-sm border border-gray-100 dark:border-dark-600 bg-white dark:bg-dark-700">
+      <div class="flex flex-wrap items-center justify-between gap-16px">
+        <!-- 左侧：标题与资产气泡 -->
+        <div class="flex flex-wrap items-center gap-14px">
+          <div class="flex h-44px w-44px items-center justify-center rounded-12px bg-primary/10 text-primary text-22px">
             🎓
           </div>
           <div>
             <div class="flex items-center gap-8px">
-              <h2 class="text-18px font-bold tracking-wide">在线智能查课与提交中心</h2>
-              <NTag size="tiny" type="success" round class="font-mono text-10px">FAST DOCKING</NTag>
+              <h1 class="text-17px font-bold text-gray-800 dark:text-gray-100">在线查课与订单提交</h1>
+              <NTag size="tiny" type="primary" round class="font-medium">高速直连</NTag>
             </div>
-            <div class="mt-4px flex flex-wrap items-center gap-12px text-13px text-slate-300">
-              <span>
-                可用余额：<strong class="font-mono text-16px text-emerald-400 font-bold">¥ {{ balance }}</strong> 积分
+            <div class="mt-4px flex flex-wrap items-center gap-10px text-13px">
+              <span class="inline-flex items-center gap-4px rounded-6px bg-emerald-50 px-8px py-3px text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 font-medium">
+                可用余额：<strong class="font-mono text-15px font-bold text-emerald-600 dark:text-emerald-400">¥ {{ balance }}</strong> 积分
               </span>
-              <template v-if="freeOrderEnabled && freeAdd > 0">
-                <span class="text-slate-500">|</span>
-                <span class="rounded bg-emerald-950/60 px-6px py-2px text-11px text-emerald-300 border border-emerald-800">
-                  🎁 赠送免费下单：{{ freeAdd }} 次
-                </span>
-              </template>
+              <span v-if="freeOrderEnabled && freeAdd > 0" class="inline-flex items-center rounded-6px bg-amber-50 px-8px py-3px text-11px text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 font-medium">
+                🎁 免费额度：{{ freeAdd }} 次
+              </span>
             </div>
           </div>
         </div>
 
-        <div class="flex flex-wrap items-center gap-12px">
-          <!-- AI 纠偏开关 -->
-          <div class="flex items-center gap-8px rounded-8px bg-slate-800/80 px-10px py-6px border border-slate-700">
+        <!-- 右侧：控制选项区（高对比度设计，绝无颜色重叠） -->
+        <div class="flex flex-wrap items-center gap-14px">
+          <!-- AI 纠偏开关胶囊 -->
+          <div class="flex items-center gap-8px rounded-8px bg-gray-50 dark:bg-dark-600 px-10px py-6px border border-gray-200/80 dark:border-dark-500">
             <NSwitch v-model:value="aiCorrection" size="small" />
-            <span class="text-12px font-medium">AI 格式矫正</span>
+            <span class="text-13px font-medium text-gray-700 dark:text-gray-200">AI 格式纠偏</span>
             <NTooltip>
-              <template #trigger><span class="cursor-help text-13px text-slate-400">ℹ️</span></template>
+              <template #trigger>
+                <span class="cursor-help text-13px text-gray-400 hover:text-gray-600">ℹ️</span>
+              </template>
               自动从杂乱聊天记录中智能提取学校、账号和密码。
             </NTooltip>
           </div>
 
-          <!-- 模式切换 -->
-          <NButtonGroup size="small">
-            <NButton :type="!batchMode ? 'primary' : 'default'" @click="batchMode = false">
-              单账号
-            </NButton>
-            <NButton :type="batchMode ? 'primary' : 'default'" @click="batchMode = true">
-              多账号批量
-            </NButton>
-          </NButtonGroup>
+          <!-- 模式分段选择器 (Segmented Control，色彩对比极其清晰) -->
+          <NRadioGroup v-model:value="batchMode" size="small">
+            <NRadioButton value="single">
+              <span class="px-4px font-medium">单账号录入</span>
+            </NRadioButton>
+            <NRadioButton value="batch">
+              <span class="px-4px font-medium">多账号批量</span>
+            </NRadioButton>
+          </NRadioGroup>
         </div>
       </div>
-    </div>
+    </NCard>
 
-    <!-- 下单公告横幅 -->
-    <NAlert v-if="notice" type="warning" title="全站下单特别通知" :show-icon="true" class="rounded-8px">
+    <!-- 下单特别通知 -->
+    <NAlert v-if="notice" type="warning" title="全站下单特别通知" :show-icon="true" class="rounded-10px">
       <div class="whitespace-pre-wrap leading-relaxed text-13px">{{ notice }}</div>
     </NAlert>
 
@@ -423,7 +416,7 @@ onMounted(loadCatalog);
             <div class="w-full overflow-x-auto pb-4px">
               <NRadioGroup v-model:value="categoryId" size="small">
                 <NSpace :wrap="false">
-                  <NRadioButton value="all">🌟 全部平台</NRadioButton>
+                  <NRadioButton value="all">全部平台</NRadioButton>
                   <NRadioButton value="favorites">⭐ 我的收藏</NRadioButton>
                   <NRadioButton v-for="item in categories" :key="item.id" :value="item.id">
                     {{ item.name }}
@@ -449,7 +442,7 @@ onMounted(loadCatalog);
                 <template #trigger>
                   <NButton circle secondary :disabled="!productId" @click="toggleFavorite">
                     <template #icon>
-                      <span :class="favoriteIds.includes(productId) ? 'text-amber-500' : 'text-gray-400'">★</span>
+                      <span :class="favoriteIds.includes(productId) ? 'text-amber-500 text-16px' : 'text-gray-400 text-16px'">★</span>
                     </template>
                   </NButton>
                 </template>
@@ -458,24 +451,24 @@ onMounted(loadCatalog);
             </div>
           </NFormItem>
 
-          <!-- 选定平台高光卡片 -->
-          <div v-if="selectedProduct" class="mb-16px rounded-8px bg-slate-50 p-12px dark:bg-dark-600 border border-slate-200 dark:border-dark-500">
-            <div class="flex flex-wrap items-center justify-between gap-8px">
+          <!-- 选定平台高光参数卡片 (优雅清爽设计) -->
+          <div v-if="selectedProduct" class="mb-16px rounded-10px bg-slate-50/90 p-14px dark:bg-dark-600/80 border border-slate-200/80 dark:border-dark-500">
+            <div class="flex flex-wrap items-center justify-between gap-10px">
               <div class="flex items-center gap-8px">
                 <span class="text-14px font-bold text-gray-800 dark:text-gray-100">{{ selectedProduct.name }}</span>
-                <NTag size="tiny" type="info">CID: {{ selectedProduct.id }}</NTag>
+                <NTag size="tiny" type="info" round>CID: {{ selectedProduct.id }}</NTag>
               </div>
               <div class="flex items-center gap-12px text-13px">
                 <span class="text-gray-500">
-                  下单单价：<strong class="font-mono text-primary font-bold">¥ {{ selectedProduct.price }}</strong> / 门
+                  下单单价：<strong class="font-mono text-primary font-bold text-15px">¥ {{ selectedProduct.price }}</strong> / 门
                 </span>
                 <span class="text-gray-500">
                   查课扣费：<strong class="font-mono text-gray-700 dark:text-gray-300 font-medium">¥ {{ selectedProduct.queryFee }}</strong> / 账号
                 </span>
               </div>
             </div>
-            <div v-if="selectedProduct.content" class="mt-8px text-12px text-gray-500 bg-white dark:bg-dark-500 p-8px rounded-6px border border-gray-100 dark:border-dark-400">
-              平台要求与说明：{{ selectedProduct.content }}
+            <div v-if="selectedProduct.content" class="mt-8px text-12px text-gray-500 bg-white dark:bg-dark-500 p-8px rounded-6px border border-gray-100 dark:border-dark-400 leading-relaxed">
+              平台考核要求与说明：{{ selectedProduct.content }}
             </div>
           </div>
 
@@ -484,7 +477,7 @@ onMounted(loadCatalog);
             <div class="w-full flex flex-col gap-8px">
               <div class="flex flex-wrap items-center justify-between gap-8px text-12px text-gray-400">
                 <span>
-                  {{ batchMode ? '每行一条信息：学校 账号 密码（空格分隔）' : '录入格式：学校 账号 密码（无学校可直接输入账号 密码）' }}
+                  {{ batchMode === 'batch' ? '每行一条信息：学校 账号 密码（空格分隔）' : '录入格式：学校 账号 密码（如无学校可直接输入：账号 密码）' }}
                 </span>
                 <div class="flex items-center gap-6px">
                   <NButton size="tiny" secondary @click="fillSampleData">填入示例</NButton>
@@ -497,8 +490,8 @@ onMounted(loadCatalog);
 
               <NInput
                 v-model:value="userinfo"
-                :type="batchMode ? 'textarea' : 'text'"
-                :autosize="batchMode ? { minRows: 4, maxRows: 10 } : false"
+                :type="batchMode === 'batch' ? 'textarea' : 'text'"
+                :autosize="batchMode === 'batch' ? { minRows: 4, maxRows: 10 } : false"
                 :placeholder="inputPlaceholder"
                 class="font-mono text-13px leading-relaxed"
                 @blur="applyAiCorrection(false)"
@@ -543,12 +536,12 @@ onMounted(loadCatalog);
       </NSpin>
     </NCard>
 
-    <!-- 查课结果卡片流（核心呈现加强） -->
+    <!-- 查课结果卡片流（立体高级质感，选中状态极致清晰） -->
     <NCard v-if="results.length" :bordered="false" class="rounded-12px shadow-sm">
       <template #header>
         <div class="flex flex-wrap items-center justify-between gap-10px">
           <div class="flex items-center gap-10px">
-            <span class="text-16px font-bold">在线查课结果清单</span>
+            <span class="text-16px font-bold text-gray-800 dark:text-gray-100">在线查课结果清单</span>
             <NTag size="small" type="primary" round>
               已选 {{ selections.length }} / {{ totalCourses }} 门
             </NTag>
@@ -565,7 +558,12 @@ onMounted(loadCatalog);
       </template>
 
       <NCollapse :default-expanded-names="results.map(item => item.userinfo)" class="flex flex-col gap-12px">
-        <NCollapseItem v-for="result in results" :key="result.userinfo" :name="result.userinfo" class="rounded-8px border border-gray-100 bg-gray-50/50 p-6px dark:border-dark-600 dark:bg-dark-600/30">
+        <NCollapseItem
+          v-for="result in results"
+          :key="result.userinfo"
+          :name="result.userinfo"
+          class="rounded-10px border border-gray-100 bg-gray-50/50 p-6px dark:border-dark-600 dark:bg-dark-600/30"
+        >
           <template #header>
             <div class="flex flex-wrap items-center gap-10px text-13px">
               <span class="font-bold text-gray-800 dark:text-gray-100">{{ result.userName || '学生姓名' }}</span>
@@ -580,11 +578,11 @@ onMounted(loadCatalog);
             <NEmpty :description="result.msg || '未查询到任何开课记录'" />
           </div>
 
-          <!-- 课程卡片栅格 (重磅美化) -->
+          <!-- 课程卡片栅格 (选中态高亮 + 勾选微标) -->
           <NGrid v-else cols="1 s:2 l:3" responsive="screen" :x-gap="12" :y-gap="12" class="mt-8px">
             <NGi v-for="course in result.courses" :key="`${result.userinfo}-${course.id || course.name}`">
               <div
-                class="relative rounded-8px border p-12px transition-all cursor-pointer select-none"
+                class="relative rounded-10px border p-12px transition-all cursor-pointer select-none"
                 :class="
                   isSelected(result, course)
                     ? 'border-primary bg-primary/5 shadow-sm dark:bg-primary/10'
@@ -632,15 +630,15 @@ onMounted(loadCatalog);
         </NCollapseItem>
       </NCollapse>
 
-      <!-- 底部吸底结算工具栏 (极具电商大盘质感) -->
-      <div v-if="selections.length > 0" class="mt-16px flex flex-wrap items-center justify-between gap-12px rounded-8px bg-slate-900 p-12px text-white shadow-lg">
+      <!-- 底部吸底结算栏 (高质感通透浅色排版，与全站风格 100% 协调) -->
+      <div v-if="selections.length > 0" class="mt-16px flex flex-wrap items-center justify-between gap-12px rounded-10px bg-slate-50 dark:bg-dark-600 p-14px border border-primary/40 shadow-md">
         <div class="flex items-center gap-12px">
-          <span class="text-13px text-slate-300">
-            已勾选 <strong class="text-16px font-bold text-emerald-400 font-mono">{{ selections.length }}</strong> 门课程
+          <span class="text-13px text-gray-600 dark:text-gray-300">
+            已勾选 <strong class="text-16px font-bold text-primary font-mono">{{ selections.length }}</strong> 门课程
           </span>
-          <span class="text-slate-600">|</span>
-          <span class="text-13px text-slate-300">
-            预计结算总计：<strong class="text-20px font-bold text-emerald-400 font-mono">¥ {{ estimatedSubmitCost }}</strong>
+          <span class="text-gray-300 dark:text-gray-600">|</span>
+          <span class="text-13px text-gray-600 dark:text-gray-300">
+            预计结算总计：<strong class="text-20px font-bold text-rose-500 font-mono">¥ {{ estimatedSubmitCost }}</strong>
           </span>
         </div>
         <div class="flex items-center gap-8px">
@@ -652,7 +650,7 @@ onMounted(loadCatalog);
       </div>
     </NCard>
 
-    <!-- 下单注意事项 -->
+    <!-- 下单核心注意事项 -->
     <NCard title="网课下单核心指引与注意事项" :bordered="false" class="rounded-12px shadow-sm">
       <NTimeline>
         <NTimelineItem type="error" title="查课与扣费规则" content="请务必在提交前查看对应平台的说明，不同平台支持的平时分和作业进度规则各有不同。" />
