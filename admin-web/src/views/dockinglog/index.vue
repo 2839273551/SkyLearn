@@ -137,14 +137,14 @@ function exportCsv() {
 }
 
 const statusOptions = [
-  { label: '全部状态 (All Status)', value: undefined },
-  { label: '请求成功 (200 OK)', value: 1 },
-  { label: '异常拦截 (Failed)', value: 0 }
+  { label: '全部状态', value: undefined },
+  { label: '请求成功 (200)', value: 1 },
+  { label: '异常拦截', value: 0 }
 ];
 
 const columns: DataTableColumns<Api.DockingLog.Item> = [
   {
-    title: '请求时间 (Timestamp)',
+    title: '请求时间',
     key: 'created_at',
     width: 175,
     render: row =>
@@ -163,7 +163,7 @@ const columns: DataTableColumns<Api.DockingLog.Item> = [
       )
   },
   {
-    title: '通信方向 (Direction)',
+    title: '通信方向',
     key: 'direction',
     width: 125,
     render: row => {
@@ -179,13 +179,13 @@ const columns: DataTableColumns<Api.DockingLog.Item> = [
         },
         {
           icon: () => (isIn ? '📥' : '📤'),
-          default: () => (isIn ? '入站 [IN]' : '出站 [OUT]')
+          default: () => (isIn ? '入站调用' : '出站转发')
         }
       );
     }
   },
   {
-    title: '调用主体 (Caller / Identity)',
+    title: '调用主体',
     key: 'caller',
     width: 175,
     render: row =>
@@ -209,7 +209,7 @@ const columns: DataTableColumns<Api.DockingLog.Item> = [
       ])
   },
   {
-    title: '接口服务与端点 (Action & Endpoint)',
+    title: '接口服务与端点',
     key: 'action',
     minWidth: 200,
     render: row =>
@@ -234,7 +234,7 @@ const columns: DataTableColumns<Api.DockingLog.Item> = [
       ])
   },
   {
-    title: '单次网络吞吐 (Traffic Payload)',
+    title: '单次网络吞吐',
     key: 'traffic_total',
     width: 165,
     render: row => {
@@ -273,15 +273,15 @@ const columns: DataTableColumns<Api.DockingLog.Item> = [
             h('div', { class: 'text-12px p-4px leading-relaxed' }, [
               h('div', { class: 'font-bold text-emerald-400 mb-4px' }, '⚡ 单次网络 I/O 负载明细:'),
               h('div', `总计传输: ${row.traffic_text} (${row.traffic_total} 字节)`),
-              h('div', `上行请求 (Inbound): ${row.bytes_in} 字节`),
-              h('div', `下行响应 (Outbound): ${row.bytes_out} 字节`)
+              h('div', `上行请求: ${row.bytes_in} 字节`),
+              h('div', `下行响应: ${row.bytes_out} 字节`)
             ])
         }
       );
     }
   },
   {
-    title: '往返延迟 (Latency)',
+    title: '往返延迟',
     key: 'cost_ms',
     width: 115,
     render: row => {
@@ -305,7 +305,7 @@ const columns: DataTableColumns<Api.DockingLog.Item> = [
     }
   },
   {
-    title: '响应状态 (Status Code)',
+    title: '响应状态',
     key: 'status',
     width: 105,
     render: row =>
@@ -425,9 +425,9 @@ onBeforeUnmount(() => {
         <div class="flex items-center gap-10px">
           <span class="inline-flex h-10px w-10px animate-ping rounded-full bg-emerald-400 opacity-75"></span>
           <span class="inline-flex h-8px w-8px -ml-13px rounded-full bg-emerald-500"></span>
-          <h2 class="text-16px font-bold tracking-wide">API Gateway & 对接链路监控大盘 (APM)</h2>
+          <h2 class="text-16px font-bold tracking-wide">接口对接与网关链路监控大盘</h2>
           <NTag size="tiny" type="success" round class="font-mono text-10px bg-emerald-500/20 text-emerald-300 border-none">
-            LIVE MONITORING
+            实时监控中
           </NTag>
         </div>
         <div class="flex items-center gap-12px text-12px text-slate-300">
@@ -448,7 +448,7 @@ onBeforeUnmount(() => {
       <!-- 核心指标栅格 -->
       <div class="grid grid-cols-2 gap-12px sm:grid-cols-3 lg:grid-cols-6">
         <div class="rounded-8px bg-slate-800/80 p-12px border border-slate-700">
-          <div class="text-11px font-mono text-slate-400">今日吞吐总量 (Requests)</div>
+          <div class="text-11px font-mono text-slate-400">今日吞吐总量</div>
           <div class="mt-4px flex items-baseline gap-4px">
             <span class="text-22px font-bold font-mono text-white">{{ metrics.today_total }}</span>
             <span class="text-11px text-slate-400">次</span>
@@ -457,7 +457,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="rounded-8px bg-slate-800/80 p-12px border border-slate-700">
-          <div class="text-11px font-mono text-slate-400">入站调用 (Inbound Calls)</div>
+          <div class="text-11px font-mono text-slate-400">入站调用</div>
           <div class="mt-4px flex items-baseline gap-4px">
             <span class="text-22px font-bold font-mono text-emerald-400">{{ metrics.today_in }}</span>
             <span class="text-11px text-slate-400">次</span>
@@ -466,7 +466,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="rounded-8px bg-slate-800/80 p-12px border border-slate-700">
-          <div class="text-11px font-mono text-slate-400">出站请求 (Outbound Calls)</div>
+          <div class="text-11px font-mono text-slate-400">出站请求</div>
           <div class="mt-4px flex items-baseline gap-4px">
             <span class="text-22px font-bold font-mono text-sky-400">{{ metrics.today_out }}</span>
             <span class="text-11px text-slate-400">次</span>
@@ -476,7 +476,7 @@ onBeforeUnmount(() => {
 
         <div class="rounded-8px bg-slate-800/80 p-12px border border-emerald-500/40 relative overflow-hidden">
           <div class="text-11px font-mono text-emerald-300 font-bold flex items-center gap-4px">
-            <span>⚡ 网络吞吐消耗 (Bandwidth)</span>
+            <span>⚡ 网络吞吐消耗</span>
           </div>
           <div class="mt-4px flex items-baseline gap-4px">
             <span class="text-22px font-bold font-mono text-emerald-400">{{ metrics.today_traffic }}</span>
@@ -485,7 +485,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="rounded-8px bg-slate-800/80 p-12px border border-slate-700">
-          <div class="text-11px font-mono text-slate-400">平均响应延迟 (Latency)</div>
+          <div class="text-11px font-mono text-slate-400">平均响应延迟</div>
           <div class="mt-4px flex items-baseline gap-4px">
             <span class="text-22px font-bold font-mono" :class="metrics.avg_cost_ms < 300 ? 'text-emerald-400' : 'text-amber-400'">
               {{ metrics.avg_cost_ms }}
@@ -493,12 +493,12 @@ onBeforeUnmount(() => {
             <span class="text-11px text-slate-400">ms</span>
           </div>
           <div class="mt-4px text-10px" :class="metrics.avg_cost_ms < 300 ? 'text-emerald-400' : 'text-amber-400'">
-            {{ metrics.avg_cost_ms < 300 ? '极速响应 (Optimal)' : '一般延迟 (Normal)' }}
+            {{ metrics.avg_cost_ms < 300 ? '极速响应' : '一般延迟' }}
           </div>
         </div>
 
         <div class="rounded-8px bg-slate-800/80 p-12px border border-slate-700">
-          <div class="text-11px font-mono text-slate-400">服务可用率 (SLA Uptime)</div>
+          <div class="text-11px font-mono text-slate-400">服务可用率</div>
           <div class="mt-4px flex items-baseline gap-4px">
             <span class="text-22px font-bold font-mono text-teal-400">{{ metrics.success_rate }}</span>
           </div>
@@ -547,9 +547,9 @@ onBeforeUnmount(() => {
 
       <!-- 流向分类 Tab 切换 -->
       <NTabs v-model:value="query.direction" type="line" class="mb-14px" @update:value="handleTabChange">
-        <NTabPane name="" tab="🔄 全部请求 (All Requests)" />
-        <NTabPane name="in" tab="📥 入站调用 (Inbound Open API)" />
-        <NTabPane name="out" tab="📤 出站转发 (Outbound Upstream)" />
+        <NTabPane name="" tab="🔄 全部请求" />
+        <NTabPane name="in" tab="📥 入站调用" />
+        <NTabPane name="out" tab="📤 出站转发" />
       </NTabs>
 
       <!-- 搜索过滤条 -->
@@ -679,14 +679,14 @@ onBeforeUnmount(() => {
 
     <!-- 深度报文检视器 (Payload Inspector Drawer) -->
     <NDrawer v-model:show="drawerVisible" :width="620" placement="right">
-      <NDrawerContent :title="`全链路报文检查器 (Payload Inspector) #${currentItem?.id || ''}`" closable>
+      <NDrawerContent :title="`全链路报文检查器 #${currentItem?.id || ''}`" closable>
         <div v-if="currentItem" class="flex flex-col gap-16px">
           <!-- 核心元数据看板 -->
           <div class="rounded-8px border border-gray-200 bg-gray-50/80 p-14px dark:border-dark-600 dark:bg-dark-600/50">
             <div class="mb-10px flex items-center justify-between border-b border-gray-200 pb-8px dark:border-dark-500">
               <div class="flex items-center gap-8px">
                 <NTag size="small" :type="currentItem.direction === 'in' ? 'success' : 'info'" round>
-                  {{ currentItem.direction === 'in' ? '📥 入站调用 [INBOUND]' : '📤 出站转发 [OUTBOUND]' }}
+                  {{ currentItem.direction === 'in' ? '📥 入站调用' : '📤 出站转发' }}
                 </NTag>
                 <NTag size="small" :type="currentItem.status === 1 ? 'success' : 'error'">
                   {{ currentItem.status === 1 ? '200 OK 响应正常' : '异常 / 拦截' }}
@@ -727,8 +727,8 @@ onBeforeUnmount(() => {
                 </strong>
               </div>
               <div class="mt-6px flex items-center justify-between text-11px text-emerald-700 dark:text-emerald-400/80 border-t border-emerald-200/40 pt-6px">
-                <span>上行负载 (Inbound Body): {{ currentItem.bytes_in }} Bytes</span>
-                <span>下行负载 (Outbound Body): {{ currentItem.bytes_out }} Bytes</span>
+                <span>上行负载: {{ currentItem.bytes_in }} 字节</span>
+                <span>下行负载: {{ currentItem.bytes_out }} 字节</span>
                 <span>往返延迟: {{ currentItem.cost_ms }} ms</span>
               </div>
             </div>
@@ -737,8 +737,8 @@ onBeforeUnmount(() => {
           <!-- 报文选项卡 -->
           <NTabs v-model:value="detailActiveTab" type="segment">
             <NTabPane name="overview" tab="📋 综合全览" />
-            <NTabPane name="request" tab="📤 请求入参 (Request Body)" />
-            <NTabPane name="response" tab="📥 响应结果 (Response Body)" />
+            <NTabPane name="request" tab="📤 请求入参" />
+            <NTabPane name="response" tab="📥 响应结果" />
           </NTabs>
 
           <!-- 选项卡 1：综合视图 -->
