@@ -1982,8 +1982,10 @@ if ($action === 'guanx-delete') {
 // ------------------------------------------
 
 if ($action === 'gglist-list') {
-    api_require_super($userrow, $islogin);
-    $res = $DB->query('SELECT * FROM qingka_wangke_gonggao ORDER BY CAST(zhiding AS UNSIGNED) DESC, id DESC');
+    api_require_login(isset($islogin) ? $islogin : 0);
+    $currentUid = intval($userrow['uid']);
+    $where = ($currentUid === 1) ? '' : 'WHERE status=1';
+    $res = $DB->query("SELECT * FROM qingka_wangke_gonggao $where ORDER BY CAST(zhiding AS UNSIGNED) DESC, id DESC");
     $list = array();
     while ($r = $DB->fetch($res)) {
         $list[] = array(
