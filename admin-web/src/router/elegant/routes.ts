@@ -75,7 +75,8 @@ export const generatedRoutes: GeneratedRoute[] = [
     component: 'layout.base$view.adduser',
     meta: {
       title: '添加代理',
-      hideInMenu: true
+      icon: 'ph:user-plus',
+      order: 54
     }
   },
   {
@@ -188,7 +189,9 @@ export const generatedRoutes: GeneratedRoute[] = [
     component: 'layout.base$view.dockinglog',
     meta: {
       title: '对接监控',
-      icon: 'ph:plugs-connected'
+      icon: 'ph:plugs-connected',
+      order: 23,
+      roles: ['R_SUPER']
     }
   },
   {
@@ -265,8 +268,8 @@ export const generatedRoutes: GeneratedRoute[] = [
       title: 'iframe-page',
       i18nKey: 'route.iframe-page',
       constant: true,
-      hideInMenu: true,
-      keepAlive: true
+      keepAlive: true,
+      hideInMenu: true
     }
   },
   {
@@ -274,9 +277,10 @@ export const generatedRoutes: GeneratedRoute[] = [
     path: '/jgjk',
     component: 'layout.base$view.jgjk',
     meta: {
-      title: '价格监控管理',
-      hideInMenu: true,
-      roles: ['R_SUPER']
+      title: '价格监控',
+      roles: ['R_SUPER'],
+      icon: 'ph:chart-line-up',
+      order: 56
     }
   },
   {
@@ -317,8 +321,7 @@ export const generatedRoutes: GeneratedRoute[] = [
     meta: {
       title: 'login',
       i18nKey: 'route.login',
-      constant: true,
-      hideInMenu: true
+      constant: true
     }
   },
   {
@@ -368,7 +371,8 @@ export const generatedRoutes: GeneratedRoute[] = [
     component: 'layout.base$view.passwd',
     meta: {
       title: '修改密码',
-      hideInMenu: true
+      icon: 'ph:lock-key',
+      order: 50
     }
   },
   {
@@ -418,7 +422,9 @@ export const generatedRoutes: GeneratedRoute[] = [
     component: 'layout.base$view.scheduler',
     meta: {
       title: '任务调度',
-      icon: 'ph:clock-clockwise'
+      icon: 'ph:clock-clockwise',
+      order: 24,
+      roles: ['R_SUPER']
     }
   },
   {
@@ -427,7 +433,8 @@ export const generatedRoutes: GeneratedRoute[] = [
     component: 'layout.base$view.sjqy',
     meta: {
       title: '上级迁移',
-      hideInMenu: true
+      icon: 'ph:arrows-merge',
+      order: 51
     }
   },
   {
@@ -435,8 +442,9 @@ export const generatedRoutes: GeneratedRoute[] = [
     path: '/smgz',
     component: 'layout.base$view.smgz',
     meta: {
-      title: '通知频道',
-      hideInMenu: true
+      title: '商户规则',
+      icon: 'ph:shield-check',
+      order: 53
     }
   },
   {
@@ -444,8 +452,9 @@ export const generatedRoutes: GeneratedRoute[] = [
     path: '/tjuser',
     component: 'layout.base$view.tjuser',
     meta: {
-      title: '强国录入账号',
-      hideInMenu: true
+      title: '分销推广',
+      icon: 'ph:share-network',
+      order: 57
     }
   },
   {
@@ -453,8 +462,10 @@ export const generatedRoutes: GeneratedRoute[] = [
     path: '/usergj',
     component: 'layout.base$view.usergj',
     meta: {
-      title: '修改费率',
-      hideInMenu: true
+      title: '批量改价',
+      icon: 'ph:currency-circle-dollar',
+      order: 55,
+      roles: ['R_SUPER']
     }
   },
   {
@@ -482,8 +493,9 @@ export const generatedRoutes: GeneratedRoute[] = [
     path: '/usernotice',
     component: 'layout.base$view.usernotice',
     meta: {
-      title: '设置公告',
-      hideInMenu: true
+      title: '站内通知',
+      icon: 'ph:bell-simple',
+      order: 52
     }
   },
   {
