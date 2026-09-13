@@ -269,14 +269,13 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
     // 0. 多选小框 (复选框)
     {
       type: 'selection',
-      fixed: 'left'
+      width: 36
     },
     // 1. 操作
     {
       title: '操作',
       key: 'actions',
-      width: 125,
-      fixed: 'left',
+      width: 105,
       render: row =>
         h(NSpace, { size: 4, align: 'center' }, () => [
           h(
@@ -316,8 +315,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
     {
       title: '详细',
       key: 'detail',
-      width: 65,
-      fixed: 'left',
+      width: 46,
       align: 'center',
       render: row =>
         h(
@@ -601,7 +599,7 @@ onMounted(loadOrders);
       </div>
 
       <!-- 批量操作折叠面板（高度还原老版小沐） -->
-      <NCollapse :default-expanded-names="['1', '2']" class="mb-16px flex flex-col gap-10px">
+      <NCollapse class="mb-12px flex flex-col gap-8px">
         <!-- 1. 修改任务显示状态 -->
         <NCollapseItem title="✏️ 修改任务显示状态" name="1" class="rounded-8px bg-slate-50 dark:bg-dark-600 p-10px border border-slate-200 dark:border-dark-500">
           <div class="flex flex-wrap items-center gap-8px">
@@ -624,41 +622,23 @@ onMounted(loadOrders);
         </NCollapseItem>
 
         <!-- 2. 处理状态操作 (管理员专属) -->
-        <NCollapseItem v-if="isSuperAdmin" title="✏️ 处理状态操作 (对接与售后)" name="2" class="rounded-8px bg-slate-50 dark:bg-dark-600 p-10px border border-slate-200 dark:border-dark-500">
-          <div class="flex flex-wrap items-center gap-8px">
-            <NButton size="small" type="warning" :loading="batchLoading" @click="handleBatchDockStatus('0', '待处理')">
-              待处理
-            </NButton>
-            <NButton size="small" type="success" :loading="batchLoading" @click="handleBatchDockStatus('1', '处理成功')">
-              处理成功
-            </NButton>
-            <NButton size="small" type="error" :loading="batchLoading" @click="handleBatchDockStatus('2', '处理失败')">
-              处理失败
-            </NButton>
-            <NButton size="small" secondary :loading="batchLoading" @click="handleBatchDockStatus('3', '重复下单')">
-              重复下单
-            </NButton>
-            <NButton size="small" tertiary :loading="batchLoading" @click="handleBatchDockStatus('4', '已取消')">
-              已取消
-            </NButton>
-            <NButton size="small" secondary type="warning" :loading="batchLoading" @click="handleBatchDockStatus('99', '自营订单')">
-              自营订单
-            </NButton>
-
+        <NCollapseItem v-if="isSuperAdmin" title="✏️ 处理状态操作 (对接与售后)" name="2" class="rounded-8px bg-slate-50 dark:bg-dark-600 p-8px border border-slate-200 dark:border-dark-500">
+          <div class="flex flex-wrap items-center gap-6px">
+            <NButton size="tiny" type="warning" :loading="batchLoading" @click="handleBatchDockStatus('0', '待处理')">待处理</NButton>
+            <NButton size="tiny" type="success" :loading="batchLoading" @click="handleBatchDockStatus('1', '处理成功')">处理成功</NButton>
+            <NButton size="tiny" type="error" :loading="batchLoading" @click="handleBatchDockStatus('2', '处理失败')">处理失败</NButton>
+            <NButton size="tiny" secondary :loading="batchLoading" @click="handleBatchDockStatus('3', '重复下单')">重复下单</NButton>
+            <NButton size="tiny" tertiary :loading="batchLoading" @click="handleBatchDockStatus('4', '已取消')">已取消</NButton>
+            <NButton size="tiny" secondary type="warning" :loading="batchLoading" @click="handleBatchDockStatus('99', '自营订单')">自营订单</NButton>
             <NPopconfirm @positive-click="handleBatchRefund">
               <template #trigger>
-                <NButton size="small" type="error" :loading="batchLoading">
-                  订单退款
-                </NButton>
+                <NButton size="tiny" type="error" :loading="batchLoading">订单退款</NButton>
               </template>
               确定为勾选的 {{ checkedRowKeys.length }} 笔订单全额退款吗？资金将原路退回用户余额。
             </NPopconfirm>
-
             <NPopconfirm @positive-click="handleBatchDelete">
               <template #trigger>
-                <NButton size="small" type="error" dashed :loading="batchLoading">
-                  订单删除
-                </NButton>
+                <NButton size="tiny" type="error" dashed :loading="batchLoading">订单删除</NButton>
               </template>
               确定彻底删除勾选的 {{ checkedRowKeys.length }} 笔订单吗？此操作不可恢复！
             </NPopconfirm>
@@ -696,7 +676,7 @@ onMounted(loadOrders);
         :row-key="(row: Api.Orders.Record) => row.orderId"
         :pagination="false"
         striped
-        :scroll-x="isSuperAdmin ? 1860 : 1720"
+        
       />
 
       <div class="mt-16px flex justify-end">
