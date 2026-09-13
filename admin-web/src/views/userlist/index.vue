@@ -4,11 +4,14 @@ import { useRoute } from 'vue-router';
 import type { DataTableColumns } from 'naive-ui';
 import { NAvatar, NButton, NInput, NInputNumber, NSpace, NSwitch, NTag } from 'naive-ui';
 import { useAppStore } from '@/store/modules/app';
+import { useAuthStore } from '@/store/modules/auth';
 import { createUser, fetchGradeOptions, fetchUserlistList, rechargeUserBalance, updateUserRate, updateUserStatus } from '@/service/api';
 
 defineOptions({ name: 'Userlist' });
 
 const appStore = useAppStore();
+const authStore = useAuthStore();
+const isSuperAdmin = computed(() => authStore.userInfo.roles.includes('R_SUPER'));
 const route = useRoute();
 
 const loading = ref(false);
@@ -259,7 +262,10 @@ onMounted(() => {
 
 <template>
   <div class="flex flex-col gap-14px p-10px sm:p-16px">
-    <NCard title="代理管理" :bordered="false" class="rounded-8px shadow-sm">
+    <NCard :title="isSuperAdmin ? '代理管理 (全站商户)' : '代理管理 (我的下级代理)'" :bordered="false" class="rounded-8px shadow-sm">
+      <p v-if="!isSuperAdmin" class="text-12px text-gray-500 mb-12px bg-amber-50 dark:bg-dark-500 p-8px rounded-6px border border-amber-200 dark:border-dark-400">
+        💡 提示：您当前查看的是直属于您名下的下级代理团队。您可点击右上角“➕ 添加代理”开通直属下级，也可在操作列为直属下级充值或调整费率。
+      </p>
       <div class="mb-16px flex flex-wrap items-center justify-between gap-12px">
         <div class="flex flex-wrap items-center gap-10px">
           <NInput v-model:value="query.keyword" placeholder="UID / 账号 / 昵称 / 邀请码" clearable class="w-full sm:w-240px" @keyup.enter="loadData" />
@@ -310,7 +316,7 @@ onMounted(() => {
     <NModal v-model:show="rechargeModal" preset="card" title="代理余额调整" :style="{ width: appStore.isMobile ? '92vw' : '460px' }">
       <div class="flex flex-col gap-12px">
         <div class="text-14px">目标代理：<strong>[UID: {{ currentUid }}] {{ currentUserName }}</strong></div>
-        <NFormItem label="调整金额 (正数增加，负数扣除)">
+        <NFormItem :label="isSuperAdmin ? '调整金额 (正数增加，负数扣除)' : '充值金额 (将从您的账户余额扣除)'">
           <NInputNumber v-model:value="rechargeAmount" :step="10" class="w-full">
             <template #prefix>¥</template>
           </NInputNumber>
@@ -328,7 +334,7 @@ onMounted(() => {
     <NModal v-model:show="rateModal" preset="card" title="修改代理费率" :style="{ width: appStore.isMobile ? '92vw' : '460px' }">
       <div class="flex flex-col gap-12px">
         <div class="text-14px">目标代理：<strong>[UID: {{ currentUid }}] {{ currentUserName }}</strong></div>
-        <NFormItem label="新费率系数 (如 0.25 代表 2.5 折成本)">
+        <NFormItem :label="isSuperAdmin ? '新费率系数 (如 0.25 代表 2.5 折成本)' : '下级成本费率 (不可低于您自身成本费率)'">
           <NInput v-model:value="targetRate" placeholder="输入费率系数，如 0.30" />
         </NFormItem>
       </div>
@@ -341,7 +347,7 @@ onMounted(() => {
     </NModal>
 
     <!-- 开通代理弹窗 -->
-    <NModal v-model:show="createModal" preset="card" title="开通下级代理账号" :style="{ width: appStore.isMobile ? '92vw' : '520px' }">
+    <NModal v-model:show="createModal" preset="card" :title="isSuperAdmin ? '开通代理账号' : '开通直属下级代理'" :style="{ width: appStore.isMobile ? '92vw' : '520px' }">
       <div class="flex flex-col gap-14px">
         <NAlert v-if="openReg === '0'" type="error">当前系统设置已暂停后台开户</NAlert>
         <div class="grid grid-cols-1 gap-12px sm:grid-cols-2">
