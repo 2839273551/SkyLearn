@@ -76,7 +76,8 @@ export const generatedRoutes: GeneratedRoute[] = [
     meta: {
       title: '添加代理',
       icon: 'ph:user-plus',
-      order: 54
+      order: 54,
+      hideInMenu: true
     }
   },
   {

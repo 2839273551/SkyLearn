@@ -190,7 +190,7 @@ if ($action === 'user-grade-options') {
     api_respond(0, 'ok', array(
         'grades' => $grades,
         'user_htkh' => $openReg,
-        'user_ktmoney' => $ktMoney,
+        'user_ktmoney' => ($currentUid === 1) ? 0.0 : $ktMoney,
         'current_user_rate' => $userRate,
         'is_admin' => $currentUid === 1
     ));
@@ -241,7 +241,7 @@ if ($action === 'user-create') {
         api_respond(400, "下级成本费率不能低于您自身的费率 ({$userRate}×)");
     }
 
-    $ktFee = isset($conf['user_ktmoney']) ? floatval($conf['user_ktmoney']) : 0.0;
+    $ktFee = ($currentUid === 1) ? 0.0 : (isset($conf['user_ktmoney']) ? floatval($conf['user_ktmoney']) : 0.0);
     $firstRecharge = 0.0;
     if (intval($gradeRow['addkf']) === 1) {
         $firstRecharge = floatval($gradeRow['money']);
@@ -249,29 +249,49 @@ if ($action === 'user-create') {
 
     $deductRecharge = 0.0;
     if ($firstRecharge > 0 && $targetRate > 0) {
-        $deductRecharge = round($firstRecharge * ($userRate / $targetRate), 2);
+        if ($currentUid === 1) {
+            $deductRecharge = 0.0;
+        } else {
+            $deductRecharge = round($firstRecharge * ($userRate / $targetRate), 2);
+        }
     }
     $totalNeed = round($ktFee + $deductRecharge, 2);
 
     $currentMoney = floatval($userrow['money']);
-    if ($currentMoney < $totalNeed) {
+    if ($currentUid !== 1 && $currentMoney < $totalNeed) {
         api_respond(400, "可用余额不足！开户需手续费 {$ktFee} 元" . ($deductRecharge > 0 ? " 及下级首充扣款 {$deductRecharge} 元" : '') . "，当前余额 {$currentMoney} 元");
     }
 
     $passSafe = daddslashes($pass);
     $now = date('Y-m-d H:i:s');
     $yqm = substr(md5($user . time() . mt_rand(100, 999)), 0, 8);
+    $gradeName = isset($gradeRow['name']) ? trim($gradeRow['name']) : '';
+    $gradeNameSafe = daddslashes($gradeName);
+    $clientIp = function_exists('real_ip') ? real_ip() : (isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '127.0.0.1');
+    $clientIpSafe = daddslashes($clientIp);
 
+    // 严密适配 qingka_wangke_user 表结构：移除不存在的 addpriceid 字段，补齐严格模式下所有 NOT NULL 字段的安全默认值
     $sql = "INSERT INTO `qingka_wangke_user` 
-        (`uuid`, `user`, `pass`, `name`, `addprice`, `addpriceid`, `money`, `yqm`, `addtime`, `active`) 
+        (`uuid`, `user`, `pass`, `name`, `qq_openid`, `nickname`, `faceimg`, `money`, `zcz`, `addprice`, `key`, `yqm`, `yqprice`, `notice`, `addtime`, `endtime`, `ip`, `grade`, `active`, `vip`, `last_sign_in_date`, `used_batches`, `daily_invites`, `freeadd`) 
         VALUES 
-        ('$currentUid', '$userSafe', '$passSafe', '$nameSafe', '$targetRate', '$gradeId', '$firstRecharge', '$yqm', '$now', 1)";
+        ('$currentUid', '$userSafe', '$passSafe', '$nameSafe', '', '$nameSafe', '', '$firstRecharge', '$firstRecharge', '$targetRate', '0', '$yqm', '0.2', '', '$now', '', '$clientIpSafe', '$gradeNameSafe', '1', 0, '', '', 0, 0)";
 
     if (!$DB->query($sql)) {
-        api_respond(500, '创建代理失败，请稍后重试');
+        $dbErr = method_exists($DB, 'error') ? $DB->error() : '';
+        api_respond(500, '创建代理失败' . ($dbErr ? ": {$dbErr}" : '，请稍后重试'));
     }
 
-    $newUid = $DB->insert_id();
+    $newUid = 0;
+    if (method_exists($DB, 'insert_id')) {
+        $newUid = intval($DB->insert_id());
+    }
+    if ($newUid <= 0 && isset($DB->link)) {
+        $newUid = intval(mysqli_insert_id($DB->link));
+    }
+    if ($newUid <= 0) {
+        $createdUser = $DB->get_row("SELECT `uid` FROM `qingka_wangke_user` WHERE `user`='$userSafe' ORDER BY `uid` DESC LIMIT 1");
+        $newUid = $createdUser ? intval($createdUser['uid']) : 0;
+    }
 
     if ($totalNeed > 0) {
         $DB->query("UPDATE `qingka_wangke_user` SET `money`=`money`-'$totalNeed' WHERE `uid`='$currentUid' LIMIT 1");
@@ -282,8 +302,12 @@ if ($action === 'user-create') {
             wlog($currentUid, "添加商户", "开通下级代理 {$name} (UID: {$newUid})，扣除开户费 {$ktFee} 元", -$ktFee);
         }
         if ($firstRecharge > 0) {
-            wlog($currentUid, "代理充值", "为新下级 {$name} (UID: {$newUid}) 首充 {$firstRecharge} 元，折算扣除 {$deductRecharge} 元", -$deductRecharge);
-            wlog($newUid, "上级充值", "上级开户赠送初始余额 {$firstRecharge} 元", +$firstRecharge);
+            if ($deductRecharge > 0) {
+                wlog($currentUid, "代理充值", "为新下级 {$name} (UID: {$newUid}) 首充 {$firstRecharge} 元，折算扣除 {$deductRecharge} 元", -$deductRecharge);
+            }
+            if ($newUid > 0) {
+                wlog($newUid, "上级充值", "上级开户赠送初始余额 {$firstRecharge} 元", +$firstRecharge);
+            }
         }
     }
 

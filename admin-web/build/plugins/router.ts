@@ -69,7 +69,7 @@ export function setupElegantRouter() {
         sjqy: { title: '上级迁移', icon: 'ph:arrows-merge', order: 51 },
         usernotice: { title: '站内通知', hideInMenu: true },
         smgz: { title: '商户规则', icon: 'ph:shield-check', order: 53 },
-        adduser: { title: '添加代理', icon: 'ph:user-plus', order: 54 },
+        adduser: { title: '添加代理', icon: 'ph:user-plus', order: 54, hideInMenu: true },
         usergj: { title: '批量改价', icon: 'ph:currency-circle-dollar', order: 55, roles: ['R_SUPER'] },
         jgjk: { title: '价格监控', icon: 'ph:chart-line-up', order: 56, roles: ['R_SUPER'] },
         tjuser: { title: '分销推广', icon: 'ph:share-network', order: 57 },

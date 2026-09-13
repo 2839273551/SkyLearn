@@ -80,6 +80,9 @@ mysqli_query($this->link,"set names 'utf8'");
 				return mysqli_insert_id($this->link); 
 			return false;
 		}
+		function insert_id(){
+			return mysqli_insert_id($this->link);
+		}
 		function affected(){
 			return mysqli_affected_rows($this->link);
 		}
@@ -148,6 +151,9 @@ mysql_query("set names 'utf8'");
 			if(mysql_query($q, $this->link))
 				return mysql_insert_id($this->link);
 			return false;
+		}
+		function insert_id(){
+			return mysql_insert_id($this->link);
 		}
 		function insert_array($table,$array){
 			$q = "INSERT INTO `$table`";

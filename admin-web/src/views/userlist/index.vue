@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref } from 'vue';
+import { useRoute } from 'vue-router';
 import type { DataTableColumns } from 'naive-ui';
 import { NAvatar, NButton, NInput, NInputNumber, NSpace, NSwitch, NTag } from 'naive-ui';
 import { useAppStore } from '@/store/modules/app';
@@ -8,6 +9,7 @@ import { createUser, fetchGradeOptions, fetchUserlistList, rechargeUserBalance, 
 defineOptions({ name: 'Userlist' });
 
 const appStore = useAppStore();
+const route = useRoute();
 
 const loading = ref(false);
 const list = ref<Api.ProfileArea.UserItem[]>([]);
@@ -249,6 +251,9 @@ async function handleUpdateRate() {
 
 onMounted(() => {
   loadData();
+  if (route.query.openAdd === '1') {
+    openCreateModal();
+  }
 });
 </script>
 

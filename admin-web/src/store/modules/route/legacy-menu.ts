@@ -73,7 +73,7 @@ const menuSections: MenuSection[] = [
         key: 'profile-account',
         label: '账户与代理',
         icon: 'ph:user-circle',
-        routes: ['userinfo', 'userlist', 'adduser', 'tjuser', 'sjqy', 'passwd', 'log']
+        routes: ['userinfo', 'userlist', 'tjuser', 'sjqy', 'passwd', 'log']
       },
       {
         key: 'profile-recharge',
