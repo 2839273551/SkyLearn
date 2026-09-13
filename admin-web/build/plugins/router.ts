@@ -27,8 +27,8 @@ export function setupElegantRouter() {
       const constantRoutes: RouteKey[] = ['login', '403', '404', '500'];
 
       const routeMetaMap: Record<string, Partial<RouteMeta>> = {
-        main: { title: '个人综合', icon: 'ph:squares-four', order: 1 },
-        home: { title: '系统公告', icon: 'ph:megaphone', order: 2 },
+        main: { title: '主页', icon: 'ph:house', order: 1 },
+        home: { title: '系统公告', icon: 'ph:megaphone', order: 2, hideInMenu: true },
         add: { title: '马上学习', icon: 'ph:shopping-cart-simple', order: 3 },
         addpl: { title: '批量学习', icon: 'ph:stack', order: 4 },
         addtj: { title: '无查提交', icon: 'ph:upload-simple', order: 5 },

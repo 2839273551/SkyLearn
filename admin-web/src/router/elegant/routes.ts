@@ -246,7 +246,8 @@ export const generatedRoutes: GeneratedRoute[] = [
       title: 'home',
       i18nKey: 'route.home',
       icon: 'mdi:monitor-dashboard',
-      order: 1
+      order: 1,
+      hideInMenu: true
     }
   },
   {
@@ -486,8 +487,7 @@ export const generatedRoutes: GeneratedRoute[] = [
     meta: {
       title: '代理管理',
       icon: 'ph:users-three',
-      order: 6,
-      roles: ['R_SUPER']
+      order: 6
     }
   },
   {
