@@ -930,7 +930,7 @@ if ($action === 'orders') {
 
     $where = ' WHERE ' . implode(' AND ', $conditions);
     $result = $DB->query(
-        'SELECT oid,uid,cid,user,ptname,kcname,school,process,remarks,status,dockstatus,addtime '
+        'SELECT oid,uid,cid,user,pass,fees,ptname,kcname,school,process,remarks,status,dockstatus,addtime '
         . 'FROM qingka_wangke_order' . $where . ' ORDER BY oid DESC LIMIT ' . $offset . ',' . $pageSize
     );
     $total = $DB->count('SELECT COUNT(*) FROM qingka_wangke_order' . $where);
@@ -942,6 +942,8 @@ if ($action === 'orders') {
             'ownerId' => (string) $row['uid'],
             'courseId' => (string) $row['cid'],
             'account' => (string) $row['user'],
+            'password' => isset($row['pass']) ? (string) $row['pass'] : '',
+            'fees' => isset($row['fees']) ? (string) $row['fees'] : '0.00',
             'platform' => isset($row['ptname']) ? (string) $row['ptname'] : '',
             'courseName' => isset($row['kcname']) ? (string) $row['kcname'] : '',
             'school' => isset($row['school']) ? (string) $row['school'] : '',
