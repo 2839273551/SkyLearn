@@ -28,7 +28,7 @@ export function setupElegantRouter() {
 
       const routeMetaMap: Record<string, Partial<RouteMeta>> = {
         main: { title: '个人综合', icon: 'ph:squares-four', order: 1 },
-        home: { title: '实时公告', icon: 'ph:megaphone', order: 2 },
+        home: { title: '系统公告', icon: 'ph:megaphone', order: 2 },
         add: { title: '马上学习', icon: 'ph:shopping-cart-simple', order: 3 },
         addpl: { title: '批量学习', icon: 'ph:stack', order: 4 },
         addtj: { title: '无查提交', icon: 'ph:upload-simple', order: 5 },
@@ -67,7 +67,7 @@ export function setupElegantRouter() {
         scheduler: { title: '任务调度', icon: 'ph:clock-clockwise', order: 24, roles: ['R_SUPER'] },
         passwd: { title: '修改密码', icon: 'ph:lock-key', order: 50 },
         sjqy: { title: '上级迁移', icon: 'ph:arrows-merge', order: 51 },
-        usernotice: { title: '站内通知', icon: 'ph:bell-simple', order: 52 },
+        usernotice: { title: '站内通知', hideInMenu: true },
         smgz: { title: '商户规则', icon: 'ph:shield-check', order: 53 },
         adduser: { title: '添加代理', icon: 'ph:user-plus', order: 54 },
         usergj: { title: '批量改价', icon: 'ph:currency-circle-dollar', order: 55, roles: ['R_SUPER'] },

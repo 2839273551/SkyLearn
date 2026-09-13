@@ -494,6 +494,7 @@ export const generatedRoutes: GeneratedRoute[] = [
     component: 'layout.base$view.usernotice',
     meta: {
       title: '站内通知',
+      hideInMenu: true,
       icon: 'ph:bell-simple',
       order: 52
     }

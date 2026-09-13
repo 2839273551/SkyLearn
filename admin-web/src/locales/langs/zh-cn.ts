@@ -226,7 +226,7 @@ const local: App.I18n.Schema = {
     500: '服务器错误',
     'iframe-page': '外链页面',
     main: '个人综合',
-    home: '实时公告',
+    home: '系统公告',
     add: '马上学习',
     list: '订单汇总',
     userinfo: '我的资料',
