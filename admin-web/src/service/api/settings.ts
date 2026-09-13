@@ -552,3 +552,41 @@ export function clearDockingLogs(data: { range: 'all' | '7days' | '30days' }) {
     data
   });
 }
+
+// ==========================================
+// 无查提交 / 批量交单 (addtj)
+// ==========================================
+
+export function fetchNocheckOptions() {
+  return request<Api.Addtj.OptionsResponse>({
+    url: 'admin-api/v1/index.php?action=order-nocheck-options',
+    method: 'get'
+  });
+}
+
+export function submitOrderNocheck(data: { cid: number; content: string }) {
+  return request<Api.Addtj.SubmitResponse>({
+    url: 'admin-api/v1/index.php?action=order-submit-nocheck',
+    method: 'post',
+    data
+  });
+}
+
+// ==========================================
+// 添加代理 / 开通下级 (adduser)
+// ==========================================
+
+export function fetchGradeOptions() {
+  return request<Api.Adduser.GradeOptionsResponse>({
+    url: 'admin-api/v1/index.php?action=user-grade-options',
+    method: 'get'
+  });
+}
+
+export function createUser(data: { user: string; pass: string; name: string; grade_id: number }) {
+  return request<Api.Adduser.CreateUserResponse>({
+    url: 'admin-api/v1/index.php?action=user-create',
+    method: 'post',
+    data
+  });
+}

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { h, onMounted, reactive, ref } from 'vue';
+import { computed, h, onMounted, reactive, ref } from 'vue';
 import type { DataTableColumns } from 'naive-ui';
 import { NAvatar, NButton, NInput, NInputNumber, NSpace, NSwitch, NTag } from 'naive-ui';
-import { fetchUserlistList, rechargeUserBalance, updateUserRate, updateUserStatus } from '@/service/api';
+import { createUser, fetchGradeOptions, fetchUserlistList, rechargeUserBalance, updateUserRate, updateUserStatus } from '@/service/api';
 
 defineOptions({ name: 'Userlist' });
 
@@ -17,12 +17,95 @@ const query = reactive({
   status: '' as '' | '1' | '0'
 });
 
+
 const rechargeModal = ref(false);
 const rateModal = ref(false);
 const currentUid = ref('');
 const currentUserName = ref('');
 const rechargeAmount = ref(100);
 const targetRate = ref('0.30');
+
+// 开户相关
+const createModal = ref(false);
+const createLoading = ref(false);
+const gradeList = ref<Api.Adduser.GradeItem[]>([]);
+const openReg = ref('1');
+const ktMoney = ref(0);
+const currentUserRate = ref(1);
+
+const createForm = reactive({
+  user: '',
+  pass: '',
+  name: '',
+  grade_id: null as string | null
+});
+
+async function openCreateModal() {
+  const { data, error } = await fetchGradeOptions();
+  if (!error && data) {
+    gradeList.value = data.grades;
+    openReg.value = data.user_htkh;
+    ktMoney.value = data.user_ktmoney;
+    currentUserRate.value = data.current_user_rate;
+    if (data.grades.length > 0 && !createForm.grade_id) {
+      const firstValid = data.grades.find(g => !g.disabled);
+      if (firstValid) createForm.grade_id = firstValid.id;
+    }
+  }
+  createModal.value = true;
+}
+
+const selectedGrade = computed(() => {
+  if (!createForm.grade_id) return null;
+  return gradeList.value.find(g => g.id === createForm.grade_id) || null;
+});
+
+const calculatedNeed = computed(() => {
+  let fee = ktMoney.value;
+  if (selectedGrade.value && selectedGrade.value.addkf === 1 && selectedGrade.value.rate > 0) {
+    const rechargeCost = Number((selectedGrade.value.money * (currentUserRate.value / selectedGrade.value.rate)).toFixed(2));
+    fee += rechargeCost;
+  }
+  return Number(fee.toFixed(2));
+});
+
+async function handleCreateUser() {
+  if (!createForm.user.trim()) {
+    window.$message?.warning('请输入代理 QQ 账号');
+    return;
+  }
+  if (!createForm.pass.trim()) {
+    window.$message?.warning('请输入代理登录密码');
+    return;
+  }
+  if (!createForm.name.trim()) {
+    window.$message?.warning('请输入代理昵称');
+    return;
+  }
+  if (!createForm.grade_id) {
+    window.$message?.warning('请选择代理等级');
+    return;
+  }
+
+  createLoading.value = true;
+  const { data, error } = await createUser({
+    user: createForm.user.trim(),
+    pass: createForm.pass.trim(),
+    name: createForm.name.trim(),
+    grade_id: Number(createForm.grade_id)
+  });
+  createLoading.value = false;
+
+  if (!error && data) {
+    window.$message?.success(`代理开通成功！账号: ${data.user} (UID: ${data.uid})`);
+    createModal.value = false;
+    createForm.user = '';
+    createForm.pass = '';
+    createForm.name = '';
+    loadData();
+  }
+}
+
 
 const columns: DataTableColumns<Api.ProfileArea.UserItem> = [
   { title: 'UID', key: 'uid', width: 70, fixed: 'left' },
@@ -185,7 +268,10 @@ onMounted(() => {
           />
           <NButton type="primary" @click="loadData">查询</NButton>
         </div>
-        <NButton :loading="loading" @click="loadData">刷新</NButton>
+        <div class="flex items-center gap-8px">
+          <NButton type="primary" @click="openCreateModal">➕ 添加代理</NButton>
+          <NButton :loading="loading" @click="loadData">刷新</NButton>
+        </div>
       </div>
 
       <NDataTable
@@ -242,6 +328,64 @@ onMounted(() => {
         <div class="flex justify-end gap-12px">
           <NButton @click="rateModal = false">取消</NButton>
           <NButton type="primary" @click="handleUpdateRate">确认修改</NButton>
+        </div>
+      </template>
+    </NModal>
+
+    <!-- 开通代理弹窗 -->
+    <NModal v-model:show="createModal" preset="card" title="开通下级代理账号" class="max-w-520px">
+      <div class="flex flex-col gap-14px">
+        <NAlert v-if="openReg === '0'" type="error">当前系统设置已暂停后台开户</NAlert>
+        <div class="grid grid-cols-1 gap-12px sm:grid-cols-2">
+          <NFormItem label="代理账号 (QQ号码)" required>
+            <NInput v-model:value="createForm.user" placeholder="输入 5~11 位数字 QQ" />
+          </NFormItem>
+          <NFormItem label="初始登录密码" required>
+            <NInput v-model:value="createForm.pass" type="password" show-password-on="click" placeholder="设置初始密码" />
+          </NFormItem>
+        </div>
+        <div class="grid grid-cols-1 gap-12px sm:grid-cols-2">
+          <NFormItem label="代理昵称 / 商户名称" required>
+            <NInput v-model:value="createForm.name" placeholder="输入昵称" />
+          </NFormItem>
+          <NFormItem label="选择代理等级" required>
+            <NSelect
+              v-model:value="createForm.grade_id"
+              :options="gradeList.map(g => ({
+                label: `${g.name} (${g.rate}×费率)${g.disabled ? ' [费率倒挂不可选]' : ''}`,
+                value: g.id,
+                disabled: g.disabled
+              }))"
+              placeholder="选择等级"
+            />
+          </NFormItem>
+        </div>
+
+        <div v-if="selectedGrade" class="rounded-8px bg-slate-50 p-12px dark:bg-dark-600 text-12px leading-relaxed border">
+          <div class="flex justify-between">
+            <span class="text-gray-500">开户费率：</span>
+            <strong class="text-primary font-mono font-bold">{{ selectedGrade.rate }}× 成本系数</strong>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500">基础开户手续费：</span>
+            <span class="font-mono">¥ {{ ktMoney.toFixed(2) }}</span>
+          </div>
+          <div v-if="selectedGrade.addkf === 1" class="flex justify-between text-emerald-600">
+            <span>该等级包含自动赠送初始余额：</span>
+            <span class="font-mono font-bold">+¥ {{ selectedGrade.money }}</span>
+          </div>
+          <div class="flex justify-between border-t mt-6px pt-6px text-13px">
+            <span class="font-bold text-gray-700 dark:text-gray-200">预计从您账户扣除：</span>
+            <strong class="font-mono text-15px text-rose-500 font-bold">¥ {{ calculatedNeed }}</strong>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <div class="flex justify-end gap-12px">
+          <NButton @click="createModal = false">取消</NButton>
+          <NButton type="primary" :loading="createLoading" :disabled="openReg === '0'" @click="handleCreateUser">
+            确认开通代理
+          </NButton>
         </div>
       </template>
     </NModal>

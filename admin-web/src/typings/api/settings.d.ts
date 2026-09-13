@@ -579,4 +579,57 @@ declare namespace Api {
       metrics: Metrics;
     }
   }
+
+  namespace Addtj {
+    interface ClassOption {
+      cid: string;
+      name: string;
+      price: number;
+      base_price: number;
+      fenlei_id: string;
+      fenlei_name: string;
+      content: string;
+    }
+
+    interface OptionsResponse {
+      classes: ClassOption[];
+      user_money: number;
+      user_rate: number;
+    }
+
+    interface SubmitResponse {
+      success_count: number;
+      total_count: number;
+      deducted_money: number;
+      remain_money: number;
+    }
+  }
+
+  namespace Adduser {
+    interface GradeItem {
+      id: string;
+      name: string;
+      rate: number;
+      money: number;
+      addkf: number;
+      disabled: boolean;
+    }
+
+    interface GradeOptionsResponse {
+      grades: GradeItem[];
+      user_htkh: string;
+      user_ktmoney: number;
+      current_user_rate: number;
+      is_admin: boolean;
+    }
+
+    interface CreateUserResponse {
+      uid: number;
+      user: string;
+      name: string;
+      rate: number;
+      first_recharge: number;
+      deducted: number;
+    }
+  }
 }
