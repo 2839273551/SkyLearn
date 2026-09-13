@@ -486,7 +486,8 @@ export const generatedRoutes: GeneratedRoute[] = [
     meta: {
       title: '代理管理',
       icon: 'ph:users-three',
-      order: 6
+      order: 6,
+      roles: ['R_SUPER']
     }
   },
   {

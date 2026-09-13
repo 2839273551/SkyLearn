@@ -34,7 +34,7 @@ export function setupElegantRouter() {
         addtj: { title: '无查提交', icon: 'ph:upload-simple', order: 5 },
         list: { title: '订单汇总', icon: 'ph:list-checks', order: 6 },
         userinfo: { title: '我的资料', icon: 'ph:user-circle', order: 7 },
-        userlist: { title: '代理管理', icon: 'ph:users-three', order: 8 },
+        userlist: { title: '代理管理', icon: 'ph:users-three', order: 8, roles: ['R_SUPER'] },
         atest: { title: '最新上架', icon: 'ph:arrow-up', order: 9 },
         atesa: { title: '下架专区', icon: 'ph:arrow-down', order: 10 },
         rd: { title: '热度排行', icon: 'ph:fire', order: 11 },

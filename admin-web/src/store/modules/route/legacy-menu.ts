@@ -22,7 +22,7 @@ const menuSections: MenuSection[] = [
         key: 'settings-system',
         label: '系统配置',
         icon: 'ph:sliders',
-        routes: ['webset', 'gglist', 'webmsg', 'zzbz', 'smgz']
+        routes: ['webset', 'gglist', 'webmsg', 'zzbz']
       },
       {
         key: 'settings-goods',
@@ -73,7 +73,7 @@ const menuSections: MenuSection[] = [
         key: 'profile-account',
         label: '账户与代理',
         icon: 'ph:user-circle',
-        routes: ['userinfo', 'userlist', 'tjuser', 'sjqy', 'passwd', 'log']
+        routes: ['userinfo', 'userlist', 'tjuser', 'sjqy', 'smgz', 'passwd', 'log']
       },
       {
         key: 'profile-recharge',
