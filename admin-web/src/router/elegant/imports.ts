@@ -54,6 +54,7 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   paylist: () => import("@/views/paylist/index.vue"),
   pchangelist: () => import("@/views/pchangelist/index.vue"),
   rd: () => import("@/views/rd/index.vue"),
+  scheduler: () => import("@/views/scheduler/index.vue"),
   sjqy: () => import("@/views/sjqy/index.vue"),
   smgz: () => import("@/views/smgz/index.vue"),
   tjuser: () => import("@/views/tjuser/index.vue"),

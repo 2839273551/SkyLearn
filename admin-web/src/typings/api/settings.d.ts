@@ -632,4 +632,58 @@ declare namespace Api {
       deducted: number;
     }
   }
+
+  namespace Scheduler {
+    interface TaskItem {
+      id: string;
+      name: string;
+      description: string;
+      enabled: boolean;
+      interval_mins: number;
+      last_run_time: string;
+      last_cost_ms: number;
+      last_status: number;
+      last_result: string;
+      total_runs: number;
+      total_success: number;
+      total_failed: number;
+      pending_count: number;
+      latest_log: string;
+    }
+
+    interface Summary {
+      total_tasks: number;
+      enabled_tasks: number;
+      total_runs_all: number;
+      total_success_all: number;
+    }
+
+    interface TasksListResponse {
+      tasks: TaskItem[];
+      summary: Summary;
+    }
+
+    interface RunResult {
+      task_id: string;
+      cost_ms: number;
+      success_count: number;
+      failed_count: number;
+      summary: string;
+      logs: string;
+    }
+
+    interface LogItem {
+      id: string;
+      task_id: string;
+      content: string;
+      status: number;
+      cost_ms: number;
+      processed_count: number;
+      created_at: string;
+    }
+
+    interface LogsResponse {
+      logs: LogItem[];
+    }
+  }
 }

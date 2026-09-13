@@ -249,6 +249,7 @@ const local: App.I18n.Schema = {
     dingdan: '可用项目',
     docking: '串货对接',
     dockinglog: '对接监控',
+    scheduler: '任务调度',
     fenlei: '分类设置',
     gglist: '公告列表',
     help: '必看说明',

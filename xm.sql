@@ -1350,3 +1350,42 @@ CREATE TABLE `qingka_wangke_docking_log` (
   KEY `idx_ip` (`ip`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='对接接口与串货调用流水表';
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `qingka_wangke_cron_task`
+--
+
+DROP TABLE IF EXISTS `qingka_wangke_cron_task`;
+CREATE TABLE `qingka_wangke_cron_task` (
+  `id` varchar(32) NOT NULL COMMENT '任务代号',
+  `name` varchar(64) NOT NULL DEFAULT '' COMMENT '任务名称',
+  `description` varchar(255) NOT NULL DEFAULT '' COMMENT '任务说明',
+  `enabled` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否开启 1开启 0关闭',
+  `interval_mins` int(11) NOT NULL DEFAULT '5' COMMENT '几分钟运行一次',
+  `last_run_time` datetime DEFAULT NULL COMMENT '上次运行时间',
+  `last_cost_ms` int(11) NOT NULL DEFAULT '0' COMMENT '上次耗时毫秒',
+  `last_status` tinyint(1) NOT NULL DEFAULT '1' COMMENT '上次执行状态 1成功 0失败',
+  `last_result` text COMMENT '上次执行结果摘要',
+  `total_runs` int(11) NOT NULL DEFAULT '0' COMMENT '累计执行次数',
+  `total_success` int(11) NOT NULL DEFAULT '0' COMMENT '累计成功单数',
+  `total_failed` int(11) NOT NULL DEFAULT '0' COMMENT '累计失败单数',
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='任务调度配置表';
+
+--
+-- Table structure for table `qingka_wangke_cron_log`
+--
+
+DROP TABLE IF EXISTS `qingka_wangke_cron_log`;
+CREATE TABLE `qingka_wangke_cron_log` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `task_id` varchar(32) NOT NULL COMMENT '任务代号',
+  `content` text NOT NULL COMMENT '终端执行日志文本',
+  `status` tinyint(1) NOT NULL DEFAULT '1' COMMENT '1成功 0失败',
+  `cost_ms` int(11) NOT NULL DEFAULT '0' COMMENT '耗时毫秒',
+  `processed_count` int(11) NOT NULL DEFAULT '0' COMMENT '处理订单数',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_task_time` (`task_id`,`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='任务调度日志流水表';

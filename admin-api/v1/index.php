@@ -3266,5 +3266,6 @@ if ($action === 'docking-log-clear') {
 }
 
 require_once __DIR__ . '/actions_user_order.php';
+require_once __DIR__ . '/scheduler_worker.php';
 
 api_respond(404, '接口不存在', null, 404);

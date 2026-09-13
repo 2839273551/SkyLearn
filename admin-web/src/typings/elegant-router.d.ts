@@ -56,6 +56,7 @@ declare module "@elegant-router/types" {
     "paylist": "/paylist";
     "pchangelist": "/pchangelist";
     "rd": "/rd";
+    "scheduler": "/scheduler";
     "sjqy": "/sjqy";
     "smgz": "/smgz";
     "tjuser": "/tjuser";
@@ -138,6 +139,7 @@ declare module "@elegant-router/types" {
     | "paylist"
     | "pchangelist"
     | "rd"
+    | "scheduler"
     | "sjqy"
     | "smgz"
     | "tjuser"
@@ -205,6 +207,7 @@ declare module "@elegant-router/types" {
     | "paylist"
     | "pchangelist"
     | "rd"
+    | "scheduler"
     | "sjqy"
     | "smgz"
     | "tjuser"

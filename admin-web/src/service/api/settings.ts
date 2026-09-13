@@ -590,3 +590,53 @@ export function createUser(data: { user: string; pass: string; name: string; gra
     data
   });
 }
+
+// ==========================================
+// 自动化任务调度器 (scheduler)
+// ==========================================
+
+export function fetchSchedulerTasksList() {
+  return request<Api.Scheduler.TasksListResponse>({
+    url: 'admin-api/v1/index.php?action=scheduler-tasks-list',
+    method: 'get'
+  });
+}
+
+export function updateSchedulerTask(data: { task_id: string; enabled?: boolean; interval_mins?: number }) {
+  return request<null>({
+    url: 'admin-api/v1/index.php?action=scheduler-task-update',
+    method: 'post',
+    data
+  });
+}
+
+export function runSchedulerTask(task_id: string) {
+  return request<Api.Scheduler.RunResult>({
+    url: 'admin-api/v1/index.php?action=scheduler-task-run',
+    method: 'post',
+    data: { task_id }
+  });
+}
+
+export function runAllSchedulerTasks() {
+  return request<{ reports: Api.Scheduler.RunResult[] }>({
+    url: 'admin-api/v1/index.php?action=scheduler-run-all',
+    method: 'post'
+  });
+}
+
+export function fetchSchedulerTaskLogs(task_id: string) {
+  return request<Api.Scheduler.LogsResponse>({
+    url: 'admin-api/v1/index.php?action=scheduler-task-logs',
+    method: 'get',
+    params: { task_id }
+  });
+}
+
+export function clearSchedulerTaskLogs(task_id?: string) {
+  return request<null>({
+    url: 'admin-api/v1/index.php?action=scheduler-task-clear-logs',
+    method: 'post',
+    data: { task_id }
+  });
+}

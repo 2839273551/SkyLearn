@@ -413,6 +413,15 @@ export const generatedRoutes: GeneratedRoute[] = [
     }
   },
   {
+    name: 'scheduler',
+    path: '/scheduler',
+    component: 'layout.base$view.scheduler',
+    meta: {
+      title: '任务调度',
+      icon: 'ph:clock-clockwise'
+    }
+  },
+  {
     name: 'sjqy',
     path: '/sjqy',
     component: 'layout.base$view.sjqy',

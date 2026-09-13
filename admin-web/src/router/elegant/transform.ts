@@ -202,6 +202,7 @@ const routeMap: RouteMap = {
   "paylist": "/paylist",
   "pchangelist": "/pchangelist",
   "rd": "/rd",
+  "scheduler": "/scheduler",
   "sjqy": "/sjqy",
   "smgz": "/smgz",
   "tjuser": "/tjuser",

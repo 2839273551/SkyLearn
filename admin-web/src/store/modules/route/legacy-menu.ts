@@ -37,6 +37,12 @@ const menuSections: MenuSection[] = [
         routes: ['dockinglog']
       },
       {
+        key: 'settings-scheduler',
+        label: '任务调度',
+        icon: 'ph:clock-clockwise',
+        routes: ['scheduler']
+      },
+      {
         key: 'settings-pricing',
         label: '分销定价',
         icon: 'ph:users-three',

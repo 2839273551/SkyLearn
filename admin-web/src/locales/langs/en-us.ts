@@ -253,6 +253,7 @@ const local: App.I18n.Schema = {
     dingdan: 'Available Projects',
     docking: 'Docking',
     dockinglog: 'Docking Monitor',
+    scheduler: 'Task Scheduler',
     fenlei: 'Categories',
     gglist: 'Announcements',
     help: 'Help',
