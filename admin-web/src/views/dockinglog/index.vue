@@ -43,7 +43,7 @@ const metrics = ref<Api.DockingLog.Metrics>({
   is_admin: true
 });
 
-// 视图模式: 'table' (传统表格) | 'stream' (运维日志流控制台)
+// 视图模式: 'table' (表格视图) | 'stream' (运维日志终端)
 const viewMode = ref<'table' | 'stream'>('table');
 
 // 自动刷新
@@ -51,9 +51,9 @@ const autoRefreshInterval = ref<number | null>(null);
 const refreshSeconds = ref<number>(0);
 const refreshOptions = [
   { label: '手动刷新', value: 0 },
-  { label: '5 秒自动刷新', value: 5 },
-  { label: '15 秒自动刷新', value: 15 },
-  { label: '30 秒自动刷新', value: 30 }
+  { label: '5 秒轮询', value: 5 },
+  { label: '15 秒轮询', value: 15 },
+  { label: '30 秒轮询', value: 30 }
 ];
 
 const query = reactive({
@@ -108,11 +108,11 @@ function exportCsv() {
     window.$message?.warning('当前无可导出的流水数据');
     return;
   }
-  const headers = ['流水ID', '调用时间', '方向', '调用方', 'IP', '请求方式', '接口动作', '目标路径', '单次流量(字节)', '流量文本', '耗时(ms)', '状态'];
+  const headers = ['记录ID', '请求时间', '通信方向', '调用主体', '来源IP', '请求方式', '接口服务', '端点路径', '单次网络吞吐(Bytes)', '吞吐格式化', '往返延迟(ms)', '响应状态'];
   const rows = list.value.map(item => [
     item.id,
     item.created_at,
-    item.direction === 'in' ? '外部对接我' : '我对接外部',
+    item.direction === 'in' ? '入站调用' : '出站转发',
     `"${item.caller.replace(/"/g, '""')}"`,
     item.ip,
     item.method,
@@ -129,22 +129,22 @@ function exportCsv() {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.setAttribute('href', url);
-  link.setAttribute('download', `docking_log_${new Date().toISOString().slice(0, 10)}.csv`);
+  link.setAttribute('download', `gateway_audit_log_${new Date().toISOString().slice(0, 10)}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  window.$message?.success('对接流水报表已导出');
+  window.$message?.success('审计流水报表已导出');
 }
 
 const statusOptions = [
-  { label: '全部状态 (All)', value: undefined },
-  { label: '调用成功 (200 OK)', value: 1 },
-  { label: '异常/拦截 (Error)', value: 0 }
+  { label: '全部状态 (All Status)', value: undefined },
+  { label: '请求成功 (200 OK)', value: 1 },
+  { label: '异常拦截 (Failed)', value: 0 }
 ];
 
 const columns: DataTableColumns<Api.DockingLog.Item> = [
   {
-    title: '几点 (Timestamp)',
+    title: '请求时间 (Timestamp)',
     key: 'created_at',
     width: 175,
     render: row =>
@@ -158,12 +158,12 @@ const columns: DataTableColumns<Api.DockingLog.Item> = [
               { class: 'font-mono text-12px font-medium text-gray-700 dark:text-gray-300 tracking-tight' },
               row.created_at
             ),
-          default: () => `记录流水 ID: #${row.id}`
+          default: () => `审计流水 ID: #${row.id}`
         }
       )
   },
   {
-    title: '方向 (Flow)',
+    title: '通信方向 (Direction)',
     key: 'direction',
     width: 125,
     render: row => {
@@ -179,15 +179,15 @@ const columns: DataTableColumns<Api.DockingLog.Item> = [
         },
         {
           icon: () => (isIn ? '📥' : '📤'),
-          default: () => (isIn ? '入站 (IN)' : '出站 (OUT)')
+          default: () => (isIn ? '入站 [IN]' : '出站 [OUT]')
         }
       );
     }
   },
   {
-    title: '谁走的 (Caller / IP)',
+    title: '调用主体 (Caller / Identity)',
     key: 'caller',
-    width: 170,
+    width: 175,
     render: row =>
       h('div', { class: 'flex flex-col gap-2px' }, [
         h(
@@ -196,7 +196,7 @@ const columns: DataTableColumns<Api.DockingLog.Item> = [
             class: 'font-bold text-12px text-primary cursor-pointer hover:underline',
             onClick: () => row.uid > 0 && quickFilter(String(row.uid))
           },
-          row.caller || '匿名客户端'
+          row.caller || '匿名调用'
         ),
         h(
           'span',
@@ -209,9 +209,9 @@ const columns: DataTableColumns<Api.DockingLog.Item> = [
       ])
   },
   {
-    title: '走了什么接口 (Action & Route)',
+    title: '接口服务与端点 (Action & Endpoint)',
     key: 'action',
-    minWidth: 190,
+    minWidth: 200,
     render: row =>
       h('div', { class: 'flex flex-col gap-2px' }, [
         h('div', { class: 'flex items-center gap-6px' }, [
@@ -228,15 +228,15 @@ const columns: DataTableColumns<Api.DockingLog.Item> = [
         ]),
         h(
           'span',
-          { class: 'font-mono text-11px text-gray-400 truncate max-w-260px' },
+          { class: 'font-mono text-11px text-gray-400 truncate max-w-280px' },
           row.target || '/api.php'
         )
       ])
   },
   {
-    title: '每一次走了多少流量 (Traffic)',
+    title: '单次网络吞吐 (Traffic Payload)',
     key: 'traffic_total',
-    width: 160,
+    width: 165,
     render: row => {
       const isHigh = row.traffic_total > 50 * 1024;
       const isMedium = row.traffic_total > 2 * 1024;
@@ -271,19 +271,19 @@ const columns: DataTableColumns<Api.DockingLog.Item> = [
             ),
           default: () =>
             h('div', { class: 'text-12px p-4px leading-relaxed' }, [
-              h('div', { class: 'font-bold text-emerald-400 mb-4px' }, '⚡ 单次请求网络消耗明细:'),
+              h('div', { class: 'font-bold text-emerald-400 mb-4px' }, '⚡ 单次网络 I/O 负载明细:'),
               h('div', `总计传输: ${row.traffic_text} (${row.traffic_total} 字节)`),
-              h('div', `上行请求 (入向): ${row.bytes_in} 字节`),
-              h('div', `下行响应 (出向): ${row.bytes_out} 字节`)
+              h('div', `上行请求 (Inbound): ${row.bytes_in} 字节`),
+              h('div', `下行响应 (Outbound): ${row.bytes_out} 字节`)
             ])
         }
       );
     }
   },
   {
-    title: '响应耗时 (Latency)',
+    title: '往返延迟 (Latency)',
     key: 'cost_ms',
-    width: 110,
+    width: 115,
     render: row => {
       const isSlow = row.cost_ms > 1000;
       const isWarn = row.cost_ms > 400;
@@ -305,9 +305,9 @@ const columns: DataTableColumns<Api.DockingLog.Item> = [
     }
   },
   {
-    title: '状态 (Status)',
+    title: '响应状态 (Status Code)',
     key: 'status',
-    width: 95,
+    width: 105,
     render: row =>
       h(
         NTag,
@@ -321,7 +321,7 @@ const columns: DataTableColumns<Api.DockingLog.Item> = [
       )
   },
   {
-    title: '报文审计',
+    title: '报文详情',
     key: 'actions',
     width: 95,
     fixed: 'right',
@@ -383,7 +383,7 @@ function handleReset() {
 async function handleClearLogs(range: '7days' | '30days' | 'all') {
   const { error } = await clearDockingLogs({ range });
   if (!error) {
-    window.$message?.success('对接日志清理完成');
+    window.$message?.success('审计流水归档清理完成');
     query.page = 1;
     loadData();
   }
@@ -400,9 +400,9 @@ function handleRefreshChange(seconds: number) {
     autoRefreshInterval.value = window.setInterval(() => {
       loadData();
     }, seconds * 1000);
-    window.$message?.info(`已开启每 ${seconds} 秒自动轮询刷新`);
+    window.$message?.info(`已启用每 ${seconds} 秒自动轮询拉取`);
   } else {
-    window.$message?.info('已关闭自动刷新');
+    window.$message?.info('已切换为手动拉取');
   }
 }
 
@@ -419,19 +419,19 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="flex flex-col gap-16px p-16px">
-    <!-- 顶部极客 APM 实时监控大盘 -->
+    <!-- 顶部极客 APM 实时全链路监控大盘 -->
     <div class="rounded-12px bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 p-16px text-white shadow-md border border-slate-700/50">
       <div class="mb-14px flex flex-wrap items-center justify-between gap-12px border-b border-slate-700/60 pb-12px">
         <div class="flex items-center gap-10px">
           <span class="inline-flex h-10px w-10px animate-ping rounded-full bg-emerald-400 opacity-75"></span>
           <span class="inline-flex h-8px w-8px -ml-13px rounded-full bg-emerald-500"></span>
-          <h2 class="text-16px font-bold tracking-wide">API Gateway & 串货对接全链路监控 (APM)</h2>
+          <h2 class="text-16px font-bold tracking-wide">API Gateway & 对接链路监控大盘 (APM)</h2>
           <NTag size="tiny" type="success" round class="font-mono text-10px bg-emerald-500/20 text-emerald-300 border-none">
             LIVE MONITORING
           </NTag>
         </div>
         <div class="flex items-center gap-12px text-12px text-slate-300">
-          <span class="hidden sm:inline">实时网络监测引擎已就绪</span>
+          <span class="hidden sm:inline font-mono">网桥探针活跃中</span>
           <NSelect
             v-model:value="refreshSeconds"
             :options="refreshOptions"
@@ -457,31 +457,31 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="rounded-8px bg-slate-800/80 p-12px border border-slate-700">
-          <div class="text-11px font-mono text-slate-400">入向调用 (Inbound API)</div>
+          <div class="text-11px font-mono text-slate-400">入站调用 (Inbound Calls)</div>
           <div class="mt-4px flex items-baseline gap-4px">
             <span class="text-22px font-bold font-mono text-emerald-400">{{ metrics.today_in }}</span>
             <span class="text-11px text-slate-400">次</span>
           </div>
-          <div class="mt-4px text-10px text-slate-400">外部对接我站网关</div>
+          <div class="mt-4px text-10px text-slate-400">外部对接网关</div>
         </div>
 
         <div class="rounded-8px bg-slate-800/80 p-12px border border-slate-700">
-          <div class="text-11px font-mono text-slate-400">出向请求 (Outbound 货源)</div>
+          <div class="text-11px font-mono text-slate-400">出站请求 (Outbound Calls)</div>
           <div class="mt-4px flex items-baseline gap-4px">
             <span class="text-22px font-bold font-mono text-sky-400">{{ metrics.today_out }}</span>
             <span class="text-11px text-slate-400">次</span>
           </div>
-          <div class="mt-4px text-10px text-slate-400">上游货源通信对接</div>
+          <div class="mt-4px text-10px text-slate-400">上游货源通信转发</div>
         </div>
 
         <div class="rounded-8px bg-slate-800/80 p-12px border border-emerald-500/40 relative overflow-hidden">
           <div class="text-11px font-mono text-emerald-300 font-bold flex items-center gap-4px">
-            <span>⚡ 网络流量消耗 (I/O)</span>
+            <span>⚡ 网络吞吐消耗 (Bandwidth)</span>
           </div>
           <div class="mt-4px flex items-baseline gap-4px">
             <span class="text-22px font-bold font-mono text-emerald-400">{{ metrics.today_traffic }}</span>
           </div>
-          <div class="mt-4px text-10px text-slate-400">每次请求精准计流</div>
+          <div class="mt-4px text-10px text-slate-400">单次请求高精计流</div>
         </div>
 
         <div class="rounded-8px bg-slate-800/80 p-12px border border-slate-700">
@@ -498,11 +498,11 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="rounded-8px bg-slate-800/80 p-12px border border-slate-700">
-          <div class="text-11px font-mono text-slate-400">接口健康度 (Health SLA)</div>
+          <div class="text-11px font-mono text-slate-400">服务可用率 (SLA Uptime)</div>
           <div class="mt-4px flex items-baseline gap-4px">
             <span class="text-22px font-bold font-mono text-teal-400">{{ metrics.success_rate }}</span>
           </div>
-          <div class="mt-4px text-10px text-teal-300">无服务中断</div>
+          <div class="mt-4px text-10px text-teal-300">无异常宕机</div>
         </div>
       </div>
     </div>
@@ -511,13 +511,13 @@ onBeforeUnmount(() => {
     <NCard :bordered="false" class="rounded-12px shadow-sm">
       <template #header>
         <div class="flex items-center gap-12px">
-          <span class="text-16px font-bold">接口对接流水与审计日志</span>
+          <span class="text-16px font-bold">API 网关流向与上游对接审计日志</span>
           <NButtonGroup size="small">
             <NButton :type="viewMode === 'table' ? 'primary' : 'default'" @click="viewMode = 'table'">
-              📊 表格模式
+              📊 表格视图
             </NButton>
             <NButton :type="viewMode === 'stream' ? 'primary' : 'default'" @click="viewMode = 'stream'">
-              💻 运维流终端
+              💻 运维终端流
             </NButton>
           </NButtonGroup>
         </div>
@@ -526,14 +526,14 @@ onBeforeUnmount(() => {
       <template #header-extra>
         <div class="flex flex-wrap items-center gap-8px">
           <NButton size="small" secondary @click="exportCsv">
-            📥 导出流水报表
+            📥 导出审计报表
           </NButton>
           <template v-if="metrics.is_admin">
             <NPopconfirm @positive-click="handleClearLogs('7days')">
               <template #trigger>
                 <NButton size="small" type="warning" secondary>清理 7 天前</NButton>
               </template>
-              确定清理 7 天以前的历史对接流水吗？
+              确定清理 7 天以前的历史审计流水吗？
             </NPopconfirm>
             <NPopconfirm @positive-click="handleClearLogs('all')">
               <template #trigger>
@@ -547,9 +547,9 @@ onBeforeUnmount(() => {
 
       <!-- 流向分类 Tab 切换 -->
       <NTabs v-model:value="query.direction" type="line" class="mb-14px" @update:value="handleTabChange">
-        <NTabPane name="" tab="🔄 全部对接流水 (All Transactions)" />
-        <NTabPane name="in" tab="📥 外部对接我 (Inbound API Gateway)" />
-        <NTabPane name="out" tab="📤 我对接外部 (Outbound Suppliers)" />
+        <NTabPane name="" tab="🔄 全部请求 (All Requests)" />
+        <NTabPane name="in" tab="📥 入站调用 (Inbound Open API)" />
+        <NTabPane name="out" tab="📤 出站转发 (Outbound Upstream)" />
       </NTabs>
 
       <!-- 搜索过滤条 -->
@@ -557,33 +557,33 @@ onBeforeUnmount(() => {
         <div class="flex flex-wrap items-center gap-10px">
           <NInput
             v-model:value="query.action_filter"
-            placeholder="过滤接口动作 (如: query / order / 查课)"
+            placeholder="动作指令 (如: query / order / balance)"
             clearable
-            class="w-210px"
+            class="w-230px"
             @keyup.enter="handleSearch"
           />
           <NInput
             v-model:value="query.keyword"
-            placeholder="搜索调用者 UID / 用户名 / 客户端 IP / 货源"
+            placeholder="检索 UID / 账号 / 来源 IP / 目标服务"
             clearable
-            class="w-260px"
+            class="w-270px"
             @keyup.enter="handleSearch"
           />
           <NSelect
             v-model:value="query.status"
             :options="statusOptions"
-            placeholder="执行状态"
+            placeholder="响应状态"
             clearable
-            class="w-160px"
+            class="w-170px"
           />
           <NButton type="primary" @click="handleSearch">
             <template #icon><span>🔍</span></template>
-            查询流水
+            过滤检索
           </NButton>
           <NButton secondary @click="handleReset">重置</NButton>
         </div>
-        <div class="text-12px text-gray-400">
-          共捕获 <strong class="text-primary font-mono font-bold">{{ total }}</strong> 条审计记录
+        <div class="text-12px text-gray-400 font-mono">
+          当前共匹配 <strong class="text-primary font-bold">{{ total }}</strong> 条访问审计记录
         </div>
       </div>
 
@@ -608,9 +608,9 @@ onBeforeUnmount(() => {
             <span class="h-3 w-3 rounded-full bg-rose-500 inline-block"></span>
             <span class="h-3 w-3 rounded-full bg-amber-500 inline-block"></span>
             <span class="h-3 w-3 rounded-full bg-emerald-500 inline-block"></span>
-            <span class="ml-8px font-bold text-slate-300">Terminal Log Stream (/var/log/docking_stream.log)</span>
+            <span class="ml-8px font-bold text-slate-300">Terminal Log Stream (/var/log/docking_gateway.log)</span>
           </span>
-          <span>实时捕捉已启用</span>
+          <span class="text-emerald-400 text-11px">● 实时链路捕获已启用</span>
         </div>
 
         <div v-if="!list.length" class="py-30px text-center text-slate-600">
@@ -650,10 +650,10 @@ onBeforeUnmount(() => {
               <span class="text-emerald-400 font-bold">⚡ {{ item.traffic_text }}</span>
               <span :class="item.cost_ms < 300 ? 'text-slate-400' : 'text-amber-400'">{{ item.cost_ms }}ms</span>
               <span :class="item.status === 1 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'">
-                {{ item.status === 1 ? '200' : 'ERR' }}
+                {{ item.status === 1 ? '200 OK' : 'FAILED' }}
               </span>
               <NButton size="tiny" secondary type="primary" @click="viewDetail(item)">
-                Inspect
+                检视报文
               </NButton>
             </div>
           </div>
@@ -663,7 +663,7 @@ onBeforeUnmount(() => {
       <!-- 底部分页 -->
       <div class="mt-16px flex flex-wrap items-center justify-between gap-12px border-t border-gray-100 dark:border-gray-800 pt-12px">
         <span class="text-12px text-gray-400">
-          每次请求传输的入向与出向网络字节均已被纳秒级捕获并留痕
+          全链路入向与出向网络字节负载均已被微秒级捕获并生成审计留痕
         </span>
         <NPagination
           v-model:page="query.page"
@@ -677,19 +677,19 @@ onBeforeUnmount(() => {
       </div>
     </NCard>
 
-    <!-- 深度报文审计抽屉 (Payload Inspector Drawer) -->
+    <!-- 深度报文检视器 (Payload Inspector Drawer) -->
     <NDrawer v-model:show="drawerVisible" :width="620" placement="right">
-      <NDrawerContent :title="`全链路报文审计 #${currentItem?.id || ''}`" closable>
+      <NDrawerContent :title="`全链路报文检查器 (Payload Inspector) #${currentItem?.id || ''}`" closable>
         <div v-if="currentItem" class="flex flex-col gap-16px">
           <!-- 核心元数据看板 -->
           <div class="rounded-8px border border-gray-200 bg-gray-50/80 p-14px dark:border-dark-600 dark:bg-dark-600/50">
             <div class="mb-10px flex items-center justify-between border-b border-gray-200 pb-8px dark:border-dark-500">
               <div class="flex items-center gap-8px">
                 <NTag size="small" :type="currentItem.direction === 'in' ? 'success' : 'info'" round>
-                  {{ currentItem.direction === 'in' ? '📥 外部对接我 (Inbound)' : '📤 我对接外部 (Outbound)' }}
+                  {{ currentItem.direction === 'in' ? '📥 入站调用 [INBOUND]' : '📤 出站转发 [OUTBOUND]' }}
                 </NTag>
                 <NTag size="small" :type="currentItem.status === 1 ? 'success' : 'error'">
-                  {{ currentItem.status === 1 ? '200 OK 成功' : '失败 / 异常拦截' }}
+                  {{ currentItem.status === 1 ? '200 OK 响应正常' : '异常 / 拦截' }}
                 </NTag>
               </div>
               <span class="font-mono text-12px text-gray-500">{{ currentItem.created_at }}</span>
@@ -697,7 +697,7 @@ onBeforeUnmount(() => {
 
             <div class="grid grid-cols-2 gap-y-8px text-13px">
               <div>
-                <span class="text-gray-400">调用方身份：</span>
+                <span class="text-gray-400">调用凭据主体：</span>
                 <strong class="text-primary font-mono">{{ currentItem.caller }}</strong>
               </div>
               <div>
@@ -705,7 +705,7 @@ onBeforeUnmount(() => {
                 <span class="font-mono font-medium">{{ currentItem.ip }}</span>
               </div>
               <div>
-                <span class="text-gray-400">接口动作：</span>
+                <span class="text-gray-400">请求服务动作：</span>
                 <span class="font-medium">{{ currentItem.action }}</span>
               </div>
               <div>
@@ -713,7 +713,7 @@ onBeforeUnmount(() => {
                 <span class="font-mono font-bold">{{ currentItem.method }}</span>
               </div>
               <div class="col-span-2">
-                <span class="text-gray-400">路由目标：</span>
+                <span class="text-gray-400">访问端点 URI：</span>
                 <span class="font-mono text-12px">{{ currentItem.target }}</span>
               </div>
             </div>
@@ -721,24 +721,24 @@ onBeforeUnmount(() => {
             <!-- 网络流量与性能指示 -->
             <div class="mt-12px rounded-6px bg-emerald-50/70 p-10px border border-emerald-200/80 dark:bg-emerald-950/20 dark:border-emerald-800">
               <div class="flex items-center justify-between text-13px">
-                <span class="font-bold text-emerald-800 dark:text-emerald-300">⚡ 本次请求总网络吞吐：</span>
+                <span class="font-bold text-emerald-800 dark:text-emerald-300">⚡ 单次网络 I/O 负载总计：</span>
                 <strong class="font-mono text-16px text-emerald-600 dark:text-emerald-400">
-                  {{ currentItem.traffic_text }} ({{ currentItem.traffic_total }} 字节)
+                  {{ currentItem.traffic_text }} ({{ currentItem.traffic_total }} Bytes)
                 </strong>
               </div>
               <div class="mt-6px flex items-center justify-between text-11px text-emerald-700 dark:text-emerald-400/80 border-t border-emerald-200/40 pt-6px">
-                <span>请求上行 (入向): {{ currentItem.bytes_in }} Bytes</span>
-                <span>响应下行 (出向): {{ currentItem.bytes_out }} Bytes</span>
-                <span>响应延迟: {{ currentItem.cost_ms }} ms</span>
+                <span>上行负载 (Inbound Body): {{ currentItem.bytes_in }} Bytes</span>
+                <span>下行负载 (Outbound Body): {{ currentItem.bytes_out }} Bytes</span>
+                <span>往返延迟: {{ currentItem.cost_ms }} ms</span>
               </div>
             </div>
           </div>
 
           <!-- 报文选项卡 -->
           <NTabs v-model:value="detailActiveTab" type="segment">
-            <NTabPane name="overview" tab="📋 综合视图" />
-            <NTabPane name="request" tab="📤 请求入参 (Params)" />
-            <NTabPane name="response" tab="📥 响应结果 (Response)" />
+            <NTabPane name="overview" tab="📋 综合全览" />
+            <NTabPane name="request" tab="📤 请求入参 (Request Body)" />
+            <NTabPane name="response" tab="📥 响应结果 (Response Body)" />
           </NTabs>
 
           <!-- 选项卡 1：综合视图 -->
@@ -767,7 +767,7 @@ onBeforeUnmount(() => {
           <!-- 选项卡 2：纯请求入参 -->
           <div v-else-if="detailActiveTab === 'request'" class="flex flex-col gap-8px">
             <div class="flex items-center justify-between">
-              <span class="text-12px text-gray-400">已对用户密码、密钥 key、Token 进行安全脱敏</span>
+              <span class="text-12px text-gray-400">已自动执行密码与 API Key 脱敏掩码保护</span>
               <NButton size="small" type="primary" secondary @click="copyText(currentItem.params, '完整请求入参')">
                 复制全部入参
               </NButton>
