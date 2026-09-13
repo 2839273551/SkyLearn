@@ -142,9 +142,9 @@ if ($action === 'order-submit-nocheck') {
         $statusToSet = $exist ? '3' : $dockstatus;
 
         $insertSql = "INSERT INTO `qingka_wangke_order` 
-            (`uid`, `cid`, `hid`, `ptname`, `school`, `name`, `user`, `pass`, `kcid`, `kcname`, `fees`, `noun`, `addtime`, `ip`, `dockstatus`) 
+            (`uid`, `cid`, `hid`, `yid`, `ptname`, `school`, `name`, `user`, `pass`, `phone`, `kcid`, `kcname`, `courseStartTime`, `courseEndTime`, `examStartTime`, `examEndTime`, `chapterCount`, `unfinishedChapterCount`, `cookie`, `fees`, `noun`, `miaoshua`, `addtime`, `ip`, `dockstatus`, `loginstatus`, `status`, `process`, `bsnum`, `remarks`, `dakatime`, `leixing`, `detailed`, `dlip`, `docknum`, `finalupdate`, `region`) 
             VALUES 
-            ('$currentUid', '{$rs['cid']}', '$hidSafe', '$ptnameSafe', '$schoolSafe', '$currentUserName', '$userSafe', '$passSafe', '$kcidSafe', '$kcnameSafe', '$unitPrice', '$nounSafe', '$nowTime', '$clientIp', '$statusToSet')";
+            ('$currentUid', '{$rs['cid']}', '$hidSafe', '0', '$ptnameSafe', '$schoolSafe', '$currentUserName', '$userSafe', '$passSafe', '', '$kcidSafe', '$kcnameSafe', '', '', '', '', '0', '0', '', '$unitPrice', '$nounSafe', '0', '$nowTime', '$clientIp', '$statusToSet', '', '待处理', '待处理', '0', '', '', '0', '', '', 0, '$nowTime', '')";
 
         if ($DB->query($insertSql)) {
             $successCount++;

@@ -786,18 +786,20 @@ if ($action === 'order-submit') {
         $safeCourseEnd = daddslashes($course['kcjs']);
         $safePlatform = daddslashes($product['name']);
         $safeNoun = daddslashes($product['noun']);
+        $safeClientIp = daddslashes($clientip);
         $inserted = $DB->query(
             "INSERT INTO qingka_wangke_order "
-            . "(uid,cid,hid,ptname,school,name,user,pass,kcid,kcname,courseEndTime,fees,noun,miaoshua,addtime,ip,dockstatus,docknum) VALUES ("
-            . "'" . intval($userrow['uid']) . "','" . intval($product['cid']) . "','" . intval($product['docking']) . "','" . $safePlatform
-            . "','" . $safeSchool . "','" . $safeName . "','" . $safeUser . "','" . $safePass . "','" . $safeCourseId
-            . "','" . $safeCourseName . "','" . $safeCourseEnd . "','" . $unitPrice . "','" . $safeNoun
-            . "','0','" . $date . "','" . daddslashes($clientip) . "','" . $dockstatus . "',0)"
+            . "(uid,cid,hid,yid,ptname,school,name,user,pass,phone,kcid,kcname,courseStartTime,courseEndTime,examStartTime,examEndTime,chapterCount,unfinishedChapterCount,cookie,fees,noun,miaoshua,addtime,ip,dockstatus,loginstatus,status,process,bsnum,remarks,dakatime,leixing,detailed,dlip,docknum,finalupdate,region) VALUES ("
+            . "'" . intval($userrow['uid']) . "','" . intval($product['cid']) . "','" . intval($product['docking']) . "','0','" . $safePlatform
+            . "','" . $safeSchool . "','" . $safeName . "','" . $safeUser . "','" . $safePass . "','','" . $safeCourseId
+            . "','" . $safeCourseName . "','','" . $safeCourseEnd . "','','','0','0','','" . $unitPrice . "','" . $safeNoun
+            . "','0','" . $date . "','" . $safeClientIp . "','" . $dockstatus . "','','待处理','待处理','0','','','0','','',0,'" . $date . "','')"
         );
 
         if (!$inserted) {
+            $dbErr = method_exists($DB, 'error') ? $DB->error() : '';
             $DB->query('ROLLBACK');
-            api_respond(500, '提交失败，请重试');
+            api_respond(500, '提交失败' . ($dbErr ? ": {$dbErr}" : '，请重试'));
         }
 
         wlog(
@@ -3049,8 +3051,24 @@ if ($action === 'workorder-create') {
     $initialLog = "【" . $date . " 用户提交工单】\n" . $content;
     $safeLog = daddslashes($initialLog);
 
-    $DB->query("INSERT INTO qingka_wangke_gongdan (title, region, content, uid, state, addtime) VALUES ('$safeTitle', '$safeRegion', '$safeLog', '$uid', '待回复', '$date')");
-    $gid = $DB->insert_id();
+    $oidVal = isset($oid) ? intval($oid) : 0;
+    $insertOk = $DB->query("INSERT INTO qingka_wangke_gongdan (oid, title, region, content, answer, uid, state, addtime, last_responder_uid) VALUES ('$oidVal', '$safeTitle', '$safeRegion', '$safeLog', '', '$uid', '待回复', '$date', '$uid')");
+    if (!$insertOk) {
+        $dbErr = method_exists($DB, 'error') ? $DB->error() : '';
+        api_respond(500, '工单提交失败' . ($dbErr ? ": {$dbErr}" : '，请稍后重试'));
+    }
+
+    $gid = 0;
+    if (method_exists($DB, 'insert_id')) {
+        $gid = intval($DB->insert_id());
+    }
+    if ($gid <= 0 && isset($DB->link)) {
+        $gid = intval(mysqli_insert_id($DB->link));
+    }
+    if ($gid <= 0) {
+        $gRow = $DB->get_row("SELECT gid FROM qingka_wangke_gongdan WHERE uid='$uid' ORDER BY gid DESC LIMIT 1");
+        $gid = $gRow ? intval($gRow['gid']) : 0;
+    }
 
     $super = $DB->get_row("SELECT pushPlusToken FROM qingka_wangke_user WHERE uid='1' LIMIT 1");
     if (!empty($super['pushPlusToken'])) {
