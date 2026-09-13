@@ -275,7 +275,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
     {
       title: '操作',
       key: 'actions',
-      width: 105,
+      width: 95,
       render: row =>
         h(NSpace, { size: 4, align: 'center' }, () => [
           h(
@@ -315,7 +315,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
     {
       title: '详细',
       key: 'detail',
-      width: 46,
+      width: 40,
       align: 'center',
       render: row =>
         h(
@@ -334,7 +334,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
     {
       title: '订单所属平台',
       key: 'platform',
-      minWidth: 140,
+      minWidth: 110,
       render: row =>
         h(
           'div',
@@ -346,7 +346,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
     {
       title: '账号',
       key: 'account',
-      minWidth: 210,
+      minWidth: 155,
       render: row =>
         h('div', { class: 'flex flex-col gap-3px py-3px text-12px' }, [
           row.school
@@ -390,7 +390,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
     {
       title: '备注',
       key: 'remarks',
-      minWidth: 120,
+      minWidth: 80,
       render: row =>
         h(
           'div',
@@ -402,7 +402,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
     {
       title: '任务名称',
       key: 'courseName',
-      minWidth: 180,
+      minWidth: 130,
       render: row =>
         h(
           'div',
@@ -414,14 +414,14 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
     {
       title: '状态',
       key: 'status',
-      width: 95,
+      width: 70,
       render: row => h(NTag, { type: statusType(row.status), size: 'small', round: true }, { default: () => row.status || '待处理' })
     },
     // 8. % (进度)
     {
       title: '%',
       key: 'progress',
-      width: 115,
+      width: 75,
       render: row => {
         const pStr = row.progress || '0%';
         const numMatch = pStr.match(/(\d+(?:\.\d+)?)/);
@@ -445,7 +445,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
     {
       title: '订单详细信息',
       key: 'detailInfo',
-      minWidth: 260,
+      minWidth: 180,
       render: row =>
         h(
           'div',
@@ -453,8 +453,22 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
           row.remarks ? row.remarks : (row.finalupdate ? `上次同步: ${row.finalupdate}` : '暂无详细上游记录')
         )
     },
-    // 10. 时间
-    { title: '时间', key: 'createdAt', width: 160 }
+    // 10. 时间 (双行紧凑展示)
+    {
+      title: '时间',
+      key: 'createdAt',
+      width: 95,
+      render: row => {
+        const parts = (row.createdAt || '').split(' ');
+        if (parts.length === 2) {
+          return h('div', { class: 'text-11px font-mono text-gray-500 dark:text-gray-400 leading-tight' }, [
+            h('div', {}, parts[0]),
+            h('div', {}, parts[1])
+          ]);
+        }
+        return h('span', { class: 'text-11px font-mono' }, row.createdAt || '-');
+      }
+    }
   ];
 
   // 11. 状态 (对接状态: 严格根据用户指令，放到后面，且仅管理员可见)
@@ -462,7 +476,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
     cols.push({
       title: '状态',
       key: 'dockStatus',
-      width: 135,
+      width: 85,
       render: row => {
         const ds = String(row.dockStatus ?? '');
         if (ds === '1') {
@@ -512,7 +526,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
   cols.push({
     title: 'UID',
     key: 'ownerId',
-    width: 70,
+    width: 42,
     align: 'center',
     render: row => h('span', { class: 'font-mono text-12px font-bold text-gray-500' }, row.ownerId || '1')
   });
@@ -521,7 +535,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
   cols.push({
     title: '扣费',
     key: 'fees',
-    width: 80,
+    width: 55,
     align: 'center',
     render: row => h('span', { class: 'font-mono text-12px font-bold text-rose-500' }, `¥ ${row.fees || '0.00'}`)
   });
@@ -598,11 +612,11 @@ onMounted(loadOrders);
         </NButton>
       </div>
 
-      <!-- 批量操作折叠面板（高度还原老版小沐） -->
-      <NCollapse class="mb-12px flex flex-col gap-8px">
+      <!-- 批量操作折叠面板（收起时为极简单行，展开后内容区有整齐背景） -->
+      <NCollapse class="mb-12px flex flex-col gap-6px">
         <!-- 1. 修改任务显示状态 -->
-        <NCollapseItem title="✏️ 修改任务显示状态" name="1" class="rounded-8px bg-slate-50 dark:bg-dark-600 p-10px border border-slate-200 dark:border-dark-500">
-          <div class="flex flex-wrap items-center gap-8px">
+        <NCollapseItem title="✏️ 修改任务显示状态" name="1" class="rounded-6px border border-gray-200 dark:border-dark-500 px-10px py-2px bg-white dark:bg-dark-700">
+          <div class="flex flex-wrap items-center gap-8px pt-6px pb-8px border-t mt-4px">
             <NButton size="small" type="warning" :loading="batchLoading" @click="handleBatchStatus('待处理')">
               🕒 待处理
             </NButton>
@@ -622,8 +636,8 @@ onMounted(loadOrders);
         </NCollapseItem>
 
         <!-- 2. 处理状态操作 (管理员专属) -->
-        <NCollapseItem v-if="isSuperAdmin" title="✏️ 处理状态操作 (对接与售后)" name="2" class="rounded-8px bg-slate-50 dark:bg-dark-600 p-8px border border-slate-200 dark:border-dark-500">
-          <div class="flex flex-wrap items-center gap-6px">
+        <NCollapseItem v-if="isSuperAdmin" title="✏️ 处理状态操作 (对接与售后)" name="2" class="rounded-6px border border-gray-200 dark:border-dark-500 px-10px py-2px bg-white dark:bg-dark-700">
+          <div class="flex flex-wrap items-center gap-6px pt-6px pb-8px border-t mt-4px">
             <NButton size="tiny" type="warning" :loading="batchLoading" @click="handleBatchDockStatus('0', '待处理')">待处理</NButton>
             <NButton size="tiny" type="success" :loading="batchLoading" @click="handleBatchDockStatus('1', '处理成功')">处理成功</NButton>
             <NButton size="tiny" type="error" :loading="batchLoading" @click="handleBatchDockStatus('2', '处理失败')">处理失败</NButton>
