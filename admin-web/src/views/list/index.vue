@@ -157,25 +157,20 @@ async function handleDock(row: Api.Orders.Record) {
   }
 }
 
+/**
+ * 严格按照用户指定与老版小沐经典排版顺序：
+ * [操作] [详细] [订单所属平台] [账号] [备注] [任务名称] [状态] [%] [订单详细信息] [时间] [状态(对接状态)] [UID] [扣费]
+ */
 const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
   const cols: DataTableColumns<Api.Orders.Record> = [
+    // 1. 操作
     {
       title: '操作',
       key: 'actions',
-      width: 200,
+      width: 125,
       fixed: 'left',
       render: row =>
-        h(NSpace, { size: 6, align: 'center' }, () => [
-          h(
-            NButton,
-            {
-              size: 'tiny',
-              type: 'info',
-              secondary: true,
-              onClick: () => openDetail(row)
-            },
-            { default: () => '🔍 详细' }
-          ),
+        h(NSpace, { size: 4, align: 'center' }, () => [
           h(
             NButton,
             {
@@ -209,10 +204,31 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
           )
         ])
     },
+    // 2. 详细
+    {
+      title: '详细',
+      key: 'detail',
+      width: 65,
+      fixed: 'left',
+      align: 'center',
+      render: row =>
+        h(
+          NButton,
+          {
+            size: 'tiny',
+            type: 'info',
+            round: true,
+            title: '查看订单11项详细参数',
+            onClick: () => openDetail(row)
+          },
+          { default: () => '🔍' }
+        )
+    },
+    // 3. 订单所属平台
     {
       title: '订单所属平台',
       key: 'platform',
-      minWidth: 150,
+      minWidth: 140,
       render: row =>
         h(
           'div',
@@ -220,8 +236,9 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
           row.platform || '无'
         )
     },
+    // 4. 账号
     {
-      title: '账号信息',
+      title: '账号',
       key: 'account',
       minWidth: 210,
       render: row =>
@@ -263,6 +280,19 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
           ])
         ])
     },
+    // 5. 备注
+    {
+      title: '备注',
+      key: 'remarks',
+      minWidth: 120,
+      render: row =>
+        h(
+          'div',
+          { class: 'whitespace-normal break-words text-12px text-gray-600 dark:text-gray-300 leading-normal' },
+          row.remarks || '无'
+        )
+    },
+    // 6. 任务名称
     {
       title: '任务名称',
       key: 'courseName',
@@ -274,24 +304,26 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
           row.courseName || '无'
         )
     },
+    // 7. 状态 (课程状态)
     {
       title: '状态',
       key: 'status',
-      width: 90,
+      width: 95,
       render: row => h(NTag, { type: statusType(row.status), size: 'small', round: true }, { default: () => row.status || '待处理' })
     },
+    // 8. % (进度)
     {
       title: '%',
       key: 'progress',
-      width: 120,
+      width: 115,
       render: row => {
         const pStr = row.progress || '0%';
         const numMatch = pStr.match(/(\d+(?:\.\d+)?)/);
         const percent = numMatch ? Math.min(100, Math.max(0, parseFloat(numMatch[1]))) : (row.status === '已完成' ? 100 : 0);
-        return h('div', { class: 'flex flex-col gap-3px w-100px' }, [
+        return h('div', { class: 'flex flex-col gap-3px w-95px' }, [
           h('div', { class: 'flex justify-between items-center text-11px font-mono font-bold text-gray-600 dark:text-gray-300' }, [
             h('span', {}, `${percent}%`),
-            percent === 100 ? h('span', { class: 'text-emerald-500' }, '✔') : null
+            percent === 100 ? h('span', { class: 'text-emerald-500 text-11px' }, '✔') : null
           ]),
           h(NProgress, {
             type: 'line',
@@ -303,27 +335,28 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
         ]);
       }
     },
+    // 9. 订单详细信息
     {
       title: '订单详细信息',
-      key: 'remarks',
-      minWidth: 260,
+      key: 'detailInfo',
+      minWidth: 220,
       render: row =>
         h(
           'div',
           { class: 'whitespace-normal break-words text-12px leading-relaxed text-gray-600 dark:text-gray-300 font-mono py-2px' },
-          row.remarks || '无'
+          row.remarks ? row.remarks : (row.finalupdate ? `上次同步: ${row.finalupdate}` : '暂无详细上游记录')
         )
     },
-    { title: '时间', key: 'createdAt', width: 155 }
+    // 10. 时间
+    { title: '时间', key: 'createdAt', width: 160 }
   ];
 
-  // 严格根据用户指令：对接状态放到最后，且仅超级管理员可见，代理完全不展示该列！
+  // 11. 状态 (对接状态: 严格根据用户指令，放到后面，且仅管理员可见)
   if (isSuperAdmin.value) {
     cols.push({
-      title: '对接状态',
+      title: '状态',
       key: 'dockStatus',
-      width: 140,
-      fixed: 'right',
+      width: 135,
       render: row => {
         const ds = String(row.dockStatus ?? '');
         if (ds === '1') {
@@ -349,7 +382,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
                     dashed: true,
                     loading: Boolean(actionLoadingMap[`dock_${row.orderId}`])
                   },
-                  { default: () => '❌ 处理失败 (点击重推)' }
+                  { default: () => '❌ 提交失败 (重推)' }
                 ),
               default: () => `确定重新向货源提交订单 #${row.orderId} 吗？`
             }
@@ -368,6 +401,24 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
       }
     });
   }
+
+  // 12. UID
+  cols.push({
+    title: 'UID',
+    key: 'ownerId',
+    width: 70,
+    align: 'center',
+    render: row => h('span', { class: 'font-mono text-12px font-bold text-gray-500' }, row.ownerId || '1')
+  });
+
+  // 13. 扣费
+  cols.push({
+    title: '扣费',
+    key: 'fees',
+    width: 80,
+    align: 'center',
+    render: row => h('span', { class: 'font-mono text-12px font-bold text-rose-500' }, `¥ ${row.fees || '0.00'}`)
+  });
 
   return cols;
 });
@@ -447,7 +498,7 @@ onMounted(loadOrders);
         :row-key="(row: Api.Orders.Record) => row.orderId"
         :pagination="false"
         striped
-        :scroll-x="isSuperAdmin ? 1720 : 1580"
+        :scroll-x="isSuperAdmin ? 1820 : 1680"
       />
 
       <div class="mt-16px flex justify-end">
