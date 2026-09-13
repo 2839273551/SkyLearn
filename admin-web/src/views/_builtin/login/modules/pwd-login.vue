@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue';
 import { useAuthStore } from '@/store/modules/auth';
-import { useFormRules, useNaiveForm } from '@/hooks/common/form';
+import { useNaiveForm } from '@/hooks/common/form';
 
 defineOptions({ name: 'PwdLogin' });
 
@@ -22,11 +22,9 @@ const verificationModal = ref(false);
 const verificationCode = ref('');
 
 const rules = computed<Record<keyof FormModel, App.Global.FormRule[]>>(() => {
-  const { formRules } = useFormRules();
-
   return {
-    userName: formRules.userName,
-    password: formRules.pwd
+    userName: [{ required: true, message: '请输入平台账号', trigger: ['blur', 'input'] }],
+    password: [{ required: true, message: '请输入登录密码', trigger: ['blur', 'input'] }]
   };
 });
 

@@ -59,7 +59,9 @@ if(isset($_COOKIE["admin_token"]))
 	$udata = $DB->get_row("SELECT * FROM qingka_wangke_user WHERE user='$user' limit 1");
 	$session=md5($udata['user'].$udata['pass'].$password_hash);
 	if($session==$sid) {
-		$DB->query("UPDATE qingka_wangke_user SET endtime='$date',ip='$clientip' WHERE user = '$user' ");
+		if (!isset($udata['endtime']) || (strtotime($date) - strtotime($udata['endtime']) > 60) || ($udata['ip'] !== $clientip)) {
+			$DB->query("UPDATE qingka_wangke_user SET endtime='$date',ip='$clientip' WHERE user = '$user' ");
+		}
 		$islogin=1;
 		$userrow = $DB->get_row("SELECT * FROM qingka_wangke_user WHERE user='$user' limit 1");
 		if($udata['active']==0){
