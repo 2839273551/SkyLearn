@@ -173,7 +173,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-16px p-16px">
+  <div class="flex flex-col gap-14px p-10px sm:p-16px">
     <NCard title="用户操作与资金变动流水" :bordered="false" class="rounded-12px shadow-sm">
       <template #header-extra>
         <div class="flex items-center gap-8px">
@@ -194,13 +194,13 @@ onMounted(() => {
             :options="typeOptions"
             placeholder="日志操作类型"
             clearable
-            class="w-180px"
+            class="w-full sm:w-180px"
           />
           <NInput
             v-model:value="query.keyword"
             placeholder="搜索详情内容 / 用户 UID"
             clearable
-            class="w-240px"
+            class="w-full sm:w-240px"
             @keyup.enter="handleSearch"
           />
           <NButton type="primary" @click="handleSearch">

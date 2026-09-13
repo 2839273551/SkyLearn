@@ -9,7 +9,29 @@ body,
   text-autospace: normal;
 }
 
-html {
+html, body {
   overflow-x: hidden;
+  max-width: 100vw;
+  -webkit-overflow-scrolling: touch;
+  -webkit-tap-highlight-color: transparent;
   color: rgb(var(--base-text-color));
+}
+
+/* 移动端紧凑卡片排版与触控优化 */
+@media (max-width: 640px) {
+  .n-card .n-card__content {
+    padding: 12px !important;
+  }
+  .n-card-header {
+    padding: 12px 12px 8px 12px !important;
+  }
+  /* 表格在手机端保证紧凑可读 */
+  .n-data-table-td {
+    padding: 8px 6px !important;
+    font-size: 12px !important;
+  }
+  .n-data-table-th {
+    padding: 8px 6px !important;
+    font-size: 12px !important;
+  }
 }

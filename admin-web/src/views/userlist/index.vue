@@ -2,9 +2,12 @@
 import { computed, h, onMounted, reactive, ref } from 'vue';
 import type { DataTableColumns } from 'naive-ui';
 import { NAvatar, NButton, NInput, NInputNumber, NSpace, NSwitch, NTag } from 'naive-ui';
+import { useAppStore } from '@/store/modules/app';
 import { createUser, fetchGradeOptions, fetchUserlistList, rechargeUserBalance, updateUserRate, updateUserStatus } from '@/service/api';
 
 defineOptions({ name: 'Userlist' });
+
+const appStore = useAppStore();
 
 const loading = ref(false);
 const list = ref<Api.ProfileArea.UserItem[]>([]);
@@ -250,11 +253,11 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-16px p-16px">
+  <div class="flex flex-col gap-14px p-10px sm:p-16px">
     <NCard title="代理管理" :bordered="false" class="rounded-8px shadow-sm">
       <div class="mb-16px flex flex-wrap items-center justify-between gap-12px">
         <div class="flex flex-wrap items-center gap-10px">
-          <NInput v-model:value="query.keyword" placeholder="UID / 账号 / 昵称 / 邀请码" clearable class="w-240px" @keyup.enter="loadData" />
+          <NInput v-model:value="query.keyword" placeholder="UID / 账号 / 昵称 / 邀请码" clearable class="w-full sm:w-240px" @keyup.enter="loadData" />
           <NSelect
             v-model:value="query.status"
             :options="[
@@ -264,7 +267,7 @@ onMounted(() => {
             ]"
             placeholder="账号状态"
             clearable
-            class="w-130px"
+            class="w-full sm:w-130px"
           />
           <NButton type="primary" @click="loadData">查询</NButton>
         </div>
@@ -299,7 +302,7 @@ onMounted(() => {
     </NCard>
 
     <!-- 充值弹窗 -->
-    <NModal v-model:show="rechargeModal" preset="card" title="代理余额调整" class="max-w-450px">
+    <NModal v-model:show="rechargeModal" preset="card" title="代理余额调整" :style="{ width: appStore.isMobile ? '92vw' : '460px' }">
       <div class="flex flex-col gap-12px">
         <div class="text-14px">目标代理：<strong>[UID: {{ currentUid }}] {{ currentUserName }}</strong></div>
         <NFormItem label="调整金额 (正数增加，负数扣除)">
@@ -317,7 +320,7 @@ onMounted(() => {
     </NModal>
 
     <!-- 调费率弹窗 -->
-    <NModal v-model:show="rateModal" preset="card" title="修改代理费率" class="max-w-450px">
+    <NModal v-model:show="rateModal" preset="card" title="修改代理费率" :style="{ width: appStore.isMobile ? '92vw' : '460px' }">
       <div class="flex flex-col gap-12px">
         <div class="text-14px">目标代理：<strong>[UID: {{ currentUid }}] {{ currentUserName }}</strong></div>
         <NFormItem label="新费率系数 (如 0.25 代表 2.5 折成本)">
@@ -333,7 +336,7 @@ onMounted(() => {
     </NModal>
 
     <!-- 开通代理弹窗 -->
-    <NModal v-model:show="createModal" preset="card" title="开通下级代理账号" class="max-w-520px">
+    <NModal v-model:show="createModal" preset="card" title="开通下级代理账号" :style="{ width: appStore.isMobile ? '92vw' : '520px' }">
       <div class="flex flex-col gap-14px">
         <NAlert v-if="openReg === '0'" type="error">当前系统设置已暂停后台开户</NAlert>
         <div class="grid grid-cols-1 gap-12px sm:grid-cols-2">

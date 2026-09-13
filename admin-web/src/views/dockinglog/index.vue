@@ -26,8 +26,11 @@ import {
   NTooltip
 } from 'naive-ui';
 import { clearDockingLogs, fetchDockingLogList } from '@/service/api';
+import { useAppStore } from '@/store/modules/app';
 
 defineOptions({ name: 'DockingLog' });
+
+const appStore = useAppStore();
 
 const loading = ref(false);
 const list = ref<Api.DockingLog.Item[]>([]);
@@ -418,7 +421,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-16px p-16px">
+  <div class="flex flex-col gap-14px p-10px sm:p-16px">
     <!-- 顶部极客 APM 实时全链路监控大盘 -->
     <div class="rounded-12px bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 p-16px text-white shadow-md border border-slate-700/50">
       <div class="mb-14px flex flex-wrap items-center justify-between gap-12px border-b border-slate-700/60 pb-12px">
@@ -559,14 +562,14 @@ onBeforeUnmount(() => {
             v-model:value="query.action_filter"
             placeholder="动作指令 (如: query / order / balance)"
             clearable
-            class="w-230px"
+            class="w-full sm:w-230px"
             @keyup.enter="handleSearch"
           />
           <NInput
             v-model:value="query.keyword"
             placeholder="检索 UID / 账号 / 来源 IP / 目标服务"
             clearable
-            class="w-270px"
+            class="w-full sm:w-270px"
             @keyup.enter="handleSearch"
           />
           <NSelect
@@ -574,7 +577,7 @@ onBeforeUnmount(() => {
             :options="statusOptions"
             placeholder="响应状态"
             clearable
-            class="w-170px"
+            class="w-full sm:w-170px"
           />
           <NButton type="primary" @click="handleSearch">
             <template #icon><span>🔍</span></template>
@@ -678,7 +681,7 @@ onBeforeUnmount(() => {
     </NCard>
 
     <!-- 深度报文检视器 (Payload Inspector Drawer) -->
-    <NDrawer v-model:show="drawerVisible" :width="620" placement="right">
+    <NDrawer v-model:show="drawerVisible" :width="appStore.isMobile ? '100%' : 620" placement="right">
       <NDrawerContent :title="`全链路报文检查器 #${currentItem?.id || ''}`" closable>
         <div v-if="currentItem" class="flex flex-col gap-16px">
           <!-- 核心元数据看板 -->

@@ -17,8 +17,11 @@ import {
   NTooltip
 } from 'naive-ui';
 import { fetchNocheckOptions, submitOrderNocheck } from '@/service/api';
+import { useAppStore } from '@/store/modules/app';
 
 defineOptions({ name: 'Addtj' });
+
+const appStore = useAppStore();
 
 const router = useRouter();
 const loading = ref(false);
@@ -196,7 +199,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-16px p-16px">
+  <div class="flex flex-col gap-14px p-10px sm:p-16px">
     <NAlert type="info" title="无查提交 / 批量直接交单说明" class="rounded-8px">
       适合无需在线查课、或仅需批量排队提交的学习平台。系统将自动解析录入的账号密码与课程名称，按所选平台单价自动扣除账户余额并推送上游。
     </NAlert>
