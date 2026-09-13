@@ -403,3 +403,29 @@ if ($action === 'scheduler-task-clear-logs') {
 
     api_respond(0, '调度日志已清理');
 }
+
+if ($action === 'scheduler-cron') {
+    $cronKey = isset($_GET['key']) ? trim($_GET['key']) : '';
+    $clientIp = isset($clientip) ? $clientip : (isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '127.0.0.1');
+    $isLocal = in_array($clientIp, array('127.0.0.1', '::1', 'localhost'), true) || php_sapi_name() === 'cli';
+    $validKey = 'cron_scheduler_sk_2026';
+
+    if (!$isLocal && $cronKey !== $validKey) {
+        api_respond(403, 'Cron 调度密钥鉴权失败');
+    }
+
+    $res = $DB->query("SELECT * FROM `qingka_wangke_cron_task` WHERE enabled=1 ORDER BY id ASC");
+    $now = time();
+    $ranReports = array();
+
+    while ($task = $DB->fetch($res)) {
+        $intervalSec = max(60, intval($task['interval_mins']) * 60);
+        $lastTime = !empty($task['last_run_time']) ? strtotime($task['last_run_time']) : 0;
+        
+        if (($now - $lastTime) >= ($intervalSec - 5)) {
+            $ranReports[] = scheduler_execute_task($task['id']);
+        }
+    }
+
+    api_respond(0, '自动周期调度巡检完成', array('dispatched' => $ranReports));
+}
