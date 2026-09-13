@@ -112,10 +112,14 @@ async function handleSync(row: Api.Orders.Record) {
     if (data.process) row.progress = data.process;
     if (data.status) row.status = data.status;
     if (data.remarks) row.remarks = data.remarks;
+    if ((data as any).yid) row.yid = String((data as any).yid);
+    if ((data as any).finalupdate) row.finalupdate = String((data as any).finalupdate);
     if (currentDetail.value && currentDetail.value.orderId === row.orderId) {
       if (data.process) currentDetail.value.progress = data.process;
       if (data.status) currentDetail.value.status = data.status;
       if (data.remarks) currentDetail.value.remarks = data.remarks;
+      if ((data as any).yid) currentDetail.value.yid = String((data as any).yid);
+      if ((data as any).finalupdate) currentDetail.value.finalupdate = String((data as any).finalupdate);
     }
     window.$message?.success(`订单 #${row.orderId} 进度同步成功: ${data.process || data.status}`);
   }
@@ -511,7 +515,15 @@ onMounted(loadOrders);
           <!-- 5. 上游返回YID -->
           <div class="flex items-center justify-between border-b pb-8px">
             <span class="font-bold text-gray-700 dark:text-gray-200">5. 上游返回YID：</span>
-            <span class="font-mono text-emerald-600 font-bold">{{ currentDetail.yid || '暂无YID' }}</span>
+            <div class="flex items-center gap-6px">
+              <strong v-if="currentDetail.yid && currentDetail.yid !== '0'" class="font-mono text-emerald-600 font-bold text-14px">
+                {{ currentDetail.yid }}
+              </strong>
+              <span v-else class="text-gray-400 text-12px">暂无YID (可点击下方同步拉取)</span>
+              <NButton v-if="currentDetail.yid && currentDetail.yid !== '0'" size="tiny" quaternary type="primary" @click="copyText(currentDetail.yid, 'YID')">
+                复制
+              </NButton>
+            </div>
           </div>
 
           <!-- 6. 下单时间 -->

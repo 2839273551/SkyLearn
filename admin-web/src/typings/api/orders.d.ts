@@ -14,6 +14,9 @@ declare namespace Api {
       account: string;
       password?: string;
       fees?: string;
+      kcid?: string;
+      yid?: string;
+      finalupdate?: string;
       platform: string;
       courseName: string;
       school: string;

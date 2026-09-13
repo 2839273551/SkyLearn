@@ -930,7 +930,7 @@ if ($action === 'orders') {
 
     $where = ' WHERE ' . implode(' AND ', $conditions);
     $result = $DB->query(
-        'SELECT oid,uid,cid,user,pass,fees,ptname,kcname,school,process,remarks,status,dockstatus,addtime '
+        'SELECT oid,uid,cid,user,pass,fees,kcid,yid,finalupdate,ptname,kcname,school,process,remarks,status,dockstatus,addtime '
         . 'FROM qingka_wangke_order' . $where . ' ORDER BY oid DESC LIMIT ' . $offset . ',' . $pageSize
     );
     $total = $DB->count('SELECT COUNT(*) FROM qingka_wangke_order' . $where);
@@ -944,6 +944,9 @@ if ($action === 'orders') {
             'account' => (string) $row['user'],
             'password' => isset($row['pass']) ? (string) $row['pass'] : '',
             'fees' => isset($row['fees']) ? (string) $row['fees'] : '0.00',
+            'kcid' => isset($row['kcid']) ? (string) $row['kcid'] : '',
+            'yid' => isset($row['yid']) ? (string) $row['yid'] : '',
+            'finalupdate' => isset($row['finalupdate']) ? (string) $row['finalupdate'] : '',
             'platform' => isset($row['ptname']) ? (string) $row['ptname'] : '',
             'courseName' => isset($row['kcname']) ? (string) $row['kcname'] : '',
             'school' => isset($row['school']) ? (string) $row['school'] : '',
@@ -3490,24 +3493,28 @@ if ($action === 'order-sync') {
             $uProcess = daddslashes(isset($result[$i]['process']) ? $result[$i]['process'] : $order['process']);
             $uRemarks = daddslashes(isset($result[$i]['remarks']) ? $result[$i]['remarks'] : $order['remarks']);
             $uZhgx = daddslashes(isset($result[$i]['zhgx']) ? $result[$i]['zhgx'] : date('Y-m-d H:i:s'));
+            $uYid = daddslashes(isset($result[$i]['yid']) ? $result[$i]['yid'] : (isset($result[$i]['id']) ? $result[$i]['id'] : ''));
 
+            $setYidSql = (!empty($uYid) && $uYid !== '0') ? ", `yid`='$uYid'" : '';
             $DB->query("UPDATE qingka_wangke_order SET 
                 `name`='$uName',
                 `status`='$uStatus',
                 `process`='$uProcess',
                 `finalupdate`='$uZhgx',
-                `remarks`='$uRemarks' 
+                `remarks`='$uRemarks' $setYidSql 
                 WHERE `oid`='$oid'");
         }
     }
 
-    $fresh = $DB->get_row("SELECT oid, process, status, remarks, finalupdate FROM qingka_wangke_order WHERE oid='$oid' LIMIT 1");
+    $fresh = $DB->get_row("SELECT oid, yid, process, status, remarks, finalupdate FROM qingka_wangke_order WHERE oid='$oid' LIMIT 1");
     $displayProg = $fresh['process'] ? $fresh['process'] : $fresh['status'];
     api_respond(0, "进度同步完成！当前状态: {$displayProg}", array(
         'oid' => $oid,
+        'yid' => isset($fresh['yid']) ? (string)$fresh['yid'] : '',
         'process' => $fresh['process'],
         'status' => $fresh['status'],
-        'remarks' => $fresh['remarks']
+        'remarks' => $fresh['remarks'],
+        'finalupdate' => isset($fresh['finalupdate']) ? (string)$fresh['finalupdate'] : ''
     ));
 }
 
