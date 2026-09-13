@@ -3621,6 +3621,211 @@ if ($action === 'class-quick-sort') {
     api_respond(0, "排序已更新为: {$sort}");
 }
 
+
+// ==========================================
+// 订单批量修改状态 (type 1: 任务显示状态 status, type 2: 处理状态 dockstatus)
+// ==========================================
+if ($action === 'order-batch-status') {
+    api_require_post();
+    api_require_login(isset($islogin) ? $islogin : 0);
+    api_require_csrf();
+
+    $currentUid = intval($userrow['uid']);
+    $isSuper = ($currentUid === 1);
+    $input = api_read_input();
+    $oids = isset($input['oids']) && is_array($input['oids']) ? array_map('intval', $input['oids']) : array();
+    $statusVal = isset($input['status']) ? trim(strip_tags($input['status'])) : '';
+    $type = isset($input['type']) ? intval($input['type']) : 1; // 1: 任务状态, 2: 对接状态
+
+    if (empty($oids) || $statusVal === '') {
+        api_respond(422, '请先勾选需要操作的订单并指定目标状态');
+    }
+
+    if ($type === 2 && !$isSuper) {
+        api_respond(403, '只有超级管理员可批量修改处理状态');
+    }
+
+    $oidsStr = implode(',', $oids);
+    $safeStatus = daddslashes($statusVal);
+    $scope = $isSuper ? '' : " AND uid='$currentUid'";
+
+    if ($type === 1) {
+        $DB->query("UPDATE `qingka_wangke_order` SET status='$safeStatus' WHERE oid IN ($oidsStr) $scope");
+        $count = count($oids);
+        api_respond(0, "已批量将 {$count} 笔订单任务状态变更为: [{$statusVal}]");
+    } else {
+        $DB->query("UPDATE `qingka_wangke_order` SET dockstatus='$safeStatus' WHERE oid IN ($oidsStr)");
+        $count = count($oids);
+        api_respond(0, "已批量将 {$count} 笔订单处理状态变更为: [{$statusVal}]");
+    }
+}
+
+// ==========================================
+// 订单批量退款 (超管专属)
+// ==========================================
+if ($action === 'order-batch-refund') {
+    api_require_post();
+    api_require_super($userrow, $islogin);
+    api_require_csrf();
+
+    $input = api_read_input();
+    $oids = isset($input['oids']) && is_array($input['oids']) ? array_map('intval', $input['oids']) : array();
+    if (empty($oids)) {
+        api_respond(422, '请先勾选需要退款的订单');
+    }
+
+    $refundCount = 0;
+    $totalRefundMoney = 0.0;
+
+    foreach ($oids as $oid) {
+        $order = $DB->get_row("SELECT oid, uid, user, pass, kcname, fees, status, dockstatus FROM `qingka_wangke_order` WHERE oid='$oid' LIMIT 1");
+        if (!$order) continue;
+        if ($order['status'] === '已退款') continue;
+
+        $fees = floatval($order['fees']);
+        $orderUid = intval($order['uid']);
+
+        // 退还费用给该订单用户
+        if ($fees > 0 && $orderUid > 0) {
+            $DB->query("UPDATE `qingka_wangke_user` SET money=money+'$fees' WHERE uid='$orderUid' LIMIT 1");
+            if (function_exists('wlog')) {
+                wlog($orderUid, "订单退款", "管理员批量退款: 订单 #{$oid} ({$order['kcname']}) 退还金额 {$fees} 元", "+{$fees}");
+            }
+        }
+
+        $DB->query("UPDATE `qingka_wangke_order` SET status='已退款', dockstatus='4', remarks=CONCAT(remarks, ' [管理员退款]') WHERE oid='$oid' LIMIT 1");
+        $refundCount++;
+        $totalRefundMoney += $fees;
+    }
+
+    api_respond(0, "成功批量退款 {$refundCount} 笔订单，退还资金共计: ¥ " . round($totalRefundMoney, 2));
+}
+
+// ==========================================
+// 订单批量删除
+// ==========================================
+if ($action === 'order-batch-delete') {
+    api_require_post();
+    api_require_login(isset($islogin) ? $islogin : 0);
+    api_require_csrf();
+
+    $currentUid = intval($userrow['uid']);
+    $isSuper = ($currentUid === 1);
+    $input = api_read_input();
+    $oids = isset($input['oids']) && is_array($input['oids']) ? array_map('intval', $input['oids']) : array();
+    if (empty($oids)) {
+        api_respond(422, '请先勾选需要删除的订单');
+    }
+
+    $oidsStr = implode(',', $oids);
+    $scope = $isSuper ? '' : " AND uid='$currentUid'";
+    $DB->query("DELETE FROM `qingka_wangke_order` WHERE oid IN ($oidsStr) $scope");
+    $affected = method_exists($DB, 'affected') ? $DB->affected() : count($oids);
+
+    if (function_exists('wlog')) {
+        wlog($currentUid, "删除订单", "批量删除了 {$affected} 笔订单 (IDs: {$oidsStr})", 0);
+    }
+
+    api_respond(0, "成功删除 {$affected} 笔订单");
+}
+
+// ==========================================
+// 订单批量同步最新进度
+// ==========================================
+if ($action === 'order-batch-sync') {
+    api_require_post();
+    api_require_login(isset($islogin) ? $islogin : 0);
+    api_require_csrf();
+
+    $currentUid = intval($userrow['uid']);
+    $isSuper = ($currentUid === 1);
+    $input = api_read_input();
+    $oids = isset($input['oids']) && is_array($input['oids']) ? array_map('intval', $input['oids']) : array();
+    if (empty($oids)) {
+        api_respond(422, '请先勾选需要同步进度的订单');
+    }
+
+    if (!function_exists('processCx') && file_exists(ROOT . '../Checkorder/jdjk.php')) {
+        require_once ROOT . '../Checkorder/jdjk.php';
+    }
+
+    $syncSuccess = 0;
+    foreach ($oids as $oid) {
+        $order = $DB->get_row("SELECT oid, uid, hid, dockstatus FROM `qingka_wangke_order` WHERE oid='$oid' LIMIT 1");
+        if (!$order) continue;
+        if (!$isSuper && intval($order['uid']) !== $currentUid) continue;
+        if (strval($order['dockstatus']) === '4' || strval($order['hid']) === '0') continue;
+
+        if (function_exists('processCx')) {
+            $result = processCx($oid);
+            if (!empty($result) && is_array($result)) {
+                for ($i = 0; $i < count($result); $i++) {
+                    $uName = daddslashes(isset($result[$i]['name']) ? $result[$i]['name'] : '');
+                    $uStatus = daddslashes(isset($result[$i]['status_text']) ? $result[$i]['status_text'] : '');
+                    $uProcess = daddslashes(isset($result[$i]['process']) ? $result[$i]['process'] : '');
+                    $uRemarks = daddslashes(isset($result[$i]['remarks']) ? $result[$i]['remarks'] : '');
+                    $uZhgx = daddslashes(isset($result[$i]['zhgx']) ? $result[$i]['zhgx'] : date('Y-m-d H:i:s'));
+                    $uYid = daddslashes(isset($result[$i]['yid']) ? $result[$i]['yid'] : (isset($result[$i]['id']) ? $result[$i]['id'] : ''));
+
+                    $setYid = (!empty($uYid) && $uYid !== '0') ? ", `yid`='$uYid'" : '';
+                    $setFields = array();
+                    if ($uName) $setFields[] = "`name`='$uName'";
+                    if ($uStatus) $setFields[] = "`status`='$uStatus'";
+                    if ($uProcess) $setFields[] = "`process`='$uProcess'";
+                    if ($uRemarks) $setFields[] = "`remarks`='$uRemarks'";
+                    $setFields[] = "`finalupdate`='$uZhgx'";
+
+                    $sqlSet = implode(',', $setFields);
+                    $DB->query("UPDATE `qingka_wangke_order` SET $sqlSet $setYid WHERE `oid`='$oid'");
+                }
+                $syncSuccess++;
+            }
+        }
+    }
+
+    api_respond(0, "批量同步完成，已成功拉取 {$syncSuccess} 笔订单进度");
+}
+
+// ==========================================
+// 订单批量发起补刷
+// ==========================================
+if ($action === 'order-batch-rebrush') {
+    api_require_post();
+    api_require_login(isset($islogin) ? $islogin : 0);
+    api_require_csrf();
+
+    $currentUid = intval($userrow['uid']);
+    $isSuper = ($currentUid === 1);
+    $input = api_read_input();
+    $oids = isset($input['oids']) && is_array($input['oids']) ? array_map('intval', $input['oids']) : array();
+    if (empty($oids)) {
+        api_respond(422, '请先勾选需要补刷的订单');
+    }
+
+    if (!function_exists('budanWk') && file_exists(ROOT . '../Checkorder/bsjk.php')) {
+        require_once ROOT . '../Checkorder/bsjk.php';
+    }
+
+    $rebrushCount = 0;
+    foreach ($oids as $oid) {
+        $order = $DB->get_row("SELECT oid, uid, dockstatus FROM `qingka_wangke_order` WHERE oid='$oid' LIMIT 1");
+        if (!$order) continue;
+        if (!$isSuper && intval($order['uid']) !== $currentUid) continue;
+
+        $DB->query("UPDATE `qingka_wangke_order` SET status='补刷中', `bsnum`=bsnum+1 WHERE oid='$oid'");
+        if (function_exists('budanWk') && strval($order['dockstatus']) !== '99') {
+            budanWk($oid);
+        }
+        $rebrushCount++;
+    }
+
+    if (function_exists('wlog')) {
+        wlog($currentUid, "批量补刷", "批量申请了 {$rebrushCount} 笔订单补刷", 0);
+    }
+
+    api_respond(0, "已成功将 {$rebrushCount} 笔订单提交至补刷排队队列！");
+}
+
 require_once __DIR__ . '/actions_user_order.php';
 require_once __DIR__ . '/scheduler_worker.php';
 

@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref } from 'vue';
-import type { DataTableColumns } from 'naive-ui';
+import type { DataTableRowKey, DataTableColumns } from 'naive-ui';
 import {
   NAlert,
   NButton,
   NCard,
+  NCollapse,
+  NCollapseItem,
   NDataTable,
   NDescriptions,
   NDescriptionsItem,
@@ -18,7 +20,17 @@ import {
   NSpace,
   NTag
 } from 'naive-ui';
-import { dockOrder, fetchOrders, rebrushOrder, syncOrderProgress } from '@/service/api';
+import {
+  batchDeleteOrders,
+  batchRebrushOrders,
+  batchRefundOrders,
+  batchSyncOrders,
+  batchUpdateOrderStatus,
+  dockOrder,
+  fetchOrders,
+  rebrushOrder,
+  syncOrderProgress
+} from '@/service/api';
 import { useAuthStore } from '@/store/modules/auth';
 import { useAppStore } from '@/store/modules/app';
 
@@ -29,9 +41,11 @@ const appStore = useAppStore();
 const isSuperAdmin = computed(() => authStore.userInfo.roles.includes('R_SUPER'));
 
 const loading = ref(false);
+const batchLoading = ref(false);
 const records = ref<Api.Orders.Record[]>([]);
 const total = ref(0);
 const query = reactive<Api.Orders.Query>({ page: 1, pageSize: 20, keyword: '', status: '' });
+const checkedRowKeys = ref<DataTableRowKey[]>([]);
 
 const actionLoadingMap = reactive<Record<string, boolean>>({});
 
@@ -102,7 +116,7 @@ function copyFormattedDetail(row: Api.Orders.Record) {
   copyText(text, '订单完整详情');
 }
 
-// 同步最新进度
+// 单单同步最新进度
 async function handleSync(row: Api.Orders.Record) {
   const key = `sync_${row.orderId}`;
   actionLoadingMap[key] = true;
@@ -125,7 +139,7 @@ async function handleSync(row: Api.Orders.Record) {
   }
 }
 
-// 申请补刷
+// 单单申请补刷
 async function handleRebrush(row: Api.Orders.Record) {
   const key = `rebrush_${row.orderId}`;
   actionLoadingMap[key] = true;
@@ -157,12 +171,106 @@ async function handleDock(row: Api.Orders.Record) {
   }
 }
 
+// ==========================================
+// 批量操作处理函数
+// ==========================================
+function checkSelected(): boolean {
+  if (!checkedRowKeys.value.length) {
+    window.$message?.warning('请先勾选需要操作的订单！');
+    return false;
+  }
+  return true;
+}
+
+// 批量修改显示状态 (type: 1)
+async function handleBatchStatus(statusText: string) {
+  if (!checkSelected()) return;
+  batchLoading.value = true;
+  const res = await batchUpdateOrderStatus(checkedRowKeys.value as string[], statusText, 1);
+  batchLoading.value = false;
+  if (res !== null) {
+    window.$message?.success(`已批量将 ${checkedRowKeys.value.length} 笔订单状态变更为: ${statusText}`);
+    checkedRowKeys.value = [];
+    loadOrders();
+  }
+}
+
+// 批量修改处理对接状态 (type: 2)
+async function handleBatchDockStatus(dockStatusVal: string, label: string) {
+  if (!checkSelected()) return;
+  batchLoading.value = true;
+  const res = await batchUpdateOrderStatus(checkedRowKeys.value as string[], dockStatusVal, 2);
+  batchLoading.value = false;
+  if (res !== null) {
+    window.$message?.success(`已批量将 ${checkedRowKeys.value.length} 笔订单对接状态变更为: ${label}`);
+    checkedRowKeys.value = [];
+    loadOrders();
+  }
+}
+
+// 批量退款
+async function handleBatchRefund() {
+  if (!checkSelected()) return;
+  batchLoading.value = true;
+  const res = await batchRefundOrders(checkedRowKeys.value as string[]);
+  batchLoading.value = false;
+  if (res !== null) {
+    window.$message?.success('批量退款成功');
+    checkedRowKeys.value = [];
+    loadOrders();
+  }
+}
+
+// 批量删除
+async function handleBatchDelete() {
+  if (!checkSelected()) return;
+  batchLoading.value = true;
+  const res = await batchDeleteOrders(checkedRowKeys.value as string[]);
+  batchLoading.value = false;
+  if (res !== null) {
+    window.$message?.success('批量删除订单成功');
+    checkedRowKeys.value = [];
+    loadOrders();
+  }
+}
+
+// 批量更新同步进度
+async function handleBatchSync() {
+  if (!checkSelected()) return;
+  batchLoading.value = true;
+  const res = await batchSyncOrders(checkedRowKeys.value as string[]);
+  batchLoading.value = false;
+  if (res !== null) {
+    window.$message?.success('批量同步进度完成');
+    checkedRowKeys.value = [];
+    loadOrders();
+  }
+}
+
+// 批量补单
+async function handleBatchRebrush() {
+  if (!checkSelected()) return;
+  batchLoading.value = true;
+  const res = await batchRebrushOrders(checkedRowKeys.value as string[]);
+  batchLoading.value = false;
+  if (res !== null) {
+    window.$message?.success('批量补单加入排队成功');
+    checkedRowKeys.value = [];
+    loadOrders();
+  }
+}
+
 /**
  * 严格按照用户指定与老版小沐经典排版顺序：
- * [操作] [详细] [订单所属平台] [账号] [备注] [任务名称] [状态] [%] [订单详细信息] [时间] [状态(对接状态)] [UID] [扣费]
+ * [复选框] [操作] [详细] [订单所属平台] [账号] [备注] [任务名称] [状态] [%] [订单详细信息] [时间] [状态(对接状态)] [UID] [扣费]
  */
 const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
   const cols: DataTableColumns<Api.Orders.Record> = [
+    // 0. 多选小框 (复选框)
+    {
+      type: 'selection',
+      fixed: 'left'
+    },
     // 1. 操作
     {
       title: '操作',
@@ -288,7 +396,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
       render: row =>
         h(
           'div',
-          { class: 'whitespace-normal break-words text-12px text-gray-600 dark:text-gray-300 leading-normal' },
+          { class: 'whitespace-normal break-words text-13px text-gray-800 dark:text-gray-200 leading-normal' },
           row.remarks || '无'
         )
     },
@@ -335,15 +443,15 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
         ]);
       }
     },
-    // 9. 订单详细信息
+    // 9. 订单详细信息 (高清加粗大字号，完全换行自适应)
     {
       title: '订单详细信息',
       key: 'detailInfo',
-      minWidth: 220,
+      minWidth: 260,
       render: row =>
         h(
           'div',
-          { class: 'whitespace-normal break-words text-12px leading-relaxed text-gray-600 dark:text-gray-300 font-mono py-2px' },
+          { class: 'whitespace-normal break-words text-13px sm:text-14px font-medium leading-relaxed text-gray-900 dark:text-gray-100 py-4px' },
           row.remarks ? row.remarks : (row.finalupdate ? `上次同步: ${row.finalupdate}` : '暂无详细上游记录')
         )
     },
@@ -472,6 +580,7 @@ onMounted(loadOrders);
     </NAlert>
 
     <NCard title="订单列表" :bordered="false" class="rounded-8px shadow-sm">
+      <!-- 顶部查询栏 -->
       <div class="mb-14px flex flex-wrap items-center gap-12px">
         <NInput
           v-model:value="query.keyword"
@@ -491,14 +600,103 @@ onMounted(loadOrders);
         </NButton>
       </div>
 
+      <!-- 批量操作折叠面板（高度还原老版小沐） -->
+      <NCollapse :default-expanded-names="['1', '2']" class="mb-16px flex flex-col gap-10px">
+        <!-- 1. 修改任务显示状态 -->
+        <NCollapseItem title="✏️ 修改任务显示状态" name="1" class="rounded-8px bg-slate-50 dark:bg-dark-600 p-10px border border-slate-200 dark:border-dark-500">
+          <div class="flex flex-wrap items-center gap-8px">
+            <NButton size="small" type="warning" :loading="batchLoading" @click="handleBatchStatus('待处理')">
+              🕒 待处理
+            </NButton>
+            <NButton size="small" type="success" :loading="batchLoading" @click="handleBatchStatus('已完成')">
+              🟢 已完成
+            </NButton>
+            <NButton size="small" type="info" :loading="batchLoading" @click="handleBatchStatus('进行中')">
+              🔵 进行中
+            </NButton>
+            <NButton size="small" type="error" :loading="batchLoading" @click="handleBatchStatus('异常')">
+              🔴 异常
+            </NButton>
+            <NButton size="small" tertiary :loading="batchLoading" @click="handleBatchStatus('已取消')">
+              ⚪ 已取消
+            </NButton>
+          </div>
+        </NCollapseItem>
+
+        <!-- 2. 处理状态操作 (管理员专属) -->
+        <NCollapseItem v-if="isSuperAdmin" title="✏️ 处理状态操作 (对接与售后)" name="2" class="rounded-8px bg-slate-50 dark:bg-dark-600 p-10px border border-slate-200 dark:border-dark-500">
+          <div class="flex flex-wrap items-center gap-8px">
+            <NButton size="small" type="warning" :loading="batchLoading" @click="handleBatchDockStatus('0', '待处理')">
+              待处理
+            </NButton>
+            <NButton size="small" type="success" :loading="batchLoading" @click="handleBatchDockStatus('1', '处理成功')">
+              处理成功
+            </NButton>
+            <NButton size="small" type="error" :loading="batchLoading" @click="handleBatchDockStatus('2', '处理失败')">
+              处理失败
+            </NButton>
+            <NButton size="small" secondary :loading="batchLoading" @click="handleBatchDockStatus('3', '重复下单')">
+              重复下单
+            </NButton>
+            <NButton size="small" tertiary :loading="batchLoading" @click="handleBatchDockStatus('4', '已取消')">
+              已取消
+            </NButton>
+            <NButton size="small" secondary type="warning" :loading="batchLoading" @click="handleBatchDockStatus('99', '自营订单')">
+              自营订单
+            </NButton>
+
+            <NPopconfirm @positive-click="handleBatchRefund">
+              <template #trigger>
+                <NButton size="small" type="error" :loading="batchLoading">
+                  订单退款
+                </NButton>
+              </template>
+              确定为勾选的 {{ checkedRowKeys.length }} 笔订单全额退款吗？资金将原路退回用户余额。
+            </NPopconfirm>
+
+            <NPopconfirm @positive-click="handleBatchDelete">
+              <template #trigger>
+                <NButton size="small" type="error" dashed :loading="batchLoading">
+                  订单删除
+                </NButton>
+              </template>
+              确定彻底删除勾选的 {{ checkedRowKeys.length }} 笔订单吗？此操作不可恢复！
+            </NPopconfirm>
+          </div>
+        </NCollapseItem>
+      </NCollapse>
+
+      <!-- 快捷批量动作与提示栏 -->
+      <div class="mb-14px flex flex-wrap items-center justify-between gap-12px rounded-8px bg-blue-50/60 dark:bg-dark-600 p-10px border border-blue-100 dark:border-dark-500">
+        <div class="flex flex-wrap items-center gap-8px">
+          <span class="text-13px text-gray-700 dark:text-gray-200">
+            已勾选 <strong class="text-primary font-mono text-14px font-bold">{{ checkedRowKeys.length }}</strong> 项
+          </span>
+          <NButton size="small" type="primary" :loading="batchLoading" :disabled="!checkedRowKeys.length" @click="handleBatchSync">
+            ⬇️ 批量更新
+          </NButton>
+          <NButton size="small" type="warning" :loading="batchLoading" :disabled="!checkedRowKeys.length" @click="handleBatchRebrush">
+            📝 批量补单
+          </NButton>
+          <NButton size="small" tertiary :disabled="!checkedRowKeys.length" @click="checkedRowKeys = []">
+            清空勾选
+          </NButton>
+        </div>
+        <div class="text-12px text-amber-600 dark:text-amber-400 font-medium">
+          ⚠️ 订单如有问题请自行检查后反馈即可，请不要重复下相同订单
+        </div>
+      </div>
+
+      <!-- 数据表格 (带首列多选框) -->
       <NDataTable
+        v-model:checked-row-keys="checkedRowKeys"
         :loading="loading"
         :columns="columns"
         :data="records"
         :row-key="(row: Api.Orders.Record) => row.orderId"
         :pagination="false"
         striped
-        :scroll-x="isSuperAdmin ? 1820 : 1680"
+        :scroll-x="isSuperAdmin ? 1860 : 1720"
       />
 
       <div class="mt-16px flex justify-end">
@@ -625,10 +823,10 @@ onMounted(loadOrders);
             />
           </div>
 
-          <!-- 11. 备注 -->
+          <!-- 11. 备注 (高清大字号完全自适应) -->
           <div class="flex flex-col gap-4px">
             <span class="font-bold text-gray-700 dark:text-gray-200">11. 备注：</span>
-            <div class="rounded-6px bg-slate-50 dark:bg-dark-600 p-8px text-gray-600 dark:text-gray-300 font-mono text-12px whitespace-pre-wrap leading-relaxed">
+            <div class="rounded-8px bg-slate-50 dark:bg-dark-600 p-10px text-gray-900 dark:text-gray-100 text-14px font-medium whitespace-pre-wrap leading-relaxed border border-slate-200 dark:border-dark-500">
               {{ currentDetail.remarks || '无特别备注' }}
             </div>
           </div>
