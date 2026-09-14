@@ -466,11 +466,11 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
           row.courseName || '无'
         )
     },
-    // 7. 任务状态与进度 (状态与进度二合一：智能背景填充胶囊)
+    // 7. 任务状态与进度 (状态与进度二合一：高饱和清晰醒目款)
     {
       title: '状态与进度',
       key: 'statusProgress',
-      minWidth: 148,
+      minWidth: 145,
       render: row => {
         const pStr = row.progress || '0%';
         const numMatch = pStr.match(/(\d+(?:\.\d+)?)/);
@@ -479,64 +479,64 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
         const isError = row.status === '异常';
         const isCancel = row.status === '已取消';
 
-        let fillBgClass = 'bg-blue-100 dark:bg-blue-900/40';
-        let fillWidth = `${percent}%`;
-        let statusIcon = '🔵';
-        let statusTextColor = 'text-blue-600 dark:text-blue-400';
+        // 状态标签属性与高饱和进度条渐变配置
+        let tagType: 'success' | 'info' | 'warning' | 'error' | 'default' = 'info';
+        let statusLabel = row.status || '进行中';
+        let trackColor = 'linear-gradient(90deg, #3b82f6 0%, #6366f1 100%)';
 
         if (isComplete) {
-          fillBgClass = 'bg-emerald-100 dark:bg-emerald-900/40';
-          fillWidth = '100%';
-          statusIcon = '🟢';
-          statusTextColor = 'text-emerald-600 dark:text-emerald-400';
+          tagType = 'success';
+          statusLabel = '已完成';
+          trackColor = 'linear-gradient(90deg, #10b981 0%, #059669 100%)';
         } else if (isError) {
-          fillBgClass = 'bg-rose-100 dark:bg-rose-900/40';
-          fillWidth = '100%';
-          statusIcon = '🔴';
-          statusTextColor = 'text-rose-600 dark:text-rose-400';
+          tagType = 'error';
+          statusLabel = '异常';
+          trackColor = 'linear-gradient(90deg, #ef4444 0%, #dc2626 100%)';
         } else if (isCancel) {
-          fillBgClass = 'bg-gray-200 dark:bg-dark-500';
-          fillWidth = '100%';
-          statusIcon = '⚪';
-          statusTextColor = 'text-gray-500 dark:text-gray-400';
+          tagType = 'default';
+          statusLabel = '已取消';
+          trackColor = '#94a3b8';
         } else if (percent === 0 || row.status === '待处理') {
-          fillBgClass = 'bg-amber-100 dark:bg-amber-900/40';
-          statusIcon = '🕒';
-          statusTextColor = 'text-amber-600 dark:text-amber-400';
+          tagType = 'warning';
+          statusLabel = '待处理';
+          trackColor = 'linear-gradient(90deg, #f59e0b 0%, #d97706 100%)';
         }
 
-        return h(
-          'div',
-          {
-            class:
-              'relative w-full max-w-160px h-26px rounded-6px overflow-hidden border border-gray-200 dark:border-dark-500 bg-gray-50 dark:bg-dark-600 flex items-center px-8px select-none shadow-xs'
-          },
-          [
-            // 背景填充进度条
-            h('div', {
-              class: `absolute left-0 top-0 bottom-0 transition-all duration-300 ${fillBgClass}`,
-              style: { width: fillWidth }
-            }),
-            // 前景文字
-            h('div', { class: 'relative z-1 w-full flex items-center justify-between text-11px leading-none' }, [
-              h('span', { class: `flex items-center gap-3px font-bold ${statusTextColor}` }, [
-                h('span', { class: 'text-10px' }, statusIcon),
-                h('span', {}, row.status || '待处理')
-              ]),
-              h(
-                'span',
-                {
-                  class: `font-mono font-bold ${
-                    isComplete
-                      ? 'text-emerald-600 dark:text-emerald-400'
-                      : 'text-gray-700 dark:text-gray-200'
-                  }`
-                },
-                isComplete ? '100% ✔' : `${percent}%`
-              )
-            ])
-          ]
-        );
+        return h('div', { class: 'flex flex-col gap-4px w-135px py-2px' }, [
+          // 上排：高饱和彩色药丸状态标签 + 粗体百分比
+          h('div', { class: 'flex items-center justify-between' }, [
+            h(
+              NTag,
+              { type: tagType, size: 'tiny', round: true, class: 'font-bold px-6px' },
+              { default: () => statusLabel }
+            ),
+            h(
+              'span',
+              {
+                class: `font-mono text-12px font-extrabold ${
+                  isComplete
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : 'text-gray-800 dark:text-gray-100'
+                }`
+              },
+              isComplete ? '100% ✔' : `${percent}%`
+            )
+          ]),
+          // 下排：高清晰度实心双色渐变轨道条 (高度 6px，强对比度底槽)
+          h(
+            'div',
+            { class: 'w-full h-6px rounded-full bg-gray-200 dark:bg-dark-500 overflow-hidden shadow-inner' },
+            [
+              h('div', {
+                class: 'h-full rounded-full transition-all duration-300',
+                style: {
+                  width: `${percent}%`,
+                  background: trackColor
+                }
+              })
+            ]
+          )
+        ]);
       }
     },
     // 8. 订单详细信息 (高清加粗大字号，完全换行自适应)

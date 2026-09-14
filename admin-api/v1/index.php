@@ -2194,7 +2194,7 @@ if ($action === 'webmsg-info') {
     $systemInfo = array(
         'appName' => isset($conf['sitename']) && $conf['sitename'] ? (string) $conf['sitename'] : '网课管理中心',
         'author' => 'SkyLearn',
-        'version' => '8.3.8',
+        'version' => '8.3.9',
         'domain' => $domain,
         'serverIp' => $serverIp,
         'phpVersion' => PHP_VERSION,
@@ -2202,6 +2202,11 @@ if ($action === 'webmsg-info') {
     );
 
     $timeline = array(
+        array(
+            'version' => 'v8.3.9',
+            'time' => '2026-09-14',
+            'desc' => '【进度条醒目度强力升级】重构为高饱和彩色药丸状态徽章 + 粗体等宽百分比 + 6px 鲜艳实心渐变轨道条，极大提升列表扫视对比度与视觉焦点。'
+        ),
         array(
             'version' => 'v8.3.8',
             'time' => '2026-09-14',

@@ -8,7 +8,7 @@ const loading = ref(false);
 const systemInfo = ref<Api.Webmsg.SystemInfo>({
   appName: '网课管理中心',
   author: 'SkyLearn',
-  version: '8.3.8',
+  version: '8.3.9',
   domain: '',
   serverIp: '',
   phpVersion: '',
