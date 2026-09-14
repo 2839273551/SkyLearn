@@ -54,9 +54,6 @@ async function handleSignIn() {
   if (!error && data) {
     authStore.userInfo.hasSignedIn = true;
     authStore.userInfo.balance = data.balance;
-    if (data.freeAdd !== undefined) {
-      authStore.userInfo.freeAdd = data.freeAdd;
-    }
   }
 }
 

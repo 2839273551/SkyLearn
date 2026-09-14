@@ -22,8 +22,6 @@ declare namespace Api {
       categories: Category[];
       products: Product[];
       balance: string;
-      freeAdd: number;
-      freeOrderEnabled: boolean;
       queryEnabled: boolean;
       orderEnabled: boolean;
       notice: string;
@@ -61,7 +59,6 @@ declare namespace Api {
       submitted: number;
       charged: string;
       balance: string;
-      freeAdd: number;
     }
   }
 }

@@ -39,8 +39,6 @@ const form = reactive<Api.Settings.Values>({
   yqjl: '',
   yqsq: '',
   yqsx: '',
-  mfxdkg: '0',
-  mfxd: '',
   flkg: '0',
   fllx: '2',
   zddy: '',
@@ -278,27 +276,6 @@ onMounted(loadSettings);
                   </NFormItem>
                 </NGi>
               </NGrid>
-            </NTabPane>
-
-            <NTabPane name="course" tab="课程配置">
-              <NFormItem label="开启签到免费下单">
-                <NSwitch
-                  v-model:value="form.mfxdkg"
-                  checked-value="1"
-                  unchecked-value="0"
-                  aria-label="开启签到免费下单"
-                />
-              </NFormItem>
-              <NFormItem label="签到免费下单课程">
-                <NInput
-                  v-model:value="form.mfxd"
-                  :disabled="form.mfxdkg !== '1'"
-                  placeholder="多个课程 CID 使用英文逗号分隔，例如：1,2"
-                />
-              </NFormItem>
-              <NAlert type="info" :show-icon="true">
-                开启后，仅拥有剩余免费次数且课程 CID 在上述列表中的用户可免费下单。
-              </NAlert>
             </NTabPane>
 
             <NTabPane name="category" tab="分类配置">

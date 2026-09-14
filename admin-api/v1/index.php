@@ -174,7 +174,6 @@ function api_user_data($userrow, $conf)
         'avatar' => api_user_avatar($userrow['user'], $conf),
         'siteName' => isset($conf['sitename']) ? (string) $conf['sitename'] : '网课管理中心',
         'balance' => isset($userrow['money']) ? number_format((float) $userrow['money'], 2, '.', '') : '0.00',
-        'freeAdd' => isset($userrow['freeadd']) ? intval($userrow['freeadd']) : 0,
         'canMigrateSuperior' => isset($conf['sjqykg']) && intval($conf['sjqykg']) === 1,
         'sykg' => isset($conf['sykg']) && intval($conf['sykg']) === 1,
         'ddggkg' => isset($conf['ddggkg']) && intval($conf['ddggkg']) === 1,
@@ -214,27 +213,9 @@ function api_require_csrf()
     }
 }
 
-function order_free_cids($conf)
-{
-    $value = isset($conf['mfxd']) ? trim($conf['mfxd']) : '';
-    if ($value === '') {
-        return array();
-    }
-
-    return array_filter(array_map('trim', explode(',', $value)), 'strlen');
-}
-
 function order_catalog_price($product, $userrow, $DB, $conf, &$displayName)
 {
     $displayName = (string) $product['name'];
-    $validCids = order_free_cids($conf);
-
-    $freeOrderEnabled = isset($conf['mfxdkg']) && intval($conf['mfxdkg']) === 1;
-    if ($freeOrderEnabled && intval($userrow['freeadd']) > 0 && in_array((string) $product['cid'], $validCids, true)) {
-        $displayName = '免费*' . $displayName;
-        return 0.0;
-    }
-
     $rate = (float) $userrow['addprice'];
     if (intval($userrow['vip']) === 1) {
         if ($product['vipyunsuan'] === '+') {
@@ -351,7 +332,7 @@ function system_setting_keys()
         'sitename', 'keywords', 'description', 'logo', 'sykg', 'ddggkg', 'czph', 'qdkg',
         'notice', 'ddgg', 'tcgonggao', 'zsgonggao', 'sjqykg', 'user_yqzc', 'user_htkh',
         'user_ktmoney', 'zxczkg', 'zdpay', 'is_qqpay', 'is_wxpay', 'is_alipay', 'epay_api',
-        'epay_pid', 'epay_key', 'yqjl', 'yqsq', 'yqsx', 'mfxdkg', 'mfxd', 'flkg', 'fllx', 'zddy',
+        'epay_pid', 'epay_key', 'yqjl', 'yqsq', 'yqsx', 'flkg', 'fllx', 'zddy',
         'zdxd', 'ckkg', 'xdkg', 'zzqq', 'zzvx'
     );
 }
@@ -359,7 +340,7 @@ function system_setting_keys()
 function system_settings_data($conf)
 {
     $settings = array();
-    $defaults = array('mfxdkg' => '0');
+    $defaults = array();
     foreach (system_setting_keys() as $key) {
         if ($key === 'epay_key') {
             $settings[$key] = '';
@@ -456,7 +437,7 @@ if ($action === 'system-settings-save') {
     $allowed = array_flip(system_setting_keys());
     $switchKeys = array_flip(array(
         'sykg', 'ddggkg', 'czph', 'qdkg', 'sjqykg', 'user_yqzc', 'user_htkh', 'zxczkg',
-        'is_qqpay', 'is_wxpay', 'is_alipay', 'mfxdkg', 'flkg', 'ckkg', 'xdkg'
+        'is_qqpay', 'is_wxpay', 'is_alipay', 'flkg', 'ckkg', 'xdkg'
     ));
     $numericKeys = array_flip(array('user_ktmoney', 'zdpay', 'yqjl', 'yqsq', 'yqsx', 'zddy', 'zdxd'));
     $longTextKeys = array_flip(array('notice', 'ddgg', 'tcgonggao', 'zsgonggao'));
@@ -479,9 +460,6 @@ if ($action === 'system-settings-save') {
         }
         if (isset($numericKeys[$key]) && $value !== '' && !preg_match('/^\d+(?:\.\d+)?$/', $value)) {
             api_respond(422, $key . ' 必须为非负数字');
-        }
-        if ($key === 'mfxd' && $value !== '' && !preg_match('/^\d+(?:,\d+)*$/', $value)) {
-            api_respond(422, '免费课程 CID 请使用英文逗号分隔');
         }
         if ($key === 'epay_api' && $value !== '' && !filter_var($value, FILTER_VALIDATE_URL)) {
             api_respond(422, '易支付 API 地址格式不正确');
@@ -567,8 +545,6 @@ if ($action === 'order-catalog') {
         'categories' => $categories,
         'products' => $products,
         'balance' => number_format((float) $userrow['money'], 2, '.', ''),
-        'freeAdd' => intval($userrow['freeadd']),
-        'freeOrderEnabled' => isset($conf['mfxdkg']) && intval($conf['mfxdkg']) === 1,
         'queryEnabled' => isset($conf['ckkg']) && intval($conf['ckkg']) === 1,
         'orderEnabled' => isset($conf['xdkg']) && intval($conf['xdkg']) === 1,
         'notice' => isset($conf['ddgg']) ? trim(strip_tags($conf['ddgg'])) : ''
@@ -735,11 +711,7 @@ if ($action === 'order-submit') {
     }
 
     $totalCourses = count($prepared);
-    $validCids = order_free_cids($conf);
-    $isFreeOrder = isset($conf['mfxdkg']) && intval($conf['mfxdkg']) === 1
-        && intval($userrow['freeadd']) >= $totalCourses
-        && in_array((string) $product['cid'], $validCids, true);
-    $unitPrice = $isFreeOrder ? 0 : order_submit_price($product, $userrow, $DB);
+    $unitPrice = order_submit_price($product, $userrow, $DB);
 
     if ($unitPrice < 0 || (float) $userrow['addprice'] < 0.1) {
         api_respond(422, '当前账号费率异常，请联系管理员');
@@ -754,16 +726,7 @@ if ($action === 'order-submit') {
     $dockstatus = intval($product['docking']) === 0 ? '99' : '0';
     $DB->query('START TRANSACTION');
 
-    if ($isFreeOrder) {
-        $updated = $DB->query(
-            "UPDATE qingka_wangke_user SET freeadd=freeadd-" . $totalCourses
-            . " WHERE uid='" . intval($userrow['uid']) . "' AND freeadd>=" . $totalCourses . " LIMIT 1"
-        );
-        if (!$updated) {
-            $DB->query('ROLLBACK');
-            api_respond(500, '免费次数扣减失败，请重试');
-        }
-    } elseif ($totalPrice > 0) {
+    if ($totalPrice > 0) {
         $updated = $DB->query(
             "UPDATE qingka_wangke_user SET money=money-" . $totalPrice
             . " WHERE uid='" . intval($userrow['uid']) . "' AND money>=" . $totalPrice . " LIMIT 1"
@@ -804,22 +767,21 @@ if ($action === 'order-submit') {
 
         wlog(
             $userrow['uid'],
-            $isFreeOrder ? '免费下单' : '添加任务',
+            '添加任务',
             $product['name'] . '-' . $course['name'] . '-新版提交',
-            $isFreeOrder ? 0 : -$unitPrice
+            -$unitPrice
         );
     }
 
     $DB->query('COMMIT');
     $freshUser = $DB->get_row(
-        "SELECT money,freeadd FROM qingka_wangke_user WHERE uid='" . intval($userrow['uid']) . "' LIMIT 1"
+        "SELECT money FROM qingka_wangke_user WHERE uid='" . intval($userrow['uid']) . "' LIMIT 1"
     );
 
     api_respond(0, '提交成功' . $totalCourses . '门课程', array(
         'submitted' => $totalCourses,
         'charged' => number_format($totalPrice, 2, '.', ''),
-        'balance' => number_format((float) $freshUser['money'], 2, '.', ''),
-        'freeAdd' => intval($freshUser['freeadd'])
+        'balance' => number_format((float) $freshUser['money'], 2, '.', '')
     ));
 }
 
@@ -2194,7 +2156,7 @@ if ($action === 'webmsg-info') {
     $systemInfo = array(
         'appName' => isset($conf['sitename']) && $conf['sitename'] ? (string) $conf['sitename'] : '网课管理中心',
         'author' => 'SkyLearn',
-        'version' => '8.5.1',
+        'version' => '8.5.2',
         'domain' => $domain,
         'serverIp' => $serverIp,
         'phpVersion' => PHP_VERSION,
@@ -2202,6 +2164,11 @@ if ($action === 'webmsg-info') {
     );
 
     $timeline = array(
+        array(
+            'version' => 'v8.5.2',
+            'time' => '2026-09-14',
+            'desc' => '【全网清退免费下单功能】彻底移除签到赠送免费次数、系统设置中免费课程配置，清除查课与下单界面全部免费额度标签，严格恢复标准按单计费体系。'
+        ),
         array(
             'version' => 'v8.5.1',
             'time' => '2026-09-14',
@@ -2907,7 +2874,7 @@ if ($action === 'user-signin') {
     }
 
     $uid = intval($userrow['uid']);
-    $userSign = $DB->get_row("SELECT uid, money, zcz, addprice, freeadd, last_sign_in_date FROM qingka_wangke_user WHERE uid='$uid' LIMIT 1");
+    $userSign = $DB->get_row("SELECT uid, money, zcz, addprice, last_sign_in_date FROM qingka_wangke_user WHERE uid='$uid' LIMIT 1");
     if (!$userSign) api_respond(404, '用户数据异常');
 
     $today = date('Y-m-d');
@@ -2915,25 +2882,14 @@ if ($action === 'user-signin') {
         api_respond(400, '今日已经完成过签到啦，明天再来吧！');
     }
 
-    $userLevel = floatval($userSign['addprice']);
-    $rewardMsg = '';
+    $randMoney = (mt_rand(1, 100) <= 80) ? mt_rand(1, 2) / 100 : mt_rand(3, 5) / 100;
+    $DB->query("UPDATE qingka_wangke_user SET money=money+'$randMoney', zcz=zcz+'$randMoney', last_sign_in_date='$today' WHERE uid='$uid'");
+    $rewardMsg = "恭喜签到成功！账户余额增加 ¥ {$randMoney} 元";
+    if (function_exists('wlog')) wlog($uid, "签到成功", $rewardMsg, "+$randMoney");
 
-    if ($userLevel > 0.2 || empty($conf['mfxdkg']) || intval($conf['mfxdkg']) !== 1) {
-        $randMoney = (mt_rand(1, 100) <= 80) ? mt_rand(1, 2) / 100 : mt_rand(3, 5) / 100;
-        $DB->query("UPDATE qingka_wangke_user SET money=money+'$randMoney', zcz=zcz+'$randMoney', last_sign_in_date='$today' WHERE uid='$uid'");
-        $rewardMsg = "恭喜签到成功！账户余额增加 ¥ {$randMoney} 元";
-        if (function_exists('wlog')) wlog($uid, "签到成功", $rewardMsg, "+$randMoney");
-    } else {
-        $freeAdds = (mt_rand(1, 100) <= 70) ? 1 : mt_rand(2, 3);
-        $DB->query("UPDATE qingka_wangke_user SET freeadd=freeadd+'$freeAdds', last_sign_in_date='$today' WHERE uid='$uid'");
-        $rewardMsg = "恭喜签到成功！获得 {$freeAdds} 次免费下单机会";
-        if (function_exists('wlog')) wlog($uid, "签到成功", $rewardMsg, "0");
-    }
-
-    $freshUser = $DB->get_row("SELECT money, freeadd FROM qingka_wangke_user WHERE uid='$uid' LIMIT 1");
+    $freshUser = $DB->get_row("SELECT money FROM qingka_wangke_user WHERE uid='$uid' LIMIT 1");
     api_respond(0, $rewardMsg, array(
         'balance' => number_format(floatval($freshUser['money']), 2, '.', ''),
-        'freeAdd' => intval($freshUser['freeadd']),
         'hasSignedIn' => true
     ));
 }
@@ -2982,7 +2938,6 @@ if ($action === 'user-profile') {
         'zcz' => isset($currentUser['zcz']) ? (string) $currentUser['zcz'] : '0',
         'addprice' => isset($currentUser['addprice']) ? (string) $currentUser['addprice'] : '1.00',
         'vip' => intval($currentUser['vip']),
-        'freeAdd' => isset($currentUser['freeadd']) ? intval($currentUser['freeadd']) : 0,
         'yqm' => $yqm,
         'yqprice' => isset($currentUser['yqprice']) && trim($currentUser['yqprice']) !== '' ? (string) $currentUser['yqprice'] : '',
         'inviteUrl' => $inviteUrl,

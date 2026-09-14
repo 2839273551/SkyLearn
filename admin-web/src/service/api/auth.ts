@@ -37,7 +37,7 @@ export function fetchSiteInfo() {
 
 /** User daily sign in */
 export function fetchUserSignIn() {
-  return request<{ balance: string; freeAdd: number; hasSignedIn: boolean }>({
+  return request<{ balance: string; hasSignedIn: boolean }>({
     url: 'admin-api/v1/index.php?action=user-signin',
     method: 'post'
   });

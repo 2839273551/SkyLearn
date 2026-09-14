@@ -51,8 +51,6 @@ const aiCorrection = ref(false);
 const results = ref<Api.OrderEntry.QueryResult[]>([]);
 const selections = ref<Api.OrderEntry.Selection[]>([]);
 const balance = ref('0.00');
-const freeAdd = ref(0);
-const freeOrderEnabled = ref(false);
 const queryEnabled = ref(true);
 const orderEnabled = ref(true);
 const notice = ref('');
@@ -118,13 +116,10 @@ async function loadCatalog() {
     categories.value = data.categories;
     products.value = data.products;
     balance.value = data.balance;
-    freeAdd.value = data.freeAdd;
-    freeOrderEnabled.value = data.freeOrderEnabled;
     queryEnabled.value = data.queryEnabled;
     orderEnabled.value = data.orderEnabled;
     notice.value = data.notice;
     authStore.userInfo.balance = data.balance;
-    authStore.userInfo.freeAdd = data.freeAdd;
     if (!productId.value && data.products.length > 0) {
       productId.value = data.products[0].id;
     }
@@ -314,9 +309,7 @@ async function submitOrders() {
   const { data, error } = await fetchOrderSubmit(productId.value, selections.value);
   if (!error && data) {
     balance.value = data.balance;
-    freeAdd.value = data.freeAdd;
     authStore.userInfo.balance = data.balance;
-    authStore.userInfo.freeAdd = data.freeAdd;
     selections.value = [];
 
     window.$notification?.success({
@@ -367,9 +360,6 @@ onMounted(loadCatalog);
             <div class="mt-4px flex flex-wrap items-center gap-10px text-13px">
               <span class="inline-flex items-center gap-4px rounded-6px bg-emerald-50 px-8px py-3px text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 font-medium">
                 可用余额：<strong class="font-mono text-15px font-bold text-emerald-600 dark:text-emerald-400">¥ {{ balance }}</strong> 积分
-              </span>
-              <span v-if="freeOrderEnabled && freeAdd > 0" class="inline-flex items-center rounded-6px bg-amber-50 px-8px py-3px text-11px text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 font-medium">
-                🎁 免费额度：{{ freeAdd }} 次
               </span>
             </div>
           </div>

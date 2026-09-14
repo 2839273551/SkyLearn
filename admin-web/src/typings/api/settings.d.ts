@@ -29,8 +29,6 @@ declare namespace Api {
       yqjl: string;
       yqsq: string;
       yqsx: string;
-      mfxdkg: string;
-      mfxd: string;
       flkg: string;
       fllx: string;
       zddy: string;
@@ -493,7 +491,6 @@ declare namespace Api {
       zcz: string;
       addprice: string;
       vip: number;
-      freeAdd: number;
       yqm: string;
       yqprice: string;
       inviteUrl: string;

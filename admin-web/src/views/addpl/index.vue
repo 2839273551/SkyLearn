@@ -23,8 +23,6 @@ const results = ref<Api.OrderEntry.QueryResult[]>([]);
 const selections = ref<Api.OrderEntry.Selection[]>([]);
 
 const balance = ref('0.00');
-const freeAdd = ref(0);
-const freeOrderEnabled = ref(false);
 const queryEnabled = ref(true);
 const orderEnabled = ref(true);
 const notice = ref('');
@@ -100,13 +98,10 @@ async function loadCatalog() {
     categories.value = data.categories;
     products.value = data.products;
     balance.value = data.balance;
-    freeAdd.value = data.freeAdd;
-    freeOrderEnabled.value = data.freeOrderEnabled;
     queryEnabled.value = data.queryEnabled;
     orderEnabled.value = data.orderEnabled;
     notice.value = data.notice;
     authStore.userInfo.balance = data.balance;
-    authStore.userInfo.freeAdd = data.freeAdd;
   }
   catalogLoading.value = false;
 }
@@ -279,9 +274,7 @@ async function submitOrders() {
   if (!error && data) {
     window.$message?.success(`批量下单成功！本次成功提交 ${data.submitted} 笔订单，实扣 ¥ ${data.charged}`);
     balance.value = data.balance;
-    freeAdd.value = data.freeAdd;
     authStore.userInfo.balance = data.balance;
-    authStore.userInfo.freeAdd = data.freeAdd;
     selections.value = [];
     results.value = [];
     userinfo.value = '';
@@ -313,11 +306,6 @@ onMounted(() => {
           <SvgIcon icon="ph:wallet" class="text-22px text-success" />
           <span class="text-13px text-gray-500">账户余额：</span>
           <span class="text-18px font-bold text-success">¥ {{ balance }}</span>
-        </div>
-        <div v-if="freeOrderEnabled" class="flex items-center gap-8px">
-          <SvgIcon icon="ph:gift" class="text-20px text-warning" />
-          <span class="text-13px text-gray-500">免费下单额度：</span>
-          <NTag type="warning" size="small" round>{{ freeAdd }} 次可用</NTag>
         </div>
       </div>
       <div class="flex items-center gap-8px">

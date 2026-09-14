@@ -31,7 +31,6 @@ const profile = ref<Api.ProfileArea.UserProfile>({
   zcz: '0',
   addprice: '1.00',
   vip: 0,
-  freeAdd: 0,
   yqm: '',
   yqprice: '',
   inviteUrl: '',
@@ -315,7 +314,6 @@ onMounted(() => {
                 </NTag>
                 <NTag type="info" size="small" round>UID: {{ profile.uid }}</NTag>
                 <NTag v-if="profile.vip === 1" type="warning" size="small" round>VIP 会员</NTag>
-                <NTag v-if="profile.freeAdd > 0" type="success" size="small" round>免费下单: {{ profile.freeAdd }} 次</NTag>
               </div>
 
               <div class="mt-16px w-full rounded-6px bg-gray-50 p-12px text-left text-13px dark:bg-dark-600">

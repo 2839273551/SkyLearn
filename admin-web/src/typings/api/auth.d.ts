@@ -17,7 +17,6 @@ declare namespace Api {
       avatar?: string;
       siteName: string;
       balance: string;
-      freeAdd: number;
       csrfToken: string;
       roles: string[];
       buttons: string[];
