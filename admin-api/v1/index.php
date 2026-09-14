@@ -2194,7 +2194,7 @@ if ($action === 'webmsg-info') {
     $systemInfo = array(
         'appName' => isset($conf['sitename']) && $conf['sitename'] ? (string) $conf['sitename'] : '网课管理中心',
         'author' => 'SkyLearn',
-        'version' => '8.3.9',
+        'version' => '8.4.0',
         'domain' => $domain,
         'serverIp' => $serverIp,
         'phpVersion' => PHP_VERSION,
@@ -2202,6 +2202,11 @@ if ($action === 'webmsg-info') {
     );
 
     $timeline = array(
+        array(
+            'version' => 'v8.4.0',
+            'time' => '2026-09-14',
+            'desc' => '【调度中心智能归档防刷引擎】全面上线已完成智能归档机制：凡是标记已完成、已取消、已退款或进度达100%(无补刷需求)的订单，系统自动将其永久隔离出同步轮询池，彻底消除无谓的上游请求与风控封号隐患。'
+        ),
         array(
             'version' => 'v8.3.9',
             'time' => '2026-09-14',
@@ -3668,6 +3673,12 @@ if ($action === 'order-sync') {
             $uZhgx = daddslashes(isset($result[$i]['zhgx']) ? $result[$i]['zhgx'] : date('Y-m-d H:i:s'));
             $uYid = daddslashes(isset($result[$i]['yid']) ? $result[$i]['yid'] : (isset($result[$i]['id']) ? $result[$i]['id'] : ''));
 
+            // 智能完成判定：若进度满100%或标记学完/结课，自动转为[已完成]归档
+            $numVal = floatval(preg_replace('/[^\d.]/', '', (string)$uProcess));
+            if ($uStatus === '已完成' || $uStatus === '已结课' || $uStatus === '已学完' || ($numVal >= 100 && $uStatus !== '异常' && $uStatus !== '待重刷' && $uStatus !== '补刷中')) {
+                $uStatus = '已完成';
+            }
+
             $setYidSql = (!empty($uYid) && $uYid !== '0') ? ", `yid`='$uYid'" : '';
             $DB->query("UPDATE qingka_wangke_order SET 
                 `name`='$uName',
@@ -3939,6 +3950,12 @@ if ($action === 'order-batch-sync') {
                     $uRemarks = daddslashes(isset($result[$i]['remarks']) ? $result[$i]['remarks'] : '');
                     $uZhgx = daddslashes(isset($result[$i]['zhgx']) ? $result[$i]['zhgx'] : date('Y-m-d H:i:s'));
                     $uYid = daddslashes(isset($result[$i]['yid']) ? $result[$i]['yid'] : (isset($result[$i]['id']) ? $result[$i]['id'] : ''));
+
+                    // 智能完成判定：若进度满100%或标记学完/结课，自动转为[已完成]归档
+                    $numVal = floatval(preg_replace('/[^\d.]/', '', (string)$uProcess));
+                    if ($uStatus === '已完成' || $uStatus === '已结课' || $uStatus === '已学完' || ($numVal >= 100 && $uStatus !== '异常' && $uStatus !== '待重刷' && $uStatus !== '补刷中')) {
+                        $uStatus = '已完成';
+                    }
 
                     $setYid = (!empty($uYid) && $uYid !== '0') ? ", `yid`='$uYid'" : '';
                     $setFields = array();

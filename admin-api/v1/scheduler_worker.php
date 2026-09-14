@@ -6,26 +6,30 @@ if (!defined('IN_CRONLITE')) {
 
 /**
  * 统计指定任务当前积压的待处理订单数
+ * 核心优化：凡是标记【已完成】、已取消、已退款，或进度已达 100% 且未申请补单的订单，自动归档不再统计和参与后续轮询
  */
 function scheduler_count_pending($taskId) {
     global $DB;
+    $completedFilter = "status NOT IN ('已完成','已取消','已退款') AND (process NOT LIKE '100%' OR status IN ('待重刷','补刷中'))";
+
     switch ($taskId) {
         case 'add':
-            return intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_order` WHERE dockstatus='0' AND status!='已取消'"));
+            return intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_order` WHERE dockstatus='0' AND status NOT IN ('已取消','已退款')"));
         case 'cc':
-            return intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_order` WHERE (status='进行中' OR status='补刷中') AND dockstatus=1"));
+            return intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_order` WHERE (status='进行中' OR status='补刷中') AND dockstatus=1 AND $completedFilter"));
         case 'plsx':
-            return intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_order` WHERE status='待刷新' AND dockstatus=1"));
+            return intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_order` WHERE status='待刷新' AND dockstatus=1 AND status NOT IN ('已完成','已取消','已退款')"));
         case 'plbs':
             return intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_order` WHERE status='待重刷' AND dockstatus=1"));
         case 'aa':
-            return intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_order` WHERE dockstatus=1 AND status IN ('待处理','上号中','重刷中','正在开药','等待治疗')"));
+            return intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_order` WHERE dockstatus=1 AND status IN ('待处理','上号中','重刷中','正在开药','等待治疗') AND $completedFilter"));
         case 'bb':
-            return intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_order` WHERE dockstatus=1"));
+            // 活跃订单高频巡检：严格排除已完成、已退款/取消及进度满格订单
+            return intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_order` WHERE dockstatus=1 AND $completedFilter"));
         case 'dd':
-            return intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_order` WHERE status IN ('待考试','平时分','平时分中','已暂停') AND dockstatus=1"));
+            return intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_order` WHERE status IN ('待考试','平时分','平时分中','已暂停') AND dockstatus=1 AND status NOT IN ('已完成','已取消','已退款')"));
         case 'ee':
-            return intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_order` WHERE status NOT IN ('已完成','进行中','待考试','治疗完成','平时分中','待处理','已取消') AND dockstatus=1"));
+            return intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_order` WHERE status NOT IN ('已完成','进行中','待考试','治疗完成','平时分中','待处理','已取消','已退款') AND dockstatus=1 AND (process NOT LIKE '100%' OR status IN ('待重刷','补刷中'))"));
         default:
             return 0;
     }
@@ -117,29 +121,32 @@ function scheduler_execute_task($taskId) {
         }
     } else {
         // 属于各种状态的进度同步巡检任务 (cc, plsx, aa, bb, dd, ee)
-        $where = "dockstatus=1";
+        // 核心：严格排除已完成、已取消、已退款及无补单需求的100%订单
+        $completedFilter = "status NOT IN ('已完成','已取消','已退款') AND (process NOT LIKE '100%' OR status IN ('待重刷','补刷中'))";
+        $where = "dockstatus=1 AND $completedFilter";
+
         if ($taskId === 'cc') {
-            $where = "(status='进行中' OR status='补刷中') AND dockstatus=1";
+            $where = "(status='进行中' OR status='补刷中') AND dockstatus=1 AND $completedFilter";
         } elseif ($taskId === 'plsx') {
-            $where = "status='待刷新' AND dockstatus=1";
+            $where = "status='待刷新' AND dockstatus=1 AND status NOT IN ('已完成','已取消','已退款')";
         } elseif ($taskId === 'aa') {
-            $where = "dockstatus=1 AND status IN ('待处理','上号中','重刷中','正在开药','等待治疗')";
+            $where = "dockstatus=1 AND status IN ('待处理','上号中','重刷中','正在开药','等待治疗') AND $completedFilter";
         } elseif ($taskId === 'bb') {
-            $where = "dockstatus=1";
+            $where = "dockstatus=1 AND $completedFilter";
             $limit = 20;
         } elseif ($taskId === 'dd') {
-            $where = "status IN ('待考试','平时分','平时分中','已暂停') AND dockstatus=1";
+            $where = "status IN ('待考试','平时分','平时分中','已暂停') AND dockstatus=1 AND status NOT IN ('已完成','已取消','已退款')";
         } elseif ($taskId === 'ee') {
-            $where = "status NOT IN ('已完成','进行中','待考试','治疗完成','平时分中','待处理','已取消') AND dockstatus=1";
+            $where = "status NOT IN ('已完成','进行中','待考试','治疗完成','平时分中','待处理','已取消','已退款') AND dockstatus=1 AND (process NOT LIKE '100%' OR status IN ('待重刷','补刷中'))";
         }
 
         $res = $DB->query("SELECT * FROM `qingka_wangke_order` WHERE $where ORDER BY oid ASC LIMIT $limit");
         $orders = array();
         while ($r = $DB->fetch($res)) { $orders[] = $r; }
-        $logs[] = "[$timeStr] 扫描到待同步进度订单: " . count($orders) . " 笔";
+        $logs[] = "[$timeStr] 扫描到待同步进度活跃订单: " . count($orders) . " 笔 (已排除全部已完成/归档订单)";
 
         if (count($orders) === 0) {
-            $logs[] = "[$timeStr] 当前该状态下无待巡检订单，任务跳过。";
+            $logs[] = "[$timeStr] 当前该队列下无未完成的待巡检订单，任务跳过。";
         }
 
         foreach ($orders as $a) {
@@ -156,15 +163,28 @@ function scheduler_execute_task($taskId) {
                             $newKcks = isset($item['kcks']) ? daddslashes($item['kcks']) : $a['courseStartTime'];
                             $newKcjs = isset($item['kcjs']) ? daddslashes($item['kcjs']) : $a['courseEndTime'];
                             
+                            // 智能归档：若进度达到 100% 或上游回传已完成/已结课，标记为[已完成]并自动移出下一轮队列
+                            $numVal = floatval(preg_replace('/[^\d.]/', '', (string)$newProcess));
+                            $isNowFinished = false;
+                            if ($newStatus === '已完成' || $newStatus === '已结课' || $newStatus === '已学完' || ($numVal >= 100 && $newStatus !== '异常' && $newStatus !== '待重刷' && $newStatus !== '补刷中')) {
+                                $newStatus = '已完成';
+                                $isNowFinished = true;
+                            }
+
                             $DB->query("UPDATE `qingka_wangke_order` SET 
                                 `status`='$newStatus', 
                                 `process`='$newProcess', 
                                 `remarks`='$newRemarks',
                                 `courseStartTime`='$newKcks',
-                                `courseEndTime`='$newKcjs' 
+                                `courseEndTime`='$newKcjs',
+                                `finalupdate`=NOW()
                                 WHERE oid='$oid'");
 
-                            $logs[] = "  [~] 订单 #$oid [{$a['kcname']}] 进度: {$a['process']}% -> {$newProcess}%, 状态: {$newStatus}";
+                            if ($isNowFinished) {
+                                $logs[] = "  [✔] 订单 #$oid [{$a['kcname']}] 进度已达到 100% 并标记[已完成]，已归档退出后续轮询！";
+                            } else {
+                                $logs[] = "  [~] 订单 #$oid [{$a['kcname']}] 进度: {$a['process']}% -> {$newProcess}%, 状态: {$newStatus}";
+                            }
                             $updated = true;
                             $successCount++;
                             break;

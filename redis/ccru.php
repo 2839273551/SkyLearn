@@ -8,7 +8,7 @@ echo "连通redis： " . $redis->ping() . "\r\n";
     $lenth=$redis->LLEN('oidstjxz');
     if($lenth==0){
         $i=0;
-        $a=$DB->query("select * from qingka_wangke_order where status='进行中' or status='补刷中' order by oid asc");
+        $a=$DB->query("select * from qingka_wangke_order where (status='进行中' or status='补刷中') and dockstatus=1 and status not in ('已完成','已取消','已退款') and (process not like '100%' or status in ('待重刷','补刷中')) order by oid asc");
         foreach($a as $b){
             $redis->lPush("oidstjxz",$b['oid']);
             $i++;

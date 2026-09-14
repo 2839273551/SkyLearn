@@ -8,7 +8,7 @@ echo "连通redis： " . $redis->ping() . "\r\n";
     $lenth=$redis->LLEN('csoid');
     if($lenth==0){
         $i=0;
-        $a=$DB->query("select * from qingka_wangke_order where  status='待刷新' and dockstatus=1 order by oid asc");
+        $a=$DB->query("select * from qingka_wangke_order where status='待刷新' and dockstatus=1 and status not in ('已完成','已取消','已退款') order by oid asc");
         foreach($a as $b){
             $redis->lPush("csoid",$b['oid']);
             $i++;

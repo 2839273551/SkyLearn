@@ -227,6 +227,11 @@ onMounted(() => {
           </NButton>
         </div>
       </div>
+
+      <div class="mt-14px rounded-8px bg-emerald-50/70 p-10px border border-emerald-200/80 dark:bg-emerald-950/20 dark:border-emerald-800/40 text-12px text-emerald-800 dark:text-emerald-300 flex items-center gap-6px">
+        <span class="text-14px">🛡️</span>
+        <span><strong>智能归档防刷已开启：</strong>所有标记为<strong>【已完成】</strong>、已退款/取消或进度已达到 100%（且无挂科补刷需求）的订单，系统已自动隔离归档，<strong>绝不再参与下一轮自动化同步巡检</strong>，大幅降低上游接口开销与被风控风险！</span>
+      </div>
     </NCard>
 
     <!-- 任务多窗口列表栅格 (每个任务一个窗) -->
