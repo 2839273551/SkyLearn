@@ -390,7 +390,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
     {
       title: '订单所属平台',
       key: 'platform',
-      minWidth: 110,
+      minWidth: 125,
       render: row =>
         h(
           'div',
@@ -402,7 +402,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
     {
       title: '账号',
       key: 'account',
-      minWidth: 155,
+      minWidth: 160,
       render: row =>
         h('div', { class: 'flex flex-col gap-3px py-3px text-12px' }, [
           row.school
@@ -446,7 +446,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
     {
       title: '备注',
       key: 'remarks',
-      minWidth: 80,
+      minWidth: 130,
       render: row =>
         h(
           'div',
@@ -458,7 +458,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
     {
       title: '任务名称',
       key: 'courseName',
-      minWidth: 130,
+      minWidth: 135,
       render: row =>
         h(
           'div',
@@ -707,7 +707,7 @@ onMounted(loadOrders);
         </div>
       </div>
 
-      <!-- 数据表格 (带首列多选框) -->
+      <!-- 数据表格 (带首列多选框与移动端横向滑动保护) -->
       <NDataTable
         v-model:checked-row-keys="checkedRowKeys"
         :loading="loading"
@@ -715,8 +715,8 @@ onMounted(loadOrders);
         :data="records"
         :row-key="(row: Api.Orders.Record) => row.orderId"
         :pagination="false"
+        :scroll-x="1280"
         striped
-        
       />
 
       <div class="mt-16px flex justify-end">
@@ -865,4 +865,11 @@ onMounted(loadOrders);
   </NSpace>
 </template>
 
-<style scoped></style>
+<style scoped>
+:deep(.n-data-table-th) {
+  white-space: nowrap !important;
+}
+:deep(.n-data-table-td) {
+  vertical-align: middle;
+}
+</style>
