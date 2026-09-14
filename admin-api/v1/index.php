@@ -2194,7 +2194,7 @@ if ($action === 'webmsg-info') {
     $systemInfo = array(
         'appName' => isset($conf['sitename']) && $conf['sitename'] ? (string) $conf['sitename'] : '网课管理中心',
         'author' => 'SkyLearn',
-        'version' => '8.4.0',
+        'version' => '8.5.0',
         'domain' => $domain,
         'serverIp' => $serverIp,
         'phpVersion' => PHP_VERSION,
@@ -2202,6 +2202,11 @@ if ($action === 'webmsg-info') {
     );
 
     $timeline = array(
+        array(
+            'version' => 'v8.5.0',
+            'time' => '2026-09-14',
+            'desc' => '【调度系统三引擎革命性重构】彻底取缔原 8 个碎片字母任务，提炼合体为三大分频业务引擎：新订单自动出单引擎(高频)、活跃看课同步引擎(常规频)、待考试与平时分慢速巡检引擎(慢频)；建立补单单次受控机制，杜绝重复循环轰炸。'
+        ),
         array(
             'version' => 'v8.4.0',
             'time' => '2026-09-14',

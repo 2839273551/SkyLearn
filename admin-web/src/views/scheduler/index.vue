@@ -50,10 +50,11 @@ const runningTaskMap = ref<Record<string, boolean>>({});
 const intervalOptions = [
   { label: '每 1 分钟执行一次', value: 1 },
   { label: '每 2 分钟执行一次', value: 2 },
+  { label: '每 3 分钟执行一次', value: 3 },
   { label: '每 5 分钟执行一次', value: 5 },
-  { label: '每 7 分钟执行一次', value: 7 },
   { label: '每 10 分钟执行一次', value: 10 },
   { label: '每 15 分钟执行一次', value: 15 },
+  { label: '每 20 分钟执行一次', value: 20 },
   { label: '每 30 分钟执行一次', value: 30 },
   { label: '每 60 分钟执行一次', value: 60 }
 ];
@@ -234,12 +235,12 @@ onMounted(() => {
       </div>
     </NCard>
 
-    <!-- 任务多窗口列表栅格 (每个任务一个窗) -->
-    <div class="grid grid-cols-1 gap-16px md:grid-cols-2 xl:grid-cols-4">
+    <!-- 任务多窗口列表栅格 (每个任务一个宽敞大盘) -->
+    <div class="grid grid-cols-1 gap-16px lg:grid-cols-3">
       <div
         v-for="task in tasks"
         :key="task.id"
-        class="flex flex-col justify-between rounded-12px bg-white p-14px shadow-sm transition-all border dark:bg-dark-700"
+        class="flex flex-col justify-between rounded-12px bg-white p-16px shadow-sm transition-all border dark:bg-dark-700"
         :class="task.enabled ? 'border-gray-200 hover:border-primary/50 dark:border-dark-500' : 'border-dashed border-gray-300 opacity-75 dark:border-dark-600'"
       >
         <div>
@@ -250,11 +251,11 @@ onMounted(() => {
                 <span class="rounded bg-primary/10 px-6px py-1px font-mono text-11px font-bold text-primary">
                   {{ task.id.toUpperCase() }}
                 </span>
-                <span class="text-14px font-bold text-gray-800 dark:text-gray-100">
+                <span class="text-15px font-bold text-gray-800 dark:text-gray-100">
                   {{ task.name }}
                 </span>
               </div>
-              <p class="mt-4px text-11px text-gray-400 line-clamp-1" :title="task.description">
+              <p class="mt-4px text-12px text-gray-400 line-clamp-2" :title="task.description">
                 {{ task.description }}
               </p>
             </div>
