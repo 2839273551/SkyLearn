@@ -1,6 +1,6 @@
 {
   "name": "course-platform-admin",
-  "version": "2.2.0",
+  "version": "8.3.4",
   "description": "网课平台统一管理后台，基于 SoybeanAdmin、Vue 3、Vite 和 Naive UI。",
   "keywords": [
     "TypeScript",
