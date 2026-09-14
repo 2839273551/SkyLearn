@@ -535,9 +535,17 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
   cols.push({
     title: '扣费',
     key: 'fees',
-    width: 55,
+    minWidth: 72,
     align: 'center',
-    render: row => h('span', { class: 'font-mono text-12px font-bold text-rose-500' }, `¥ ${row.fees || '0.00'}`)
+    render: row =>
+      h(
+        'div',
+        { class: 'inline-flex items-baseline justify-center font-mono font-bold text-rose-500 whitespace-nowrap' },
+        [
+          h('span', { class: 'text-11px mr-1px' }, '¥'),
+          h('span', { class: 'text-12px' }, row.fees ?? '0.00')
+        ]
+      )
   });
 
   return cols;
