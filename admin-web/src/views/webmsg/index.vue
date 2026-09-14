@@ -8,7 +8,7 @@ const loading = ref(false);
 const systemInfo = ref<Api.Webmsg.SystemInfo>({
   appName: '网课管理中心',
   author: 'SkyLearn',
-  version: '7.0.9',
+  version: '8.3.4',
   domain: '',
   serverIp: '',
   phpVersion: '',
@@ -64,9 +64,18 @@ onMounted(() => {
               v-for="(item, index) in timeline"
               :key="index"
               :type="index === 0 ? 'success' : 'info'"
-              :title="`${item.version} (${item.time})`"
-              :content="item.desc"
-            />
+            >
+              <template #header>
+                <div class="flex flex-wrap items-center gap-8px mb-4px">
+                  <strong class="font-mono text-14px font-bold text-gray-800 dark:text-gray-100">{{ item.version }}</strong>
+                  <span class="text-12px text-gray-400 font-mono">{{ item.time }}</span>
+                  <NTag v-if="index === 0" type="success" size="tiny" round>当前线上最新版</NTag>
+                </div>
+              </template>
+              <div class="text-13px text-gray-700 dark:text-gray-300 leading-relaxed rounded-6px bg-gray-50/80 dark:bg-dark-600/50 p-8px border border-gray-100 dark:border-dark-500">
+                {{ item.desc }}
+              </div>
+            </NTimelineItem>
           </NTimeline>
         </NCard>
       </NGi>
