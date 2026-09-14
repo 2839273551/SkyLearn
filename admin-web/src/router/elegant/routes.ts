@@ -117,7 +117,8 @@ export const generatedRoutes: GeneratedRoute[] = [
     meta: {
       title: '题库查询',
       icon: 'ph:read-cv-logo',
-      order: 22
+      order: 22,
+      hideInMenu: true
     }
   },
   {
@@ -323,7 +324,8 @@ export const generatedRoutes: GeneratedRoute[] = [
     meta: {
       title: 'login',
       i18nKey: 'route.login',
-      constant: true
+      constant: true,
+      hideInMenu: true
     }
   },
   {

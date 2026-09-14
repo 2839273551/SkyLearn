@@ -2194,7 +2194,7 @@ if ($action === 'webmsg-info') {
     $systemInfo = array(
         'appName' => isset($conf['sitename']) && $conf['sitename'] ? (string) $conf['sitename'] : '网课管理中心',
         'author' => 'SkyLearn',
-        'version' => '8.3.6',
+        'version' => '8.3.7',
         'domain' => $domain,
         'serverIp' => $serverIp,
         'phpVersion' => PHP_VERSION,
@@ -2202,6 +2202,11 @@ if ($action === 'webmsg-info') {
     );
 
     $timeline = array(
+        array(
+            'version' => 'v8.3.7',
+            'time' => '2026-09-14',
+            'desc' => '【侧边栏菜单精简】彻底移除“题库查询”入口，修复未登录全屏登录页(/login)在菜单底部的错误泄露。'
+        ),
         array(
             'version' => 'v8.3.6',
             'time' => '2026-09-14',

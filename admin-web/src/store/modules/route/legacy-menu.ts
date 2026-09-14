@@ -96,7 +96,6 @@ const menuSections: MenuSection[] = [
     ]
   },
   { route: 'workorder' },
-  { route: 'chati' },
   { route: 'logout' }
 ];
 
