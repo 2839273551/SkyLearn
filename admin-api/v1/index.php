@@ -2194,7 +2194,7 @@ if ($action === 'webmsg-info') {
     $systemInfo = array(
         'appName' => isset($conf['sitename']) && $conf['sitename'] ? (string) $conf['sitename'] : '网课管理中心',
         'author' => 'SkyLearn',
-        'version' => '8.3.7',
+        'version' => '8.3.8',
         'domain' => $domain,
         'serverIp' => $serverIp,
         'phpVersion' => PHP_VERSION,
@@ -2202,6 +2202,11 @@ if ($action === 'webmsg-info') {
     );
 
     $timeline = array(
+        array(
+            'version' => 'v8.3.8',
+            'time' => '2026-09-14',
+            'desc' => '【订单状态与进度深度重构】上线【方案四：状态与进度合二为一】智能动态背景填充胶囊组件，将状态与进度条完美融于单列，大幅节省横向空间并提升辨识度。'
+        ),
         array(
             'version' => 'v8.3.7',
             'time' => '2026-09-14',
