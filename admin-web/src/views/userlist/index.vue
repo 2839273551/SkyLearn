@@ -2,10 +2,38 @@
 import { computed, h, onMounted, reactive, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import type { DataTableColumns } from 'naive-ui';
-import { NAvatar, NButton, NInput, NInputNumber, NSpace, NSwitch, NTag } from 'naive-ui';
+import {
+  NAvatar,
+  NButton,
+  NCard,
+  NDataTable,
+  NFormItem,
+  NInput,
+  NInputNumber,
+  NModal,
+  NPagination,
+  NPopconfirm,
+  NRadioGroup,
+  NRadioButton,
+  NSelect,
+  NSpace,
+  NSwitch,
+  NTag
+} from 'naive-ui';
 import { useAppStore } from '@/store/modules/app';
 import { useAuthStore } from '@/store/modules/auth';
-import { createUser, fetchGradeOptions, fetchUserlistList, rechargeUserBalance, resetUserPassword, updateUserRate, updateUserStatus } from '@/service/api';
+import {
+  adjustUserBalance,
+  createUser,
+  fetchGradeOptions,
+  fetchUserlistList,
+  loginAsUser,
+  rechargeUserBalance,
+  resetUserPassword,
+  toggleUserKey,
+  updateUserRate,
+  updateUserStatus
+} from '@/service/api';
 
 defineOptions({ name: 'Userlist' });
 
@@ -57,6 +85,79 @@ async function handleResetPassword() {
     window.$message?.success(`已成功重置代理 [${currentUserName.value}] 的登录密码！`);
     pwdModal.value = false;
   }
+}
+
+// 余额调账相关 (加钱 / 减钱)
+const balanceModal = ref(false);
+const balanceLoading = ref(false);
+const currentTargetUser = ref<Api.ProfileArea.UserItem | null>(null);
+const balanceForm = reactive({
+  type: 'add' as 'add' | 'deduct',
+  amount: 50,
+  remark: ''
+});
+
+function openBalanceModal(row: Api.ProfileArea.UserItem) {
+  currentTargetUser.value = row;
+  currentUid.value = row.uid;
+  currentUserName.value = row.name || row.user;
+  balanceForm.type = 'add';
+  balanceForm.amount = 50;
+  balanceForm.remark = '';
+  balanceModal.value = true;
+}
+
+async function handleAdjustBalance() {
+  if (!balanceForm.amount || balanceForm.amount <= 0) {
+    window.$message?.warning('请输入有效变动金额');
+    return;
+  }
+  balanceLoading.value = true;
+  const res = await adjustUserBalance(currentUid.value, balanceForm.amount, balanceForm.type, balanceForm.remark.trim());
+  balanceLoading.value = false;
+  if (res !== null) {
+    window.$message?.success(balanceForm.type === 'add' ? '充值加款成功' : '扣减余额成功');
+    balanceModal.value = false;
+    loadData();
+  }
+}
+
+// 对接密钥操作
+async function handleToggleKey(row: Api.ProfileArea.UserItem, op: 'open' | 'close' | 'reset') {
+  const opName = op === 'close' ? '关闭' : (op === 'reset' ? '重置' : '开通');
+  const res = await toggleUserKey(row.uid, op);
+  if (res !== null && res.data) {
+    row.key = res.data.key || '';
+    window.$message?.success(`已成功${opName}代理 [${row.name || row.user}] 的对接密钥！`);
+  }
+}
+
+function copyKey(keyText: string) {
+  if (!keyText) return;
+  navigator.clipboard.writeText(keyText);
+  window.$message?.success('已复制对接密钥到剪贴板！');
+}
+
+// 一键登录该代理后台
+function handleLoginAs(row: Api.ProfileArea.UserItem) {
+  window.$dialog?.warning({
+    title: '一键免密登录确认',
+    content: `确定以代理 [${row.name || row.user}]（UID: ${row.uid}）的身份进入管理后台吗？您将免密切换为该商户的视角与权限。`,
+    positiveText: '确认登录',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      loading.value = true;
+      const res = await loginAsUser(row.uid);
+      if (res !== null && res.data) {
+        window.$message?.success(`已成功一键切换至 [${res.data.targetName}] 后台！正在前往工作台...`);
+        setTimeout(() => {
+          window.location.href = '/index/main';
+        }, 600);
+      } else {
+        loading.value = false;
+      }
+    }
+  });
 }
 
 
@@ -194,36 +295,96 @@ const columns: DataTableColumns<Api.ProfileArea.UserItem> = [
         { checked: () => '正常', unchecked: () => '封禁' }
       )
   },
-  { title: '邀请码', key: 'yqm', width: 100 },
+  { title: '邀请码', key: 'yqm', width: 95 },
+  {
+    title: '对接密钥',
+    key: 'key',
+    width: 175,
+    render: row => {
+      if (row.key) {
+        return h('div', { class: 'flex items-center gap-4px' }, [
+          h(NTag, { type: 'success', size: 'tiny', round: true }, { default: () => '已开启' }),
+          h(
+            NButton,
+            { size: 'tiny', tertiary: true, type: 'primary', onClick: () => copyKey(row.key) },
+            { default: () => '复制' }
+          ),
+          h(
+            NPopconfirm,
+            {
+              onPositiveClick: () => handleToggleKey(row, 'close')
+            },
+            {
+              trigger: () =>
+                h(
+                  NButton,
+                  { size: 'tiny', tertiary: true, type: 'error' },
+                  { default: () => '关闭' }
+                ),
+              default: () => `确定关闭代理 [${row.name || row.user}] 的对接密钥吗？关闭后将无法对外对接交单。`
+            }
+          ),
+          h(
+            NPopconfirm,
+            {
+              onPositiveClick: () => handleToggleKey(row, 'reset')
+            },
+            {
+              trigger: () =>
+                h(
+                  NButton,
+                  { size: 'tiny', quaternary: true, title: '重新生成' },
+                  { default: () => '🔄' }
+                ),
+              default: () => `确定重新生成代理 [${row.name || row.user}] 的对接密钥吗？`
+            }
+          )
+        ]);
+      }
+      return h('div', { class: 'flex items-center gap-6px' }, [
+        h(NTag, { type: 'default', size: 'tiny', round: true }, { default: () => '未开启' }),
+        h(
+          NButton,
+          { size: 'tiny', type: 'success', dashed: true, onClick: () => handleToggleKey(row, 'open') },
+          { default: () => '一键开通' }
+        )
+      ]);
+    }
+  },
   { title: '注册时间', key: 'addtime', width: 160 },
   {
     title: '操作',
     key: 'actions',
-    width: 230,
+    width: 300,
     fixed: 'right',
     render: row =>
-      h(NSpace, { size: 'small' }, () => [
+      h(NSpace, { size: 6, align: 'center' }, () => [
         h(
           NButton,
           {
-            size: 'small',
-            type: 'primary',
-            ghost: true,
-            onClick: () => {
-              currentUid.value = row.uid;
-              currentUserName.value = row.name || row.user;
-              rechargeAmount.value = 50;
-              rechargeModal.value = true;
-            }
+            size: 'tiny',
+            type: 'success',
+            secondary: true,
+            onClick: () => handleLoginAs(row)
           },
-          { default: () => '充值' }
+          { default: () => '🚀 登录后台' }
         ),
         h(
           NButton,
           {
-            size: 'small',
+            size: 'tiny',
+            type: 'primary',
+            secondary: true,
+            onClick: () => openBalanceModal(row)
+          },
+          { default: () => '💰 调账' }
+        ),
+        h(
+          NButton,
+          {
+            size: 'tiny',
             type: 'info',
-            ghost: true,
+            secondary: true,
             onClick: () => {
               currentUid.value = row.uid;
               currentUserName.value = row.name || row.user;
@@ -231,17 +392,17 @@ const columns: DataTableColumns<Api.ProfileArea.UserItem> = [
               rateModal.value = true;
             }
           },
-          { default: () => '调费率' }
+          { default: () => '⚙️ 调费率' }
         ),
         h(
           NButton,
           {
-            size: 'small',
+            size: 'tiny',
             type: 'warning',
-            ghost: true,
+            secondary: true,
             onClick: () => openResetPwdModal(row)
           },
-          { default: () => '重置密码' }
+          { default: () => '🔑 重置密码' }
         )
       ])
   }
@@ -349,18 +510,55 @@ onMounted(() => {
       </div>
     </NCard>
 
-    <!-- 充值弹窗 -->
-    <NModal v-model:show="rechargeModal" preset="card" title="代理余额调整" :style="{ width: appStore.isMobile ? '92vw' : '460px' }">
-      <div class="flex flex-col gap-12px">
-        <div class="text-14px">目标代理：<strong>[UID: {{ currentUid }}] {{ currentUserName }}</strong></div>
-        <NFormItem :label="isSuperAdmin ? '调整金额 (正数增加，负数扣除)' : '充值金额 (将从您的账户余额扣除)'">
-          <NInputNumber v-model:value="rechargeAmount" :step="10" class="w-full">
-            <template #prefix>¥
+    <!-- 余额调整弹窗 (加钱 / 减钱) -->
+    <NModal v-model:show="balanceModal" preset="card" title="代理账户余额调整" :style="{ width: appStore.isMobile ? '92vw' : '480px' }">
+      <div class="flex flex-col gap-14px">
+        <div v-if="currentTargetUser" class="rounded-8px bg-slate-50 p-10px dark:bg-dark-600 border text-13px flex justify-between items-center">
+          <div>
+            目标代理：<strong>{{ currentTargetUser.name || currentTargetUser.user }}</strong>
+            <span class="text-gray-400 text-12px ml-4px">[UID: {{ currentTargetUser.uid }}]</span>
+          </div>
+          <div>
+            当前可用：<strong class="text-emerald-600 font-mono font-bold text-15px">¥ {{ currentTargetUser.money }}</strong>
+          </div>
+        </div>
+
+        <NFormItem label="调整类型">
+          <NRadioGroup v-model:value="balanceForm.type">
+            <NRadioButton value="add">➕ 增加余额 (充值加款)</NRadioButton>
+            <NRadioButton value="deduct">➖ 扣减余额 (手动扣款)</NRadioButton>
+          </NRadioGroup>
+        </NFormItem>
+
+        <NFormItem :label="balanceForm.type === 'add' ? (isSuperAdmin ? '充值增加金额 (¥)' : '为下级充值金额 (从您账户划扣 ¥)') : (isSuperAdmin ? '扣减金额 (¥)' : '从下级扣除金额 (返还给您 ¥)')" required>
+          <NInputNumber v-model:value="balanceForm.amount" :min="0.01" :step="10" class="w-full">
+            <template #prefix>¥</template>
+          </NInputNumber>
+        </NFormItem>
+
+        <NFormItem label="调整说明 / 资金流水备注">
+          <NInput v-model:value="balanceForm.remark" placeholder="如：线下转账加款、售后核销扣减等（选填）" />
+        </NFormItem>
+      </div>
+      <template #footer>
+        <div class="flex justify-end gap-12px">
+          <NButton @click="balanceModal = false">取消</NButton>
+          <NButton
+            :type="balanceForm.type === 'add' ? 'primary' : 'error'"
+            :loading="balanceLoading"
+            @click="handleAdjustBalance"
+          >
+            {{ balanceForm.type === 'add' ? '确认充值加款' : '确认扣减余额' }}
+          </NButton>
+        </div>
+      </template>
+    </NModal>
+
     <!-- 重置密码弹窗 -->
     <NModal v-model:show="pwdModal" preset="card" title="重置代理登录密码" :style="{ width: appStore.isMobile ? '92vw' : '440px' }">
-      <div class="flex flex-col gap-12px">
-        <div class="text-14px">目标代理：<strong>[UID: {{ currentUid }}] {{ currentUserName }}</strong></div>
-        <NFormItem label="设置新登录密码 (默认初始密码 12345678)" required>
+      <div class="flex flex-col gap-14px">
+        <NAlert type="info">正在为代理商户 <strong>{{ currentUserName }}</strong>（UID: {{ currentUid }}）重置登录密码。</NAlert>
+        <NFormItem label="设置新登录密码 (默认 12345678)" required>
           <NInput v-model:value="resetPwdForm.password" placeholder="输入新密码，至少6位" />
         </NFormItem>
       </div>
@@ -368,17 +566,6 @@ onMounted(() => {
         <div class="flex justify-end gap-12px">
           <NButton @click="pwdModal = false">取消</NButton>
           <NButton type="primary" :loading="pwdLoading" @click="handleResetPassword">确认重置密码</NButton>
-        </div>
-      </template>
-    </NModal>
-</template>
-          </NInputNumber>
-        </NFormItem>
-      </div>
-      <template #footer>
-        <div class="flex justify-end gap-12px">
-          <NButton @click="rechargeModal = false">取消</NButton>
-          <NButton type="primary" @click="handleRecharge">确认充值</NButton>
         </div>
       </template>
     </NModal>

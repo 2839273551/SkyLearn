@@ -350,7 +350,31 @@ export function rechargeUserBalance(uid: string | number, amount: number) {
   return request<null>({
     url: 'admin-api/v1/index.php?action=userlist-recharge',
     method: 'post',
-    data: { uid, amount }
+    data: { uid, amount, type: 'add' }
+  });
+}
+
+export function adjustUserBalance(uid: string | number, amount: number, type: 'add' | 'deduct' = 'add', remark?: string) {
+  return request<null>({
+    url: 'admin-api/v1/index.php?action=userlist-recharge',
+    method: 'post',
+    data: { uid, amount, type, remark }
+  });
+}
+
+export function toggleUserKey(uid: string | number, operation: 'open' | 'close' | 'reset' = 'open') {
+  return request<{ key: string }>({
+    url: 'admin-api/v1/index.php?action=userlist-toggle-key',
+    method: 'post',
+    data: { uid, operation }
+  });
+}
+
+export function loginAsUser(uid: string | number) {
+  return request<{ targetName: string; targetUid: string }>({
+    url: 'admin-api/v1/index.php?action=userlist-login-as',
+    method: 'post',
+    data: { uid }
   });
 }
 

@@ -2194,7 +2194,7 @@ if ($action === 'webmsg-info') {
     $systemInfo = array(
         'appName' => isset($conf['sitename']) && $conf['sitename'] ? (string) $conf['sitename'] : '网课管理中心',
         'author' => 'SkyLearn',
-        'version' => '8.3.5',
+        'version' => '8.3.6',
         'domain' => $domain,
         'serverIp' => $serverIp,
         'phpVersion' => PHP_VERSION,
@@ -2202,6 +2202,11 @@ if ($action === 'webmsg-info') {
     );
 
     $timeline = array(
+        array(
+            'version' => 'v8.3.6',
+            'time' => '2026-09-14',
+            'desc' => '【代理管理全维度赋能】支持一键免密登录代理后台、余额双向调账(加钱/扣款与日志追溯)、对接密钥一键开与关/重置/复制，修复重置密码弹窗未渲染缺陷。'
+        ),
         array(
             'version' => 'v8.3.5',
             'time' => '2026-09-14',
@@ -2353,51 +2358,147 @@ if ($action === 'userlist-recharge') {
     $isSuper = ($currentUid === 1);
     $input = api_read_input();
     $uid = isset($input['uid']) ? intval($input['uid']) : 0;
-    $amount = isset($input['amount']) ? floatval($input['amount']) : 0;
+    $amount = isset($input['amount']) ? abs(floatval($input['amount'])) : 0;
+    $type = isset($input['type']) && $input['type'] === 'deduct' ? 'deduct' : 'add';
+    $remark = isset($input['remark']) ? trim(strip_tags($input['remark'])) : '';
+
     if ($uid <= 0) api_respond(422, '用户参数错误');
-    if ($amount == 0) api_respond(422, '充值金额不能为0');
+    if ($amount <= 0) api_respond(422, '变动金额必须大于 0');
 
     $target = $DB->get_row("SELECT uid, uuid, user, name, money FROM qingka_wangke_user WHERE uid='$uid' LIMIT 1");
     if (!$target) api_respond(404, '目标代理不存在');
 
+    $targetMoney = floatval($target['money']);
+
     if ($isSuper) {
-        // 超管自由调账运维
-        $newMoney = round($target['money'] + $amount, 2);
-        if ($newMoney < 0) api_respond(400, '扣款后余额不能为负数');
-
-        $setSql = "money='$newMoney'";
-        if ($amount > 0) $setSql .= ", zcz=zcz+'$amount'";
-        $DB->query("UPDATE qingka_wangke_user SET $setSql WHERE uid='$uid'");
-
-        $sign = $amount > 0 ? "+$amount" : "$amount";
-        if (function_exists('wlog')) {
-            wlog($uid, "管理员调账", "管理员调整余额: {$sign} 元，当前余额 {$newMoney} 元", $sign);
+        // 超管自由调账（加钱 / 减钱）
+        if ($type === 'deduct') {
+            if ($targetMoney < $amount) {
+                api_respond(400, "扣款失败！该代理当前可用余额仅 ¥ {$targetMoney}，不足以扣减 ¥ {$amount}");
+            }
+            $newMoney = round($targetMoney - $amount, 2);
+            $DB->query("UPDATE qingka_wangke_user SET money='$newMoney' WHERE uid='$uid'");
+            if (function_exists('wlog')) {
+                $desc = "管理员扣减余额 -{$amount} 元" . ($remark ? " (备注: {$remark})" : '') . "，扣减后余额 {$newMoney} 元";
+                wlog($uid, "管理员扣款", $desc, "-{$amount}");
+            }
+            api_respond(0, "扣款成功！已成功扣减 ¥ {$amount}，该代理当前剩余余额: ¥ {$newMoney}");
+        } else {
+            // 加钱充值
+            $newMoney = round($targetMoney + $amount, 2);
+            $DB->query("UPDATE qingka_wangke_user SET money='$newMoney', zcz=zcz+'$amount' WHERE uid='$uid'");
+            if (function_exists('wlog')) {
+                $desc = "管理员增加余额 +{$amount} 元" . ($remark ? " (备注: {$remark})" : '') . "，增加后余额 {$newMoney} 元";
+                wlog($uid, "管理员充值", $desc, "+{$amount}");
+            }
+            api_respond(0, "充值加款成功！已成功增加 ¥ {$amount}，该代理当前余额: ¥ {$newMoney}");
         }
-        api_respond(0, "调整成功，目标代理当前余额: ¥ {$newMoney}");
     } else {
-        // 普通代理为下级充值转账
+        // 普通代理为直属下级充值转账或扣款
         if (intval($target['uuid']) !== $currentUid) {
-            api_respond(403, '只能为属于您名下的直属下级代理充值');
+            api_respond(403, '只能管理属于您名下的直属下级代理');
         }
-        if ($amount <= 0) {
-            api_respond(422, '充值金额必须大于 0');
+        if ($type === 'deduct') {
+            if ($targetMoney < $amount) {
+                api_respond(400, "下级代理当前余额仅 ¥ {$targetMoney}，不足以扣减 ¥ {$amount}");
+            }
+            $newTargetMoney = round($targetMoney - $amount, 2);
+            $DB->query("UPDATE qingka_wangke_user SET money=money-'$amount' WHERE uid='$uid' LIMIT 1");
+            $DB->query("UPDATE qingka_wangke_user SET money=money+'$amount' WHERE uid='$currentUid' LIMIT 1");
+            if (function_exists('wlog')) {
+                wlog($uid, "上级扣款", "上级从您的账户扣减 {$amount} 元" . ($remark ? " (备注: {$remark})" : ''), "-{$amount}");
+                wlog($currentUid, "下级扣款返还", "从下级 {$target['name']}({$target['user']}) 扣回 {$amount} 元", "+{$amount}");
+            }
+            api_respond(0, "扣款成功！已扣减下级 ¥ {$amount} 并返还到您的账户，下级当前余额: ¥ {$newTargetMoney}");
+        } else {
+            $myMoney = floatval($userrow['money']);
+            if ($myMoney < $amount) {
+                api_respond(400, "您的可用余额不足！当前余额: ¥ {$myMoney}，充值需要: ¥ {$amount}");
+            }
+            $DB->query("UPDATE qingka_wangke_user SET money=money-'$amount' WHERE uid='$currentUid' LIMIT 1");
+            $DB->query("UPDATE qingka_wangke_user SET money=money+'$amount', zcz=zcz+'$amount' WHERE uid='$uid' LIMIT 1");
+            $newTargetMoney = round($targetMoney + $amount, 2);
+            if (function_exists('wlog')) {
+                wlog($currentUid, "代理充值", "为直属下级 {$target['name']}({$target['user']}) 充值 {$amount} 元" . ($remark ? " (备注: {$remark})" : ''), "-{$amount}");
+                wlog($uid, "上级充值", "上级 {$userrow['name']}({$userrow['user']}) 为您充值 {$amount} 元", "+{$amount}");
+            }
+            api_respond(0, "充值成功！已从您的账户划扣 ¥ {$amount}，目标下级当前余额: ¥ {$newTargetMoney}");
         }
-        $myMoney = floatval($userrow['money']);
-        if ($myMoney < $amount) {
-            api_respond(400, "您的可用余额不足！当前余额: ¥ {$myMoney}，充值需要: ¥ {$amount}");
-        }
-
-        // 扣除当前代理自身余额，充入下级账户
-        $DB->query("UPDATE qingka_wangke_user SET money=money-'$amount' WHERE uid='$currentUid' LIMIT 1");
-        $DB->query("UPDATE qingka_wangke_user SET money=money+'$amount', zcz=zcz+'$amount' WHERE uid='$uid' LIMIT 1");
-
-        $newTargetMoney = round(floatval($target['money']) + $amount, 2);
-        if (function_exists('wlog')) {
-            wlog($currentUid, "代理充值", "为直属下级 {$target['name']}({$target['user']}) 充值 {$amount} 元", -$amount);
-            wlog($uid, "上级充值", "上级 {$userrow['name']}({$userrow['user']}) 为您充值 {$amount} 元", +$amount);
-        }
-        api_respond(0, "充值成功！已从您的账户划扣 ¥ {$amount}，目标下级当前余额: ¥ {$newTargetMoney}");
     }
+}
+
+// 代理管理：一键开通/关闭/重置对接密钥
+if ($action === 'userlist-toggle-key') {
+    api_require_post();
+    api_require_login(isset($islogin) ? $islogin : 0);
+    api_require_csrf();
+
+    $currentUid = intval($userrow['uid']);
+    $isSuper = ($currentUid === 1);
+    $input = api_read_input();
+    $uid = isset($input['uid']) ? intval($input['uid']) : 0;
+    $operation = isset($input['operation']) ? trim($input['operation']) : 'open';
+
+    if ($uid <= 0) api_respond(422, '参数错误');
+
+    $target = $DB->get_row("SELECT uid, uuid, user, name, `key` FROM qingka_wangke_user WHERE uid='$uid' LIMIT 1");
+    if (!$target) api_respond(404, '目标代理不存在');
+
+    if (!$isSuper && intval($target['uuid']) !== $currentUid) {
+        api_respond(403, '只能管理属于您名下的直属下级代理');
+    }
+
+    if ($operation === 'close') {
+        $DB->query("UPDATE qingka_wangke_user SET `key`='' WHERE uid='$uid'");
+        api_respond(0, "已成功关闭代理 [{$target['name']}] 的对接密钥", array('key' => ''));
+    } else {
+        $newKey = md5(uniqid(mt_rand(), true) . microtime());
+        $DB->query("UPDATE qingka_wangke_user SET `key`='$newKey' WHERE uid='$uid'");
+        $msg = $operation === 'reset' ? "已重置代理 [{$target['name']}] 的对接密钥" : "已成功为代理 [{$target['name']}] 开通对接密钥";
+        api_respond(0, $msg, array('key' => $newKey));
+    }
+}
+
+// 代理管理：一键免密登录该代理后台
+if ($action === 'userlist-login-as') {
+    api_require_post();
+    api_require_login(isset($islogin) ? $islogin : 0);
+    api_require_csrf();
+
+    $currentUid = intval($userrow['uid']);
+    $isSuper = ($currentUid === 1);
+    $input = api_read_input();
+    $uid = isset($input['uid']) ? intval($input['uid']) : 0;
+    if ($uid <= 0) api_respond(422, '参数错误');
+
+    if ($currentUid === $uid) {
+        api_respond(422, '您当前已经是该账号');
+    }
+
+    $target = $DB->get_row("SELECT uid, uuid, user, pass, name, active FROM qingka_wangke_user WHERE uid='$uid' LIMIT 1");
+    if (!$target) api_respond(404, '目标代理不存在');
+
+    if (!$isSuper && intval($target['uuid']) !== $currentUid) {
+        api_respond(403, '只能切换登录属于您名下的直属下级代理后台');
+    }
+
+    if (isset($target['active']) && intval($target['active']) === 0) {
+        api_respond(403, '该代理账号当前处于封禁状态，无法登录');
+    }
+
+    session_regenerate_id(true);
+    $session = md5($target['user'] . $target['pass'] . $password_hash);
+    $token = authcode($target['user'] . "\t" . $session, 'ENCODE', SYS_KEY);
+    api_set_auth_cookie($token, time() + 216000);
+
+    if (function_exists('wlog')) {
+        wlog($currentUid, '一键切号', "上级[UID:{$currentUid}]一键登录代理 {$target['name']}({$target['user']}) 后台", '0');
+    }
+
+    api_respond(0, "已成功一键切换至代理 [{$target['name']}] 的后台！", array(
+        'targetName' => $target['name'] ? $target['name'] : $target['user'],
+        'targetUid' => (string) $target['uid']
+    ));
 }
 
 if ($action === 'userlist-rate') {
