@@ -5,12 +5,11 @@ import {
   NAlert,
   NButton,
   NCard,
-  NCollapse,
-  NCollapseItem,
   NDataTable,
   NDescriptions,
   NDescriptionsItem,
   NDivider,
+  NDropdown,
   NInput,
   NModal,
   NPagination,
@@ -258,6 +257,63 @@ async function handleBatchRebrush() {
     checkedRowKeys.value = [];
     loadOrders();
   }
+}
+
+const taskStatusDropdownOptions = [
+  { label: '🕒 待处理', key: '待处理' },
+  { label: '🟢 已完成', key: '已完成' },
+  { label: '🔵 进行中', key: '进行中' },
+  { label: '🔴 异常', key: '异常' },
+  { label: '⚪ 已取消', key: '已取消' }
+];
+
+function handleSelectTaskStatus(key: string) {
+  handleBatchStatus(key);
+}
+
+const dockStatusDropdownOptions = [
+  { label: '⏳ 待处理', key: '0' },
+  { label: '✅ 处理成功', key: '1' },
+  { label: '❌ 提交失败', key: '2' },
+  { label: '🔁 重复下单', key: '3' },
+  { label: '🚫 已取消', key: '4' },
+  { label: '🏬 自营订单', key: '99' },
+  { type: 'divider', key: 'd1' },
+  { label: '💰 批量退款 (原路退回余额)', key: 'refund' },
+  { label: '🗑️ 批量彻底删除', key: 'delete' }
+];
+
+const dockStatusLabelMap: Record<string, string> = {
+  '0': '待处理',
+  '1': '处理成功',
+  '2': '提交失败',
+  '3': '重复下单',
+  '4': '已取消',
+  '99': '自营订单'
+};
+
+function handleSelectDockStatus(key: string) {
+  if (key === 'refund') {
+    window.$dialog?.warning({
+      title: '批量退款确认',
+      content: `确定为已勾选的 ${checkedRowKeys.value.length} 笔订单全额退款吗？资金将原路退回用户余额。`,
+      positiveText: '确定退款',
+      negativeText: '取消',
+      onPositiveClick: handleBatchRefund
+    });
+    return;
+  }
+  if (key === 'delete') {
+    window.$dialog?.error({
+      title: '批量删除确认',
+      content: `确定彻底删除已勾选的 ${checkedRowKeys.value.length} 笔订单吗？此操作不可恢复！`,
+      positiveText: '确定彻底删除',
+      negativeText: '取消',
+      onPositiveClick: handleBatchDelete
+    });
+    return;
+  }
+  handleBatchDockStatus(key, dockStatusLabelMap[key] || key);
 }
 
 /**
@@ -620,55 +676,7 @@ onMounted(loadOrders);
         </NButton>
       </div>
 
-      <!-- 批量操作折叠面板（收起时为极简单行，展开后内容区有整齐背景） -->
-      <NCollapse class="mb-12px flex flex-col gap-6px">
-        <!-- 1. 修改任务显示状态 -->
-        <NCollapseItem title="✏️ 修改任务显示状态" name="1" class="rounded-6px border border-gray-200 dark:border-dark-500 px-10px py-2px bg-white dark:bg-dark-700">
-          <div class="flex flex-wrap items-center gap-8px pt-6px pb-8px border-t mt-4px">
-            <NButton size="small" type="warning" :loading="batchLoading" @click="handleBatchStatus('待处理')">
-              🕒 待处理
-            </NButton>
-            <NButton size="small" type="success" :loading="batchLoading" @click="handleBatchStatus('已完成')">
-              🟢 已完成
-            </NButton>
-            <NButton size="small" type="info" :loading="batchLoading" @click="handleBatchStatus('进行中')">
-              🔵 进行中
-            </NButton>
-            <NButton size="small" type="error" :loading="batchLoading" @click="handleBatchStatus('异常')">
-              🔴 异常
-            </NButton>
-            <NButton size="small" tertiary :loading="batchLoading" @click="handleBatchStatus('已取消')">
-              ⚪ 已取消
-            </NButton>
-          </div>
-        </NCollapseItem>
-
-        <!-- 2. 处理状态操作 (管理员专属) -->
-        <NCollapseItem v-if="isSuperAdmin" title="✏️ 处理状态操作 (对接与售后)" name="2" class="rounded-6px border border-gray-200 dark:border-dark-500 px-10px py-2px bg-white dark:bg-dark-700">
-          <div class="flex flex-wrap items-center gap-6px pt-6px pb-8px border-t mt-4px">
-            <NButton size="tiny" type="warning" :loading="batchLoading" @click="handleBatchDockStatus('0', '待处理')">待处理</NButton>
-            <NButton size="tiny" type="success" :loading="batchLoading" @click="handleBatchDockStatus('1', '处理成功')">处理成功</NButton>
-            <NButton size="tiny" type="error" :loading="batchLoading" @click="handleBatchDockStatus('2', '处理失败')">处理失败</NButton>
-            <NButton size="tiny" secondary :loading="batchLoading" @click="handleBatchDockStatus('3', '重复下单')">重复下单</NButton>
-            <NButton size="tiny" tertiary :loading="batchLoading" @click="handleBatchDockStatus('4', '已取消')">已取消</NButton>
-            <NButton size="tiny" secondary type="warning" :loading="batchLoading" @click="handleBatchDockStatus('99', '自营订单')">自营订单</NButton>
-            <NPopconfirm @positive-click="handleBatchRefund">
-              <template #trigger>
-                <NButton size="tiny" type="error" :loading="batchLoading">订单退款</NButton>
-              </template>
-              确定为勾选的 {{ checkedRowKeys.length }} 笔订单全额退款吗？资金将原路退回用户余额。
-            </NPopconfirm>
-            <NPopconfirm @positive-click="handleBatchDelete">
-              <template #trigger>
-                <NButton size="tiny" type="error" dashed :loading="batchLoading">订单删除</NButton>
-              </template>
-              确定彻底删除勾选的 {{ checkedRowKeys.length }} 笔订单吗？此操作不可恢复！
-            </NPopconfirm>
-          </div>
-        </NCollapseItem>
-      </NCollapse>
-
-      <!-- 快捷批量动作与提示栏 -->
+      <!-- 快捷批量动作与提示栏 (完全消除折叠空行，采用一体化下拉操作) -->
       <div class="mb-14px flex flex-wrap items-center justify-between gap-12px rounded-8px bg-blue-50/60 dark:bg-dark-600 p-10px border border-blue-100 dark:border-dark-500">
         <div class="flex flex-wrap items-center gap-8px">
           <span class="text-13px text-gray-700 dark:text-gray-200">
@@ -680,6 +688,16 @@ onMounted(loadOrders);
           <NButton size="small" type="warning" :loading="batchLoading" :disabled="!checkedRowKeys.length" @click="handleBatchRebrush">
             📝 批量补单
           </NButton>
+          <NDropdown trigger="click" :options="taskStatusDropdownOptions" @select="handleSelectTaskStatus">
+            <NButton size="small" type="info" secondary :loading="batchLoading" :disabled="!checkedRowKeys.length">
+              ✏️ 修改任务状态 ▾
+            </NButton>
+          </NDropdown>
+          <NDropdown v-if="isSuperAdmin" trigger="click" :options="dockStatusDropdownOptions" @select="handleSelectDockStatus">
+            <NButton size="small" type="error" secondary :loading="batchLoading" :disabled="!checkedRowKeys.length">
+              ⚙️ 处理状态与售后 ▾
+            </NButton>
+          </NDropdown>
           <NButton size="small" tertiary :disabled="!checkedRowKeys.length" @click="checkedRowKeys = []">
             清空勾选
           </NButton>
