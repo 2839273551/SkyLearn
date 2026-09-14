@@ -275,6 +275,9 @@ function scheduler_execute_task($taskId) {
     $contentSafe = daddslashes($content);
     $DB->query("INSERT INTO `qingka_wangke_cron_log` (`task_id`, `content`, `status`, `cost_ms`, `processed_count`, `created_at`) VALUES ('$taskId', '$contentSafe', '$status', '$costMs', '$successCount', '$nowDateTime')");
 
+    // 触发历史调度日志自动瘦身与清理 (保持数据库轻盈)
+    scheduler_auto_prune_logs($taskId);
+
     // 更新任务配置表指标
     $summarySafe = daddslashes($summary);
     $DB->query("UPDATE `qingka_wangke_cron_task` SET 
@@ -295,6 +298,34 @@ function scheduler_execute_task($taskId) {
         'summary' => $summary,
         'logs' => $content
     );
+}
+
+/**
+ * 自动滚动清理历史调度日志 (全自动瘦身)
+ * 1. 自动删除超过 3 天的历史过期日志
+ * 2. 自动清理旧版废弃任务残留的孤立日志
+ * 3. 单个任务严格保持最多保留最近 200 条记录，超出部分自动截断
+ */
+function scheduler_auto_prune_logs($taskId = '') {
+    global $DB;
+    // 1. 删除 3 天前的过期历史日志
+    $DB->query("DELETE FROM `qingka_wangke_cron_log` WHERE `created_at` < DATE_SUB(NOW(), INTERVAL 3 DAY)");
+
+    // 2. 清除废弃旧任务残留日志
+    $DB->query("DELETE FROM `qingka_wangke_cron_log` WHERE `task_id` NOT IN ('order_dispatch', 'progress_active', 'progress_exam')");
+
+    // 3. 单任务超过 200 条时自动截断多余记录
+    if (!empty($taskId)) {
+        $taskIdSafe = daddslashes($taskId);
+        $count = intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_cron_log` WHERE `task_id`='$taskIdSafe'"));
+        if ($count > 200) {
+            $cutoff = $DB->get_row("SELECT id FROM `qingka_wangke_cron_log` WHERE `task_id`='$taskIdSafe' ORDER BY id DESC LIMIT 200, 1");
+            if ($cutoff && !empty($cutoff['id'])) {
+                $cutoffId = intval($cutoff['id']);
+                $DB->query("DELETE FROM `qingka_wangke_cron_log` WHERE `task_id`='$taskIdSafe' AND id <= '$cutoffId'");
+            }
+        }
+    }
 }
 
 /**
@@ -362,13 +393,16 @@ if ($action === 'scheduler-tasks-list') {
         $totalSuccessAll += intval($r['total_success']);
     }
 
+    $totalLogs = intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_cron_log`"));
+
     api_respond(0, 'ok', array(
         'tasks' => $tasks,
         'summary' => array(
             'total_tasks' => count($tasks),
             'enabled_tasks' => count(array_filter($tasks, function($t) { return $t['enabled']; })),
             'total_runs_all' => $totalRunsAll,
-            'total_success_all' => $totalSuccessAll
+            'total_success_all' => $totalSuccessAll,
+            'total_logs' => $totalLogs
         )
     ));
 }

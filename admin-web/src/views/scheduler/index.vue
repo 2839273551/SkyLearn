@@ -197,12 +197,25 @@ onMounted(() => {
               <span>
                 累计成功调度订单：<strong class="font-mono font-bold text-primary">{{ summary.total_success_all }}</strong> 笔
               </span>
+              <span>|</span>
+              <span>
+                调度日志池存量：<strong class="font-mono font-bold text-gray-700 dark:text-gray-300">{{ summary.total_logs ?? 0 }}</strong> 笔
+              </span>
             </div>
           </div>
         </div>
 
         <!-- 右侧：一键启动与自动化操作 -->
-        <div class="flex flex-wrap items-center gap-12px">
+        <div class="flex flex-wrap items-center gap-10px">
+          <NPopconfirm @positive-click="() => handleClearLogs()">
+            <template #trigger>
+              <NButton secondary size="medium" type="warning">
+                🗑️ 清空所有日志
+              </NButton>
+            </template>
+            确定清空全部调度引擎的执行日志吗？
+          </NPopconfirm>
+
           <NTooltip>
             <template #trigger>
               <NButton secondary size="medium" @click="copyBtCommand">
@@ -229,9 +242,15 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="mt-14px rounded-8px bg-emerald-50/70 p-10px border border-emerald-200/80 dark:bg-emerald-950/20 dark:border-emerald-800/40 text-12px text-emerald-800 dark:text-emerald-300 flex items-center gap-6px">
-        <span class="text-14px">🛡️</span>
-        <span><strong>智能归档防刷已开启：</strong>所有标记为<strong>【已完成】</strong>、已退款/取消或进度已达到 100%（且无挂科补刷需求）的订单，系统已自动隔离归档，<strong>绝不再参与下一轮自动化同步巡检</strong>，大幅降低上游接口开销与被风控风险！</span>
+      <div class="mt-14px flex flex-wrap items-center justify-between gap-10px rounded-8px bg-emerald-50/70 p-10px border border-emerald-200/80 dark:bg-emerald-950/20 dark:border-emerald-800/40 text-12px text-emerald-800 dark:text-emerald-300">
+        <div class="flex items-center gap-6px">
+          <span class="text-14px">🛡️</span>
+          <span><strong>智能归档防刷已开启：</strong>所有标记为<strong>【已完成】</strong>、已退款/取消或进度达 100% 的订单，系统已自动隔离归档，<strong>绝不再参与下一轮同步轮询</strong>！</span>
+        </div>
+        <div class="flex items-center gap-6px">
+          <span class="text-14px">🧹</span>
+          <span><strong>自动瘦身清理已开启：</strong>系统每次调度后<strong>自动清理超过 3 天的历史过期日志</strong>，单任务保留上限 200 条，永久保护数据库轻盈！</span>
+        </div>
       </div>
     </NCard>
 

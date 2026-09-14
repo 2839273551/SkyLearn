@@ -2194,7 +2194,7 @@ if ($action === 'webmsg-info') {
     $systemInfo = array(
         'appName' => isset($conf['sitename']) && $conf['sitename'] ? (string) $conf['sitename'] : '网课管理中心',
         'author' => 'SkyLearn',
-        'version' => '8.5.0',
+        'version' => '8.5.1',
         'domain' => $domain,
         'serverIp' => $serverIp,
         'phpVersion' => PHP_VERSION,
@@ -2202,6 +2202,11 @@ if ($action === 'webmsg-info') {
     );
 
     $timeline = array(
+        array(
+            'version' => 'v8.5.1',
+            'time' => '2026-09-14',
+            'desc' => '【调度日志全自动瘦身引擎】调度执行后自动巡检清理超过3天的过期日志，废弃任务孤立日志自动剔除，单任务严格截断上限200条，支持一键清空日志，数据库永久保持轻盈。'
+        ),
         array(
             'version' => 'v8.5.0',
             'time' => '2026-09-14',

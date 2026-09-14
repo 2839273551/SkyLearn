@@ -656,6 +656,7 @@ declare namespace Api {
       enabled_tasks: number;
       total_runs_all: number;
       total_success_all: number;
+      total_logs?: number;
     }
 
     interface TasksListResponse {
