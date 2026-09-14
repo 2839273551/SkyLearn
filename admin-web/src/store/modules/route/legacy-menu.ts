@@ -64,7 +64,6 @@ const menuSections: MenuSection[] = [
   },
   { key: 'legacy-study', label: '学习中心', icon: 'ph:user', routes: ['add', 'addpl', 'addtj'] },
   { route: 'list' },
-  { route: 'userlist' },
   {
     key: 'legacy-profile',
     label: '我的信息',
@@ -74,7 +73,7 @@ const menuSections: MenuSection[] = [
         key: 'profile-account',
         label: '账户与代理',
         icon: 'ph:user-circle',
-        routes: ['userinfo', 'tjuser', 'sjqy', 'smgz', 'passwd', 'log']
+        routes: ['userinfo', 'userlist', 'tjuser', 'sjqy', 'smgz', 'passwd', 'log']
       },
       {
         key: 'profile-recharge',

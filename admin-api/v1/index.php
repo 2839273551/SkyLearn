@@ -2194,7 +2194,7 @@ if ($action === 'webmsg-info') {
     $systemInfo = array(
         'appName' => isset($conf['sitename']) && $conf['sitename'] ? (string) $conf['sitename'] : '网课管理中心',
         'author' => 'SkyLearn',
-        'version' => '8.3.4',
+        'version' => '8.3.5',
         'domain' => $domain,
         'serverIp' => $serverIp,
         'phpVersion' => PHP_VERSION,
@@ -2202,6 +2202,11 @@ if ($action === 'webmsg-info') {
     );
 
     $timeline = array(
+        array(
+            'version' => 'v8.3.5',
+            'time' => '2026-09-14',
+            'desc' => '【导航架构优化】将“代理管理”重新收纳归位至“我的信息 ➔ 账户与代理”二级分组中，一级导航恢复干练经典的极简架构。'
+        ),
         array(
             'version' => 'v8.3.4',
             'time' => '2026-09-14',
