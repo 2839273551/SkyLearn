@@ -178,6 +178,7 @@ const PROJECT_PALETTE = [
 
 // 2. 网课各项目出单分布环形图 (全自动按项目动态聚合，新增项目自适应统计)
 const { domRef: pieDomRef, updateOptions: updatePieOptions } = useEcharts(() => ({
+  color: PROJECT_PALETTE,
   tooltip: {
     trigger: 'item',
     formatter: '{b}: <b>{c}</b> 单 ({d}%)'
@@ -255,14 +256,17 @@ async function loadData() {
       });
     }
 
-    // 驱动图表 2：各网课项目出单分布环形图 (动态色彩匹配)
+    // 驱动图表 2：各网课项目出单分布环形图 (双重色彩赋能，保障图例与扇区色彩鲜明)
     if (dashRes.data.distribution?.length) {
       updatePieOptions(opts => {
+        opts.color = PROJECT_PALETTE;
         if (opts.series && opts.series[0]) {
           opts.series[0].data = (dashRes.data.distribution || []).map((item, idx) => ({
             name: item.name,
             value: item.value,
-            itemStyle: { color: PROJECT_PALETTE[idx % PROJECT_PALETTE.length] }
+            itemStyle: {
+              color: PROJECT_PALETTE[idx % PROJECT_PALETTE.length]
+            }
           }));
         }
         return opts;
