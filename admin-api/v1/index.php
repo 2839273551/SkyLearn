@@ -1483,6 +1483,33 @@ if ($action === 'class-batch-status') {
     api_respond(0, '批量更新状态成功');
 }
 
+if ($action === 'class-batch-vipprice') {
+    api_require_post();
+    api_require_super($userrow, $islogin);
+
+    $input = api_read_input();
+    $vipprice = isset($input['vipprice']) ? trim(strval($input['vipprice'])) : '';
+    $cids = array();
+    if (isset($input['cids']) && is_array($input['cids'])) {
+        foreach ($input['cids'] as $v) {
+            $id = intval($v);
+            if ($id > 0) $cids[] = $id;
+        }
+    }
+
+    if (empty($cids)) {
+        api_respond(422, '请选择要操作的网课');
+    }
+    if ($vipprice === '' || !is_numeric($vipprice) || floatval($vipprice) < 0) {
+        api_respond(422, '请输入合法的密价数值（不能小于0）');
+    }
+
+    $safeVipprice = daddslashes($vipprice);
+    $idList = implode(',', $cids);
+    $DB->query("UPDATE qingka_wangke_class SET vipprice='$safeVipprice' WHERE cid IN ($idList)");
+    api_respond(0, '批量修改密价成功', array('count' => count($cids), 'vipprice' => $vipprice));
+}
+
 if ($action === 'class-batch-price-sort') {
     api_require_post();
     api_require_super($userrow, $islogin);

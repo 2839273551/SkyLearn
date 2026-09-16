@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref } from 'vue';
 import type { DataTableRowKey, DataTableColumns } from 'naive-ui';
-import { NButton, NInput, NInputNumber, NPopconfirm, NSpace, NSwitch, NTag, NTooltip } from 'naive-ui';
+import { NAlert, NButton, NInput, NInputNumber, NPopconfirm, NSpace, NSwitch, NTag, NTooltip } from 'naive-ui';
 import {
   batchUpdateClassPriceSort,
   batchUpdateClassStatus,
+  batchUpdateClassVipPrice,
   deleteClass,
   quickSortClass,
   fetchClassList,
@@ -384,6 +385,38 @@ async function handleDelete(cids: (string | number)[]) {
   }
 }
 
+const batchVipPriceModal = ref(false);
+const batchVipPriceValue = ref('');
+const batchVipPriceLoading = ref(false);
+
+function openBatchVipPriceModal() {
+  if (!checkedRowKeys.value.length) {
+    window.$message?.warning('请先勾选需要操作的网课');
+    return;
+  }
+  batchVipPriceValue.value = '';
+  batchVipPriceModal.value = true;
+}
+
+async function handleBatchVipPriceSubmit() {
+  const val = batchVipPriceValue.value.trim();
+  if (val === '' || isNaN(Number(val)) || Number(val) < 0) {
+    window.$message?.warning('请输入合法的密价数值（如：0.20 或 0.35）');
+    return;
+  }
+
+  batchVipPriceLoading.value = true;
+  const res = await batchUpdateClassVipPrice(checkedRowKeys.value as string[], val);
+  batchVipPriceLoading.value = false;
+
+  if (res !== null) {
+    window.$message?.success(`已成功将勾选的 ${checkedRowKeys.value.length} 门网课密价统一修改为 ¥${val}`);
+    batchVipPriceModal.value = false;
+    checkedRowKeys.value = [];
+    loadData();
+  }
+}
+
 async function handleBatchStatus(status: number) {
   if (!checkedRowKeys.value.length) {
     window.$message?.warning('请先勾选需要操作的网课');
@@ -483,6 +516,9 @@ onMounted(async () => {
         <span class="text-13px text-gray-600 dark:text-gray-300">
           已勾选 <strong class="text-primary">{{ checkedRowKeys.length }}</strong> 项
         </span>
+        <NButton size="small" type="primary" secondary :disabled="!checkedRowKeys.length" @click="openBatchVipPriceModal">
+          🏷️ 批量修改密价
+        </NButton>
         <NButton size="small" type="success" :disabled="!checkedRowKeys.length" @click="handleBatchStatus(1)">
           批量上架
         </NButton>
@@ -625,6 +661,67 @@ onMounted(async () => {
         <div class="flex justify-end gap-12px">
           <NButton @click="modalVisible = false">取消</NButton>
           <NButton type="primary" :loading="submitting" @click="handleSubmit">保存</NButton>
+        </div>
+      </template>
+    </NModal>
+
+    <!-- 批量修改全站密价弹窗 -->
+    <NModal
+      v-model:show="batchVipPriceModal"
+      preset="card"
+      title="批量修改全站密价"
+      class="max-w-460px"
+      :mask-closable="false"
+    >
+      <div class="flex flex-col gap-16px">
+        <NAlert type="info" :show-icon="true" class="rounded-6px text-12px">
+          您当前已选择 <strong class="text-primary">{{ checkedRowKeys.length }}</strong> 门网课。在此输入统一的密价值，确认后所选网课的【全站密价】将全部批量变更为该数值。
+        </NAlert>
+
+        <div>
+          <label class="mb-6px block text-13px font-medium text-gray-700 dark:text-gray-300">
+            统一全站密价(元)：
+          </label>
+          <NInput
+            v-model:value="batchVipPriceValue"
+            placeholder="例如：0.20 或 0.35"
+            size="medium"
+            clearable
+            @keydown.enter="handleBatchVipPriceSubmit"
+          >
+            <template #prefix>¥</template>
+          </NInput>
+        </div>
+
+        <div>
+          <div class="mb-6px text-12px text-gray-400">快捷填充常用底价：</div>
+          <div class="flex flex-wrap gap-8px">
+            <NTag
+              v-for="p in ['0.10', '0.20', '0.30', '0.35', '0.40', '0.50', '1.00']"
+              :key="p"
+              size="small"
+              class="cursor-pointer hover:border-primary hover:text-primary transition-all"
+              checkable
+              :checked="batchVipPriceValue === p"
+              @update:checked="() => { batchVipPriceValue = p; }"
+            >
+              ¥{{ p }}
+            </NTag>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex justify-end gap-12px">
+          <NButton @click="batchVipPriceModal = false">取消</NButton>
+          <NButton
+            type="primary"
+            :loading="batchVipPriceLoading"
+            :disabled="!batchVipPriceValue.trim()"
+            @click="handleBatchVipPriceSubmit"
+          >
+            确认批量修改 ({{ checkedRowKeys.length }} 门)
+          </NButton>
         </div>
       </template>
     </NModal>

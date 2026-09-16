@@ -126,6 +126,14 @@ export function batchUpdateClassStatus(cids: (string | number)[], status: number
   });
 }
 
+export function batchUpdateClassVipPrice(cids: (string | number)[], vipprice: string | number) {
+  return request<null>({
+    url: 'admin-api/v1/index.php?action=class-batch-vipprice',
+    method: 'post',
+    data: { cids, vipprice: String(vipprice) }
+  });
+}
+
 export function batchUpdateClassPriceSort(updates: Api.Class.PriceSortUpdate[]) {
   return request<null>({
     url: 'admin-api/v1/index.php?action=class-batch-price-sort',
