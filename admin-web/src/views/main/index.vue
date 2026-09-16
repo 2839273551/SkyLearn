@@ -1,8 +1,7 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import {
-  NAlert,
   NButton,
   NCard,
   NDescriptions,
@@ -12,6 +11,7 @@ import {
   NGrid,
   NList,
   NListItem,
+  NProgress,
   NSpace,
   NSpin,
   NTag,
@@ -20,6 +20,7 @@ import {
 } from 'naive-ui';
 import { fetchDashboard, fetchGglistList, fetchUserSignIn } from '@/service/api';
 import { useAuthStore } from '@/store/modules/auth';
+import { useEcharts } from '@/hooks/common/echarts';
 
 defineOptions({ name: 'Main' });
 
@@ -35,17 +36,180 @@ const summary = ref<Api.Dashboard.Summary>({
   completedOrders: 0,
   userTotal: 0,
   balance: '0.00',
-  announcement: ''
+  announcement: '',
+  trend: { dates: [], counts: [] },
+  distribution: []
 });
 
 const noticeList = ref<any[]>([]);
 
+// 比例计算
+const completedPercent = computed(() => {
+  if (!summary.value.orderTotal) return 0;
+  return Math.min(100, Math.round((summary.value.completedOrders / summary.value.orderTotal) * 100));
+});
+
+const runningPercent = computed(() => {
+  if (!summary.value.orderTotal) return 0;
+  return Math.min(100, Math.round((summary.value.runningOrders / summary.value.orderTotal) * 100));
+});
+
+const todayPercent = computed(() => {
+  if (!summary.value.orderTotal) return 0;
+  return Math.min(100, Math.round((summary.value.todayOrders / summary.value.orderTotal) * 100));
+});
+
 const cards = computed(() => [
-  { label: '今日订单', value: summary.value.todayOrders, icon: 'ph:calendar-check', color: '#2563eb' },
-  { label: '全部订单', value: summary.value.orderTotal, icon: 'ph:list-checks', color: '#7c3aed' },
-  { label: '进行中', value: summary.value.runningOrders, icon: 'ph:spinner-gap', color: '#d97706' },
-  { label: '已完成', value: summary.value.completedOrders, icon: 'ph:check-circle', color: '#059669' }
+  {
+    label: '今日订单',
+    value: summary.value.todayOrders,
+    icon: 'ph:calendar-check',
+    color: '#2563eb',
+    subText: `今日活跃新增占比 ${todayPercent.value}%`,
+    tag: '今日实时',
+    tagType: 'info' as const,
+    percent: todayPercent.value
+  },
+  {
+    label: '全部订单',
+    value: summary.value.orderTotal,
+    icon: 'ph:list-checks',
+    color: '#7c3aed',
+    subText: '平台累计接单总吞吐',
+    tag: '历史沉淀',
+    tagType: 'warning' as const,
+    percent: 100
+  },
+  {
+    label: '进行中',
+    value: summary.value.runningOrders,
+    icon: 'ph:spinner-gap',
+    color: '#d97706',
+    subText: `在跑队列占比 ${runningPercent.value}%`,
+    tag: '调度活跃',
+    tagType: 'warning' as const,
+    percent: runningPercent.value
+  },
+  {
+    label: '已完成',
+    value: summary.value.completedOrders,
+    icon: 'ph:check-circle',
+    color: '#059669',
+    subText: `结课交付达成率 ${completedPercent.value}%`,
+    tag: '归档交付',
+    tagType: 'success' as const,
+    percent: completedPercent.value
+  }
 ]);
+
+// 1. 近7日订单趋势折线渐变图
+const { domRef: trendDomRef, updateOptions: updateTrendOptions } = useEcharts(() => ({
+  tooltip: {
+    trigger: 'axis',
+    axisPointer: {
+      type: 'line',
+      lineStyle: {
+        color: '#3b82f6',
+        width: 1,
+        type: 'dashed'
+      }
+    }
+  },
+  grid: {
+    left: '2%',
+    right: '4%',
+    bottom: '4%',
+    top: '12%',
+    containLabel: true
+  },
+  xAxis: {
+    type: 'category',
+    boundaryGap: false,
+    data: ['09/10', '09/11', '09/12', '09/13', '09/14', '09/15', '09/16'],
+    axisLine: { lineStyle: { color: '#cbd5e1' } },
+    axisLabel: { color: '#64748b', fontSize: 11 }
+  },
+  yAxis: {
+    type: 'value',
+    minInterval: 1,
+    axisLine: { show: false },
+    splitLine: { lineStyle: { type: 'dashed', color: '#f1f5f9' } },
+    axisLabel: { color: '#64748b', fontSize: 11 }
+  },
+  series: [
+    {
+      name: '订单提交量',
+      type: 'line',
+      smooth: 0.35,
+      symbol: 'circle',
+      symbolSize: 6,
+      itemStyle: { color: '#3b82f6' },
+      lineStyle: { width: 3, color: '#3b82f6' },
+      areaStyle: {
+        color: {
+          type: 'linear',
+          x: 0,
+          y: 0,
+          x2: 0,
+          y2: 1,
+          colorStops: [
+            { offset: 0, color: 'rgba(59, 130, 246, 0.32)' },
+            { offset: 1, color: 'rgba(59, 130, 246, 0.02)' }
+          ]
+        }
+      },
+      data: [0, 0, 0, 0, 0, 0, 0]
+    }
+  ]
+}));
+
+// 2. 订单状态分布环形图
+const { domRef: pieDomRef, updateOptions: updatePieOptions } = useEcharts(() => ({
+  tooltip: {
+    trigger: 'item',
+    formatter: '{b}: <b>{c}</b> 笔 ({d}%)'
+  },
+  legend: {
+    bottom: '4%',
+    left: 'center',
+    icon: 'circle',
+    itemGap: 12,
+    textStyle: { color: '#64748b', fontSize: 12 }
+  },
+  series: [
+    {
+      name: '订单状态分布',
+      type: 'pie',
+      radius: ['44%', '70%'],
+      center: ['50%', '42%'],
+      avoidLabelOverlap: false,
+      itemStyle: {
+        borderRadius: 6,
+        borderColor: '#fff',
+        borderWidth: 2
+      },
+      label: {
+        show: false,
+        position: 'center'
+      },
+      emphasis: {
+        label: {
+          show: true,
+          fontSize: 15,
+          fontWeight: 'bold',
+          formatter: '{b}\n{c} 笔'
+        }
+      },
+      labelLine: { show: false },
+      data: [
+        { value: 0, name: '进行中', itemStyle: { color: '#3b82f6' } },
+        { value: 0, name: '已完成', itemStyle: { color: '#10b981' } },
+        { value: 0, name: '待处理', itemStyle: { color: '#f59e0b' } },
+        { value: 0, name: '异常/其他', itemStyle: { color: '#f43f5e' } }
+      ]
+    }
+  ]
+}));
 
 async function handleSignIn() {
   signingIn.value = true;
@@ -67,7 +231,42 @@ async function loadData() {
 
   if (!dashRes.error && dashRes.data) {
     summary.value = dashRes.data;
+
+    // 驱动图表 1：折线图
+    if (dashRes.data.trend?.dates?.length) {
+      updateTrendOptions(opts => {
+        opts.xAxis = {
+          ...opts.xAxis,
+          data: dashRes.data.trend?.dates || []
+        };
+        if (opts.series && opts.series[0]) {
+          opts.series[0].data = dashRes.data.trend?.counts || [];
+        }
+        return opts;
+      });
+    }
+
+    // 驱动图表 2：饼图
+    if (dashRes.data.distribution?.length) {
+      const colorMap: Record<string, string> = {
+        '进行中': '#3b82f6',
+        '已完成': '#10b981',
+        '待处理': '#f59e0b',
+        '异常/其他': '#f43f5e'
+      };
+      updatePieOptions(opts => {
+        if (opts.series && opts.series[0]) {
+          opts.series[0].data = (dashRes.data.distribution || []).map(item => ({
+            name: item.name,
+            value: item.value,
+            itemStyle: { color: colorMap[item.name] || '#64748b' }
+          }));
+        }
+        return opts;
+      });
+    }
   }
+
   if (!ggRes.error && ggRes.data) {
     noticeList.value = ggRes.data.list;
   }
@@ -124,29 +323,77 @@ onMounted(loadData);
       </div>
     </NCard>
 
-    <!-- 核心业务统计指标 -->
+    <!-- 核心业务统计指标卡片（带微图进度） -->
     <NSpin :show="loading">
       <NGrid cols="1 s:2 m:4" responsive="screen" :x-gap="16" :y-gap="16">
         <NGi v-for="card in cards" :key="card.label">
           <NCard :bordered="false" class="rounded-12px shadow-sm border border-gray-100 dark:border-dark-600">
             <div class="flex items-center justify-between">
               <div>
-                <NText depth="3" class="text-13px">{{ card.label }}</NText>
-                <div class="mt-6px text-26px font-bold text-gray-800 dark:text-gray-100">{{ card.value }}</div>
+                <div class="flex items-center gap-6px">
+                  <NText depth="3" class="text-13px font-medium">{{ card.label }}</NText>
+                  <NTag size="tiny" :type="card.tagType" round :bordered="false" class="text-10px px-4px">
+                    {{ card.tag }}
+                  </NTag>
+                </div>
+                <div class="mt-8px text-28px font-bold font-mono tracking-tight text-gray-900 dark:text-gray-50">
+                  {{ card.value }}
+                </div>
               </div>
-              <div class="h-44px w-44px flex items-center justify-center rounded-10px text-22px" :style="{ backgroundColor: `${card.color}15`, color: card.color }">
+              <div
+                class="h-46px w-46px flex items-center justify-center rounded-12px text-24px shadow-sm"
+                :style="{ backgroundColor: `${card.color}15`, color: card.color }"
+              >
                 <SvgIcon :icon="card.icon" />
               </div>
+            </div>
+            <!-- 底部微可视化进度条 -->
+            <div class="mt-12px pt-8px border-t border-gray-100 dark:border-dark-500">
+              <div class="flex items-center justify-between text-11px text-gray-500 dark:text-gray-400 mb-4px">
+                <span>{{ card.subText }}</span>
+                <span class="font-mono font-semibold">{{ card.percent }}%</span>
+              </div>
+              <NProgress
+                type="line"
+                :percentage="card.percent"
+                :show-indicator="false"
+                :height="4"
+                :color="card.color"
+                rail-color="rgba(0,0,0,0.06)"
+              />
             </div>
           </NCard>
         </NGi>
       </NGrid>
     </NSpin>
 
+    <!-- 核心可视化数据驾驶舱 (ECharts 趋势走势 + 状态环形占比) -->
+    <NGrid cols="1 m:12" responsive="screen" :x-gap="16" :y-gap="16">
+      <!-- 7日趋势走势 -->
+      <NGi span="1 m:7">
+        <NCard title="📈 近 7 日订单交付走势" :bordered="false" class="rounded-12px shadow-sm border border-gray-100 dark:border-dark-600 h-full">
+          <template #header-extra>
+            <NTag size="tiny" type="primary" round>实时走势</NTag>
+          </template>
+          <div ref="trendDomRef" class="w-full h-280px"></div>
+        </NCard>
+      </NGi>
+
+      <!-- 订单状态分布环形图 -->
+      <NGi span="1 m:5">
+        <NCard title="🎯 订单全生命周期分布" :bordered="false" class="rounded-12px shadow-sm border border-gray-100 dark:border-dark-600 h-full">
+          <template #header-extra>
+            <NTag size="tiny" type="success" round>状态占比</NTag>
+          </template>
+          <div ref="pieDomRef" class="w-full h-280px"></div>
+        </NCard>
+      </NGi>
+    </NGrid>
+
     <!-- 账户资产与常用入口 -->
     <NGrid cols="1 m:2" responsive="screen" :x-gap="16" :y-gap="16">
       <NGi>
-        <NCard title="💼 账户资产概览" :bordered="false" class="rounded-12px shadow-sm border border-gray-100 dark:border-dark-600">
+        <NCard title="💼 账户资产概览" :bordered="false" class="rounded-12px shadow-sm border border-gray-100 dark:border-dark-600 h-full">
           <NDescriptions label-placement="left" :column="1" class="text-14px">
             <NDescriptionsItem label="可用余额">
               <strong class="text-18px font-mono text-emerald-600 font-bold">¥ {{ summary.balance }}</strong>
@@ -163,7 +410,7 @@ onMounted(loadData);
         </NCard>
       </NGi>
       <NGi>
-        <NCard title="⚡ 常用快捷通道" :bordered="false" class="rounded-12px shadow-sm border border-gray-100 dark:border-dark-600">
+        <NCard title="⚡ 常用快捷通道" :bordered="false" class="rounded-12px shadow-sm border border-gray-100 dark:border-dark-600 h-full">
           <NGrid cols="2" :x-gap="12" :y-gap="12">
             <NGi><NButton block secondary type="primary" size="large" @click="router.push('/add')">马上学习</NButton></NGi>
             <NGi><NButton block secondary type="info" size="large" @click="router.push('/userlist')">代理管理</NButton></NGi>
