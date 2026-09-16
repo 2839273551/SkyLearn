@@ -903,7 +903,7 @@ if ($action === 'orders') {
     $where = ' WHERE ' . implode(' AND ', $conditions);
     $result = $DB->query(
         'SELECT oid,uid,cid,user,pass,fees,kcid,yid,finalupdate,ptname,kcname,school,process,remarks,status,dockstatus,addtime '
-        . 'FROM qingka_wangke_order' . $where . ' ORDER BY oid DESC LIMIT ' . $offset . ',' . $pageSize
+        . 'FROM qingka_wangke_order' . $where . ' ORDER BY addtime DESC, oid DESC LIMIT ' . $offset . ',' . $pageSize
     );
     $total = $DB->count('SELECT COUNT(*) FROM qingka_wangke_order' . $where);
     $records = array();
