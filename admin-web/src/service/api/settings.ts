@@ -162,6 +162,22 @@ export function copyYjdjFenlei(hid: string | number, copyMode: 'fenlei_only' | '
   });
 }
 
+export function checkYjdjBalance(hid: string | number) {
+  return request<{ hid: string; name: string; balance: string }>({
+    url: 'admin-api/v1/index.php?action=yjdj-check-balance',
+    method: 'post',
+    data: { hid }
+  });
+}
+
+export function checkYjdjDeployedCount(hid: string | number) {
+  return request<{ hid: string; name: string; count: number }>({
+    url: 'admin-api/v1/index.php?action=yjdj-check-deployed-count',
+    method: 'post',
+    data: { hid }
+  });
+}
+
 export function batchOnlineYjdjClasses(data: {
   hid: string | number;
   courses: Array<{
@@ -171,12 +187,34 @@ export function batchOnlineYjdjClasses(data: {
     fenleiname?: string;
     content?: string;
   }>;
-  categoryMode: 'default' | 'specified' | 'custom';
+  createNewCategory?: string | number;
+  newCategoryName?: string;
+  localCategoryId?: string;
+  markupMultiplier?: number;
+  multiplyByFive?: number;
+  skipExisting?: number;
+  categoryMode?: string;
   categoryId?: string;
   customCategoryName?: string;
 }) {
   return request<Api.Yjdj.BatchOnlineResponse>({
     url: 'admin-api/v1/index.php?action=yjdj-batch-online',
+    method: 'post',
+    data
+  });
+}
+
+export function executeYjdjAdvancedTool(data: {
+  tool: 'update_keywords' | 'add_prefix' | 'delete_duplicates';
+  oldKeyword?: string;
+  newKeyword?: string;
+  prefix?: string;
+  scope?: 'all' | 'category' | 'docking';
+  scopeId?: string;
+  strategy?: 'keep_larger' | 'keep_smaller' | 'delall';
+}) {
+  return request<null>({
+    url: 'admin-api/v1/index.php?action=yjdj-advanced-tools',
     method: 'post',
     data
   });

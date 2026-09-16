@@ -170,6 +170,7 @@ declare namespace Api {
     interface BatchOnlineResponse {
       createdCount: number;
       updatedCount: number;
+      skippedCount?: number;
     }
   }
 

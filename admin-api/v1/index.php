@@ -1665,6 +1665,55 @@ if ($action === 'yjdj-copy-fenlei') {
     ));
 }
 
+if ($action === 'yjdj-check-balance') {
+    api_require_post();
+    api_require_super($userrow, $islogin);
+
+    $input = api_read_input();
+    $hid = isset($input['hid']) ? intval($input['hid']) : 0;
+    if ($hid <= 0) api_respond(422, '请选择货源接口');
+
+    $huoyuan = $DB->get_row("SELECT * FROM qingka_wangke_huoyuan WHERE hid='$hid' LIMIT 1");
+    if (!$huoyuan) api_respond(404, '货源不存在');
+
+    $callRes = sprint1_call_huoyuan($huoyuan, 'getmoney');
+    if (!$callRes['success']) {
+        api_respond(400, '调用上游获取余额失败: ' . $callRes['error']);
+    }
+
+    $raw = $callRes['data'];
+    $balance = isset($raw['money']) ? strval($raw['money']) : (isset($raw['data']) ? strval($raw['data']) : '0.00');
+    
+    // 更新本地货源余额缓存
+    $safeBal = daddslashes($balance);
+    $DB->query("UPDATE qingka_wangke_huoyuan SET money='$safeBal' WHERE hid='$hid'");
+
+    api_respond(0, "当前货源【{$huoyuan['name']}】余额为: {$balance} 元", array(
+        'hid' => (string)$hid,
+        'name' => $huoyuan['name'],
+        'balance' => $balance
+    ));
+}
+
+if ($action === 'yjdj-check-deployed-count') {
+    api_require_post();
+    api_require_super($userrow, $islogin);
+
+    $input = api_read_input();
+    $hid = isset($input['hid']) ? intval($input['hid']) : 0;
+    if ($hid <= 0) api_respond(422, '请选择货源接口');
+
+    $huoyuan = $DB->get_row("SELECT * FROM qingka_wangke_huoyuan WHERE hid='$hid' LIMIT 1");
+    if (!$huoyuan) api_respond(404, '货源不存在');
+
+    $count = $DB->count("SELECT COUNT(*) FROM qingka_wangke_class WHERE docking='$hid'");
+    api_respond(0, "当前货源【{$huoyuan['name']}】已上架商品数: {$count} 门", array(
+        'hid' => (string)$hid,
+        'name' => $huoyuan['name'],
+        'count' => intval($count)
+    ));
+}
+
 if ($action === 'yjdj-batch-online') {
     api_require_post();
     api_require_super($userrow, $islogin);
@@ -1672,10 +1721,15 @@ if ($action === 'yjdj-batch-online') {
     $input = api_read_input();
     $hid = isset($input['hid']) ? intval($input['hid']) : 0;
     $courses = isset($input['courses']) && is_array($input['courses']) ? $input['courses'] : array();
-    $categoryMode = isset($input['categoryMode']) ? $input['categoryMode'] : 'default';
+    $createNewCategory = isset($input['createNewCategory']) && strval($input['createNewCategory']) === '1';
+    $newCategoryName = isset($input['newCategoryName']) ? trim(strip_tags((string)$input['newCategoryName'])) : '';
+    $localCategoryId = isset($input['localCategoryId']) ? trim((string)$input['localCategoryId']) : '';
+    $markupMultiplier = isset($input['markupMultiplier']) && is_numeric($input['markupMultiplier']) ? floatval($input['markupMultiplier']) : 1.0;
+    $multiplyByFive = isset($input['multiplyByFive']) ? intval($input['multiplyByFive']) : 2;
+    $skipExisting = isset($input['skipExisting']) ? intval($input['skipExisting']) : 1;
 
     if ($hid <= 0) api_respond(422, '请选择货源');
-    if (empty($courses)) api_respond(422, '请勾选需要上架的课程');
+    if (empty($courses)) api_respond(422, '请选择或拉取要上架的课程');
 
     $huoyuan = $DB->get_row("SELECT * FROM qingka_wangke_huoyuan WHERE hid='$hid' AND status=1 LIMIT 1");
     if (!$huoyuan) api_respond(404, '货源不存在或已停用');
@@ -1683,30 +1737,144 @@ if ($action === 'yjdj-batch-online') {
     $now = date('Y-m-d H:i:s');
     $finalCategoryId = null;
 
-    if ($categoryMode === 'custom') {
-        $customCategoryName = isset($input['customCategoryName']) ? trim(strip_tags((string) $input['customCategoryName'])) : '';
-        if ($customCategoryName === '') api_respond(422, '请输入新分类名称');
-        $finalCategoryId = db_get_or_create_fenlei($DB, $customCategoryName, $now)['id'];
-    } elseif ($categoryMode === 'specified') {
-        $targetCategoryId = isset($input['categoryId']) ? trim((string) $input['categoryId']) : '';
-        if ($targetCategoryId === '') api_respond(422, '请选择指定分类');
-        $finalCategoryId = $targetCategoryId;
+    if ($createNewCategory) {
+        if ($newCategoryName === '') api_respond(422, '请输入新建分类名称');
+        $fnRes = db_get_or_create_fenlei($DB, $newCategoryName, $now);
+        $finalCategoryId = $fnRes['id'];
+    } elseif ($localCategoryId !== '') {
+        $finalCategoryId = $localCategoryId;
     }
 
     $createdCount = 0;
     $updatedCount = 0;
+    $skippedCount = 0;
 
     foreach ($courses as $course) {
         if (empty($course['name']) || empty($course['cid'])) continue;
-        $fn = $finalCategoryId !== null ? $finalCategoryId : (!empty($course['fenleiname']) ? db_get_or_create_fenlei($DB, $course['fenleiname'], $now)['id'] : '1');
-        $isNew = db_upsert_docking_class($DB, $hid, $course, $fn, $now);
-        $isNew ? $createdCount++ : $updatedCount++;
+        $remoteCid = daddslashes(trim($course['cid']));
+        $rawPrice = isset($course['price']) && is_numeric($course['price']) ? floatval($course['price']) : 0.0;
+
+        // 计算最终售价
+        if ($multiplyByFive === 2) {
+            $calcPrice = $rawPrice * $markupMultiplier * 5;
+        } elseif ($multiplyByFive === 1) {
+            $calcPrice = $rawPrice * $markupMultiplier;
+        } elseif ($multiplyByFive === 0) {
+            $calcPrice = $rawPrice + $markupMultiplier;
+        } else {
+            $calcPrice = $rawPrice;
+        }
+        $formattedPrice = number_format(max(0, $calcPrice), 2, '.', '');
+
+        // 确定分类
+        if ($finalCategoryId !== null) {
+            $fenleiId = $finalCategoryId;
+        } elseif (!empty($course['fenleiname'])) {
+            $fnRes = db_get_or_create_fenlei($DB, $course['fenleiname'], $now);
+            $fenleiId = $fnRes['id'];
+        } else {
+            $fenleiId = '1';
+        }
+
+        // 检查是否存在
+        $exClass = $DB->get_row("SELECT cid FROM qingka_wangke_class WHERE (noun='$remoteCid' OR getnoun='$remoteCid') AND docking='$hid' LIMIT 1");
+        if ($exClass) {
+            if ($skipExisting === 1) {
+                $skippedCount++;
+                continue;
+            } else {
+                $safeName = daddslashes(trim($course['name']));
+                $safeContent = isset($course['content']) ? daddslashes(trim($course['content'])) : '';
+                $DB->query("UPDATE qingka_wangke_class SET name='$safeName', price='$formattedPrice', vipprice='$formattedPrice', fenlei='$fenleiId', status='1', queryplat='$hid', docking='$hid', content='$safeContent' WHERE cid='{$exClass['cid']}'");
+                $updatedCount++;
+                continue;
+            }
+        }
+
+        // 新增商品
+        $safeName = daddslashes(trim($course['name']));
+        $safeContent = isset($course['content']) ? daddslashes(trim($course['content'])) : '';
+        $maxSortRow = $DB->get_row("SELECT MAX(sort) AS max_sort FROM qingka_wangke_class WHERE fenlei='{$fenleiId}'");
+        $newSort = ($maxSortRow && isset($maxSortRow['max_sort'])) ? intval($maxSortRow['max_sort']) + 1 : 1;
+
+        $DB->query(
+            "INSERT INTO qingka_wangke_class (sort, name, getnoun, noun, price, vipprice, ckkf, queryplat, docking, yunsuan, content, addtime, status, fenlei, kcid) "
+            . "VALUES ('$newSort', '$safeName', '$remoteCid', '$remoteCid', '$formattedPrice', '$formattedPrice', '0', '$hid', '$hid', '*', '$safeContent', '$now', '1', '$fenleiId', '0')"
+        );
+        $createdCount++;
     }
 
-    api_respond(0, "批量上架完成：新增 {$createdCount} 门，更新 {$updatedCount} 门", array(
+    $msg = "批量上架完成：新增 {$createdCount} 门，更新 {$updatedCount} 门";
+    if ($skippedCount > 0) $msg .= "，跳过已有 {$skippedCount} 门";
+
+    api_respond(0, $msg, array(
         'createdCount' => $createdCount,
-        'updatedCount' => $updatedCount
+        'updatedCount' => $updatedCount,
+        'skippedCount' => $skippedCount,
+        'categoryId' => $finalCategoryId
     ));
+}
+
+if ($action === 'yjdj-advanced-tools') {
+    api_require_post();
+    api_require_super($userrow, $islogin);
+
+    $input = api_read_input();
+    $tool = isset($input['tool']) ? trim($input['tool']) : '';
+
+    if ($tool === 'update_keywords') {
+        $oldKeyword = isset($input['oldKeyword']) ? daddslashes(trim($input['oldKeyword'])) : '';
+        $newKeyword = isset($input['newKeyword']) ? daddslashes(trim($input['newKeyword'])) : '';
+        $scope = isset($input['scope']) ? $input['scope'] : 'all';
+        $scopeId = isset($input['scopeId']) ? daddslashes(trim($input['scopeId'])) : '';
+
+        if ($oldKeyword === '') api_respond(422, '请输入要替换的关键词');
+        $where = "1=1";
+        if ($scope === 'category' && $scopeId !== '') $where = "fenlei='$scopeId'";
+        if ($scope === 'docking' && $scopeId !== '') $where = "docking='$scopeId'";
+
+        $DB->query("UPDATE qingka_wangke_class SET name = REPLACE(name, '$oldKeyword', '$newKeyword') WHERE $where");
+        $affected = $DB->affected();
+        api_respond(0, "关键词替换完成，共影响 {$affected} 个商品");
+    }
+
+    if ($tool === 'add_prefix') {
+        $prefix = isset($input['prefix']) ? daddslashes(trim($input['prefix'])) : '';
+        $scope = isset($input['scope']) ? $input['scope'] : 'category';
+        $scopeId = isset($input['scopeId']) ? daddslashes(trim($input['scopeId'])) : '';
+
+        if ($prefix === '') api_respond(422, '请输入要新增的前缀');
+        $where = "1=1";
+        if ($scope === 'category' && $scopeId !== '') $where = "fenlei='$scopeId'";
+        if ($scope === 'docking' && $scopeId !== '') $where = "docking='$scopeId'";
+
+        $DB->query("UPDATE qingka_wangke_class SET name = CONCAT('$prefix', name) WHERE $where");
+        $affected = $DB->affected();
+        api_respond(0, "批量添加前缀完成，共影响 {$affected} 个商品");
+    }
+
+    if ($tool === 'delete_duplicates') {
+        $scope = isset($input['scope']) ? $input['scope'] : 'all';
+        $scopeId = isset($input['scopeId']) ? daddslashes(trim($input['scopeId'])) : '';
+        $strategy = isset($input['strategy']) ? $input['strategy'] : 'keep_larger';
+
+        $where = "";
+        if ($scope === 'category' && $scopeId !== '') $where = "AND t1.fenlei='$scopeId'";
+        if ($scope === 'docking' && $scopeId !== '') $where = "AND t1.docking='$scopeId'";
+
+        if ($strategy === 'delall') {
+            $sql = "DELETE t1 FROM qingka_wangke_class t1 JOIN qingka_wangke_class t2 ON t1.noun=t2.noun AND t1.docking=t2.docking AND t1.cid!=t2.cid $where";
+        } else {
+            $cond = ($strategy === 'keep_larger') ? 't1.cid < t2.cid' : 't1.cid > t2.cid';
+            $sql = "DELETE t1 FROM qingka_wangke_class t1 JOIN qingka_wangke_class t2 ON t1.noun=t2.noun AND t1.docking=t2.docking $where WHERE $cond";
+        }
+
+        $DB->query($sql);
+        $affected = $DB->affected();
+        api_respond(0, "去重清理完成，共删除 {$affected} 个重复商品");
+    }
+
+    api_respond(422, '未知的高阶工具指令');
 }
 
 // ------------------------------------------
