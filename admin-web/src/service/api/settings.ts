@@ -40,6 +40,14 @@ export function deleteFenlei(id: string | number) {
   });
 }
 
+export function quickSortFenlei(id: string | number, sort: number) {
+  return request<null>({
+    url: 'admin-api/v1/index.php?action=fenlei-quick-sort',
+    method: 'post',
+    data: { id: Number(id), sort }
+  });
+}
+
 // ==========================================
 // 接口配置 (huoyuan)
 // ==========================================

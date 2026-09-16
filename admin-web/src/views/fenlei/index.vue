@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { h, onMounted, reactive, ref } from 'vue';
 import type { DataTableColumns } from 'naive-ui';
-import { NButton, NPopconfirm, NSpace, NSwitch, NTag } from 'naive-ui';
-import { deleteFenlei, fetchFenleiList, saveFenlei } from '@/service/api';
+import { NAlert, NButton, NInputNumber, NPopconfirm, NSpace, NSwitch, NTag } from 'naive-ui';
+import { deleteFenlei, fetchFenleiList, quickSortFenlei, saveFenlei } from '@/service/api';
 
 defineOptions({ name: 'Fenlei' });
 
@@ -11,6 +11,8 @@ const submitting = ref(false);
 const list = ref<Api.Fenlei.Item[]>([]);
 const modalVisible = ref(false);
 const modalTitle = ref('添加分类');
+
+const dirtyMap = reactive<Record<string, { sort?: number }>>({});
 
 const formModel = reactive<{
   id: string;
@@ -26,7 +28,75 @@ const formModel = reactive<{
 
 const columns: DataTableColumns<Api.Fenlei.Item> = [
   { title: 'ID', key: 'id', width: 80 },
-  { title: '排序', key: 'sort', width: 90 },
+  {
+    title: '快捷排序',
+    key: 'sort',
+    width: 165,
+    render: row => {
+      const currentSort = dirtyMap[row.id]?.sort !== undefined ? dirtyMap[row.id].sort! : row.sort;
+      return h('div', { class: 'flex items-center gap-4px' }, [
+        h(NInputNumber, {
+          size: 'small',
+          style: { width: '80px' },
+          showButton: false,
+          value: currentSort,
+          onUpdateValue: (val: number | null) => {
+            if (!dirtyMap[row.id]) dirtyMap[row.id] = {};
+            dirtyMap[row.id].sort = val ?? 0;
+          },
+          onBlur: async () => {
+            if (dirtyMap[row.id]?.sort !== undefined && dirtyMap[row.id].sort !== row.sort) {
+              const res = await quickSortFenlei(row.id, dirtyMap[row.id].sort!);
+              if (res !== null) {
+                row.sort = dirtyMap[row.id].sort!;
+                delete dirtyMap[row.id].sort;
+                window.$message?.success(`【${row.name}】排序已更新为: ${row.sort}`);
+                loadData();
+              }
+            }
+          }
+        }),
+        h(
+          NButton,
+          {
+            size: 'tiny',
+            quaternary: true,
+            title: '顺序提前',
+            onClick: async () => {
+              const newSort = Math.max(0, (row.sort || 0) - 1);
+              const res = await quickSortFenlei(row.id, newSort);
+              if (res !== null) {
+                row.sort = newSort;
+                if (dirtyMap[row.id]) delete dirtyMap[row.id].sort;
+                window.$message?.success(`【${row.name}】排序提前为: ${newSort}`);
+                loadData();
+              }
+            }
+          },
+          { default: () => '⬆' }
+        ),
+        h(
+          NButton,
+          {
+            size: 'tiny',
+            quaternary: true,
+            title: '顺序延后',
+            onClick: async () => {
+              const newSort = (row.sort || 0) + 1;
+              const res = await quickSortFenlei(row.id, newSort);
+              if (res !== null) {
+                row.sort = newSort;
+                if (dirtyMap[row.id]) delete dirtyMap[row.id].sort;
+                window.$message?.success(`【${row.name}】排序延后为: ${newSort}`);
+                loadData();
+              }
+            }
+          },
+          { default: () => '⬇' }
+        )
+      ]);
+    }
+  },
   { title: '分类名称', key: 'name', minWidth: 160 },
   {
     title: '关联课程数',
@@ -182,6 +252,10 @@ onMounted(() => {
           </NButton>
         </NSpace>
       </template>
+
+      <NAlert type="info" :show-icon="true" class="mb-12px rounded-6px">
+        💡 排序权重数值越小越靠前（例如 1 排在 2 前面）。可在输入框手输数字失焦保存，或点击【⬆ 提前】/【⬇ 延后】箭头一键即时生效并重新排布。
+      </NAlert>
 
       <NDataTable
         :loading="loading"

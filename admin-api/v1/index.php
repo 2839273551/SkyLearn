@@ -3798,6 +3798,23 @@ if ($action === 'class-quick-sort') {
     api_respond(0, "排序已更新为: {$sort}");
 }
 
+// ==========================================
+// 分类设置：便捷调整分类排序
+// ==========================================
+if ($action === 'fenlei-quick-sort') {
+    api_require_post();
+    api_require_super($userrow, $islogin);
+    api_require_csrf();
+
+    $input = api_read_input();
+    $id = isset($input['id']) ? intval($input['id']) : 0;
+    $sort = isset($input['sort']) ? intval($input['sort']) : 0;
+    if ($id <= 0) api_respond(422, '分类参数错误');
+
+    $DB->query("UPDATE qingka_wangke_fenlei SET sort='$sort' WHERE id='$id' LIMIT 1");
+    api_respond(0, "分类排序已更新为: {$sort}");
+}
+
 
 // ==========================================
 // 订单批量修改状态 (type 1: 任务显示状态 status, type 2: 处理状态 dockstatus)
