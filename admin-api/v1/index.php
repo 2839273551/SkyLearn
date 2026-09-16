@@ -822,16 +822,26 @@ if ($action === 'dashboard') {
         $trendCounts[] = intval($c);
     }
 
-    // 真实订单状态分布
-    $statusMap = array(
-        '进行中' => intval($runningOrders),
-        '已完成' => intval($completedOrders),
-        '待处理' => intval($DB->count("SELECT COUNT(*) FROM qingka_wangke_order" . ($uid === 1 ? " WHERE status='待处理' OR dockstatus=0" : " WHERE uid='$uid' AND (status='待处理' OR dockstatus=0)"))),
-        '异常/其他' => intval(max(0, $orderTotal - $runningOrders - $completedOrders))
-    );
+    // 真实网课各项目出单分布统计（全自动按平台项目名称聚合，后期新增项目自动统计）
+    $projectScope = $uid === 1 ? '' : " WHERE o.uid='$uid'";
+    $pSql = "SELECT 
+                COALESCE(NULLIF(TRIM(o.ptname), ''), c.name, '其他项目') AS item_name, 
+                COUNT(*) AS count_num 
+             FROM qingka_wangke_order o 
+             LEFT JOIN qingka_wangke_class c ON o.cid = c.cid 
+             $projectScope 
+             GROUP BY item_name 
+             ORDER BY count_num DESC";
+    $pQuery = $DB->query($pSql);
     $distribution = array();
-    foreach ($statusMap as $k => $v) {
-        $distribution[] = array('name' => $k, 'value' => $v);
+    while ($pRow = $DB->fetch($pQuery)) {
+        $distribution[] = array(
+            'name' => (string)$pRow['item_name'],
+            'value' => intval($pRow['count_num'])
+        );
+    }
+    if (empty($distribution)) {
+        $distribution[] = array('name' => '暂无项目出单', 'value' => 0);
     }
 
     // 真实最新系统公告列表（前5条）

@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import {
@@ -163,24 +163,38 @@ const { domRef: trendDomRef, updateOptions: updateTrendOptions } = useEcharts(()
   ]
 }));
 
-// 2. 订单状态分布环形图
+const PROJECT_PALETTE = [
+  '#3b82f6', // 科技蓝
+  '#10b981', // 翡翠绿
+  '#8b5cf6', // 优雅紫
+  '#f59e0b', // 琥珀橙
+  '#06b6d4', // 蓝青色
+  '#ec4899', // 霓虹粉
+  '#14b8a6', // 青绿
+  '#f43f5e', // 玫瑰红
+  '#6366f1', // 靛青
+  '#84cc16'  // 青柠绿
+];
+
+// 2. 网课各项目出单分布环形图 (全自动按项目动态聚合，新增项目自适应统计)
 const { domRef: pieDomRef, updateOptions: updatePieOptions } = useEcharts(() => ({
   tooltip: {
     trigger: 'item',
-    formatter: '{b}: <b>{c}</b> 笔 ({d}%)'
+    formatter: '{b}: <b>{c}</b> 单 ({d}%)'
   },
   legend: {
-    bottom: '4%',
+    type: 'scroll',
+    bottom: '2%',
     left: 'center',
     icon: 'circle',
-    itemGap: 12,
-    textStyle: { color: '#64748b', fontSize: 12 }
+    itemGap: 10,
+    textStyle: { color: '#64748b', fontSize: 11 }
   },
   series: [
     {
-      name: '订单状态分布',
+      name: '项目出单量',
       type: 'pie',
-      radius: ['44%', '70%'],
+      radius: ['40%', '68%'],
       center: ['50%', '42%'],
       avoidLabelOverlap: false,
       itemStyle: {
@@ -195,18 +209,13 @@ const { domRef: pieDomRef, updateOptions: updatePieOptions } = useEcharts(() => 
       emphasis: {
         label: {
           show: true,
-          fontSize: 15,
+          fontSize: 14,
           fontWeight: 'bold',
-          formatter: '{b}\n{c} 笔'
+          formatter: '{b}\n{c} 单'
         }
       },
       labelLine: { show: false },
-      data: [
-        { value: 0, name: '进行中', itemStyle: { color: '#3b82f6' } },
-        { value: 0, name: '已完成', itemStyle: { color: '#10b981' } },
-        { value: 0, name: '待处理', itemStyle: { color: '#f59e0b' } },
-        { value: 0, name: '异常/其他', itemStyle: { color: '#f43f5e' } }
-      ]
+      data: [{ value: 0, name: '暂无项目出单' }]
     }
   ]
 }));
@@ -246,20 +255,14 @@ async function loadData() {
       });
     }
 
-    // 驱动图表 2：饼图
+    // 驱动图表 2：各网课项目出单分布环形图 (动态色彩匹配)
     if (dashRes.data.distribution?.length) {
-      const colorMap: Record<string, string> = {
-        '进行中': '#3b82f6',
-        '已完成': '#10b981',
-        '待处理': '#f59e0b',
-        '异常/其他': '#f43f5e'
-      };
       updatePieOptions(opts => {
         if (opts.series && opts.series[0]) {
-          opts.series[0].data = (dashRes.data.distribution || []).map(item => ({
+          opts.series[0].data = (dashRes.data.distribution || []).map((item, idx) => ({
             name: item.name,
             value: item.value,
-            itemStyle: { color: colorMap[item.name] || '#64748b' }
+            itemStyle: { color: PROJECT_PALETTE[idx % PROJECT_PALETTE.length] }
           }));
         }
         return opts;
@@ -379,11 +382,11 @@ onMounted(loadData);
         </NCard>
       </NGi>
 
-      <!-- 订单状态分布环形图 -->
+      <!-- 网课各项目出单分布环形图 -->
       <NGi span="1 m:5">
-        <NCard title="🎯 订单全生命周期分布" :bordered="false" class="rounded-12px shadow-sm border border-gray-100 dark:border-dark-600 h-full">
+        <NCard title="📊 网课项目出单分布" :bordered="false" class="rounded-12px shadow-sm border border-gray-100 dark:border-dark-600 h-full">
           <template #header-extra>
-            <NTag size="tiny" type="success" round>状态占比</NTag>
+            <NTag size="tiny" type="success" round>项目占比</NTag>
           </template>
           <div ref="pieDomRef" class="w-full h-280px"></div>
         </NCard>
