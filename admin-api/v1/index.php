@@ -501,7 +501,7 @@ if ($action === 'order-catalog') {
     $categoryId = isset($_GET['categoryId']) ? max(0, intval($_GET['categoryId'])) : 0;
     $categories = array();
     $categoryRows = $DB->query(
-        "SELECT id,name,sort FROM qingka_wangke_fenlei WHERE status=1 ORDER BY sort ASC,id ASC"
+        "SELECT id,name,sort FROM qingka_wangke_fenlei WHERE status=1 AND name NOT LIKE '%收藏%' ORDER BY CAST(sort AS UNSIGNED) ASC,id ASC"
     );
     while ($category = $DB->fetch($categoryRows)) {
         $categories[] = array(

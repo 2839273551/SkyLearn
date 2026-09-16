@@ -113,7 +113,7 @@ async function loadCatalog() {
   catalogLoading.value = true;
   const { data, error } = await fetchOrderCatalog();
   if (!error && data) {
-    categories.value = data.categories;
+    categories.value = (data.categories || []).filter(c => !c.name.includes('我的收藏') && !c.name.includes('收藏夹'));
     products.value = data.products;
     balance.value = data.balance;
     queryEnabled.value = data.queryEnabled;
