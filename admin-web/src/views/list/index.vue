@@ -442,19 +442,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
           ])
         ])
     },
-    // 5. 备注
-    {
-      title: '备注',
-      key: 'remarks',
-      minWidth: 130,
-      render: row =>
-        h(
-          'div',
-          { class: 'whitespace-normal break-words text-13px text-gray-800 dark:text-gray-200 leading-normal' },
-          row.remarks || '无'
-        )
-    },
-    // 6. 任务名称
+    // 5. 任务名称
     {
       title: '任务名称',
       key: 'courseName',
@@ -466,7 +454,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
           row.courseName || '无'
         )
     },
-    // 7. 任务状态与进度 (状态与进度二合一：高饱和清晰醒目款)
+    // 6. 任务状态与进度 (状态与进度二合一：高饱和清晰醒目款)
     {
       title: '状态与进度',
       key: 'statusProgress',
@@ -539,17 +527,42 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
         ]);
       }
     },
-    // 8. 订单详细信息 (高清加粗大字号，完全换行自适应)
+    // 7. 订单详细信息 (分段排版，规整清晰)
     {
       title: '订单详细信息',
       key: 'detailInfo',
-      minWidth: 180,
-      render: row =>
-        h(
+      minWidth: 190,
+      render: row => {
+        const text = row.remarks || (row.finalupdate ? `上次同步: ${row.finalupdate}` : '暂无详细上游记录');
+        if (!row.remarks) {
+          return h('span', { class: 'text-gray-400 text-12px' }, text);
+        }
+        // 如果包含 || 或 | 分隔符，做分行结构化展示
+        const delimiter = text.includes('||') ? '||' : (text.includes('|') ? '|' : null);
+        if (delimiter) {
+          const parts = text.split(delimiter).map((s: string) => s.trim()).filter(Boolean);
+          return h(
+            'div',
+            { class: 'flex flex-col gap-3px py-3px text-12px leading-snug' },
+            parts.map((p: string, idx: number) =>
+              h(
+                'div',
+                {
+                  class: idx === 0
+                    ? 'text-gray-800 dark:text-gray-200 font-medium'
+                    : 'text-gray-600 dark:text-gray-400 text-11px font-mono'
+                },
+                (parts.length > 1 && idx > 0 ? '• ' : '') + p
+              )
+            )
+          );
+        }
+        return h(
           'div',
           { class: 'whitespace-normal break-words text-13px sm:text-14px font-medium leading-relaxed text-gray-900 dark:text-gray-100 py-4px' },
-          row.remarks ? row.remarks : (row.finalupdate ? `上次同步: ${row.finalupdate}` : '暂无详细上游记录')
-        )
+          text
+        );
+      }
     },
     // 10. 时间 (双行紧凑展示)
     {
