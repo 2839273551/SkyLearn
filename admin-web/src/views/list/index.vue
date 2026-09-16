@@ -527,39 +527,55 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
         ]);
       }
     },
-    // 7. 订单详细信息 (分段排版，规整清晰)
+    // 7. 订单详细信息 (大字号、高对比、层级醒目)
     {
       title: '订单详细信息',
       key: 'detailInfo',
-      minWidth: 190,
+      minWidth: 210,
       render: row => {
         const text = row.remarks || (row.finalupdate ? `上次同步: ${row.finalupdate}` : '暂无详细上游记录');
         if (!row.remarks) {
-          return h('span', { class: 'text-gray-400 text-12px' }, text);
+          return h('span', { class: 'text-gray-400 text-13px font-medium' }, text);
         }
-        // 如果包含 || 或 | 分隔符，做分行结构化展示
+        // 如果包含 || 或 | 分隔符，做分行结构化大字号展示
         const delimiter = text.includes('||') ? '||' : (text.includes('|') ? '|' : null);
         if (delimiter) {
           const parts = text.split(delimiter).map((s: string) => s.trim()).filter(Boolean);
           return h(
             'div',
-            { class: 'flex flex-col gap-3px py-3px text-12px leading-snug' },
-            parts.map((p: string, idx: number) =>
-              h(
+            { class: 'flex flex-col gap-4px py-4px leading-relaxed' },
+            parts.map((p: string, idx: number) => {
+              if (idx === 0) {
+                // 第一行：当前执行主体，14px 粗体高对比
+                return h(
+                  'div',
+                  { class: 'text-13px sm:text-14px font-bold text-gray-900 dark:text-gray-100 tracking-wide' },
+                  p
+                );
+              }
+              // 子行高亮判定：状态或进度高对比显示
+              let colorClass = 'text-gray-700 dark:text-gray-300';
+              if (p.includes('进行中') || p.includes('刷课中')) {
+                colorClass = 'text-blue-600 dark:text-blue-400 font-bold';
+              } else if (p.includes('已完成') || p.includes('全部做完') || p.includes('100%')) {
+                colorClass = 'text-emerald-600 dark:text-emerald-400 font-bold';
+              } else if (p.includes('异常') || p.includes('失败') || p.includes('错误')) {
+                colorClass = 'text-rose-600 dark:text-rose-400 font-bold';
+              }
+              return h(
                 'div',
-                {
-                  class: idx === 0
-                    ? 'text-gray-800 dark:text-gray-200 font-medium'
-                    : 'text-gray-600 dark:text-gray-400 text-11px font-mono'
-                },
-                (parts.length > 1 && idx > 0 ? '• ' : '') + p
-              )
-            )
+                { class: `flex items-center gap-4px text-12px sm:text-13px font-medium font-mono ${colorClass}` },
+                [
+                  h('span', { class: 'text-gray-400 font-normal select-none' }, '•'),
+                  h('span', {}, p)
+                ]
+              );
+            })
           );
         }
         return h(
           'div',
-          { class: 'whitespace-normal break-words text-13px sm:text-14px font-medium leading-relaxed text-gray-900 dark:text-gray-100 py-4px' },
+          { class: 'whitespace-normal break-words text-13px sm:text-14px font-bold leading-relaxed text-gray-900 dark:text-gray-100 py-4px' },
           text
         );
       }
