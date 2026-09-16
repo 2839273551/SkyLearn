@@ -25,8 +25,8 @@ function scheduler_count_pending($taskId) {
         case 'bb':
         case 'aa':
         case 'plsx':
-            // 引擎 2：正在刷课活跃订单 (进行中、上号中、重刷中、待刷新)
-            return intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_order` WHERE dockstatus=1 AND status IN ('进行中','上号中','重刷中','待刷新') AND $completedFilter"));
+            // 引擎 2：正在刷课活跃订单 (包含进行中、待处理、待上号、上号中、重刷中、待刷新等所有未归档订单)
+            return intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_order` WHERE dockstatus=1 AND status NOT IN ('已完成','已取消','已退款','待考试','平时分','平时分中') AND $completedFilter"));
 
         case 'progress_exam':
         case 'dd':
@@ -119,7 +119,8 @@ function scheduler_execute_task($taskId) {
     // =========================================================================
     elseif ($taskId === 'progress_active' || in_array($taskId, array('cc', 'bb', 'aa', 'plsx'), true)) {
         $completedFilter = "status NOT IN ('已完成','已取消','已退款') AND process NOT LIKE '100%'";
-        $where = "dockstatus=1 AND status IN ('进行中','上号中','重刷中','待刷新') AND $completedFilter";
+        // 覆盖所有已对接上游、但尚未结课归档的订单（包括待处理、待上号、进行中、上号中、重刷中、待刷新等）
+        $where = "dockstatus=1 AND status NOT IN ('已完成','已取消','已退款','待考试','平时分','平时分中') AND $completedFilter";
 
         $res = $DB->query("SELECT * FROM `qingka_wangke_order` WHERE $where ORDER BY oid ASC LIMIT $limit");
         $orders = array();
@@ -136,13 +137,19 @@ function scheduler_execute_task($taskId) {
                 $results = processCx($oid);
                 if (is_array($results) && !empty($results)) {
                     $updated = false;
+                    $cleanOrderKc = trim(preg_replace('/[【\(（]课程进度.*?[】\)）]/u', '', $a['kcname']));
+                    
+                    // 1. 优先按课程名精准匹配
                     foreach ($results as $item) {
-                        if (isset($item['kcname']) && $item['kcname'] === $a['kcname']) {
+                        if (!is_array($item) || !isset($item['kcname'])) continue;
+                        $cleanItemKc = trim(preg_replace('/[【\(（]课程进度.*?[】\)）]/u', '', $item['kcname']));
+                        if ($item['kcname'] === $a['kcname'] || $cleanItemKc === $cleanOrderKc) {
                             $newProcess = isset($item['process']) ? daddslashes($item['process']) : $a['process'];
                             $newStatus = isset($item['status_text']) ? daddslashes($item['status_text']) : $a['status'];
                             $newRemarks = isset($item['remarks']) ? daddslashes($item['remarks']) : $a['remarks'];
                             $newKcks = isset($item['kcks']) ? daddslashes($item['kcks']) : $a['courseStartTime'];
                             $newKcjs = isset($item['kcjs']) ? daddslashes($item['kcjs']) : $a['courseEndTime'];
+                            $uYid = isset($item['yid']) ? daddslashes(strval($item['yid'])) : '';
 
                             $numVal = floatval(preg_replace('/[^\d.]/', '', (string)$newProcess));
                             $isFinished = ($newStatus === '已完成' || $newStatus === '已结课' || $newStatus === '已学完' || ($numVal >= 100 && $newStatus !== '异常' && $newStatus !== '待重刷' && $newStatus !== '补刷中'));
@@ -152,6 +159,7 @@ function scheduler_execute_task($taskId) {
                                 $newStatus = '已完成';
                             }
 
+                            $setYidSql = (!empty($uYid) && $uYid !== '0') ? ", `yid`='$uYid'" : '';
                             $DB->query("UPDATE `qingka_wangke_order` SET 
                                 `status`='$newStatus', 
                                 `process`='$newProcess', 
@@ -159,6 +167,7 @@ function scheduler_execute_task($taskId) {
                                 `courseStartTime`='$newKcks',
                                 `courseEndTime`='$newKcjs',
                                 `finalupdate`=NOW() 
+                                $setYidSql 
                                 WHERE oid='$oid'");
 
                             if ($isFinished) {
@@ -166,13 +175,54 @@ function scheduler_execute_task($taskId) {
                             } elseif ($isExamStage) {
                                 $logs[] = "  [🐢] 订单 #$oid [{$a['kcname']}] 看课完毕转入【{$newStatus}】，已自动移交慢速巡检池！";
                             } else {
-                                $logs[] = "  [~] 订单 #$oid [{$a['kcname']}] 看课中: {$a['process']}% -> {$newProcess}%, 状态: {$newStatus}";
+                                $logs[] = "  [~] 订单 #$oid [{$a['kcname']}] 状态: {$newStatus}, 进度: {$a['process']} -> {$newProcess}";
                             }
                             $updated = true;
                             $successCount++;
                             break;
                         }
                     }
+
+                    // 2. 若仅有1门课程且未匹配到名称时进行兜底匹配
+                    if (!$updated && count($results) === 1 && isset($results[0]['status_text'])) {
+                        $item = $results[0];
+                        $newProcess = isset($item['process']) ? daddslashes($item['process']) : $a['process'];
+                        $newStatus = isset($item['status_text']) ? daddslashes($item['status_text']) : $a['status'];
+                        $newRemarks = isset($item['remarks']) ? daddslashes($item['remarks']) : $a['remarks'];
+                        $newKcks = isset($item['kcks']) ? daddslashes($item['kcks']) : $a['courseStartTime'];
+                        $newKcjs = isset($item['kcjs']) ? daddslashes($item['kcjs']) : $a['courseEndTime'];
+                        $uYid = isset($item['yid']) ? daddslashes(strval($item['yid'])) : '';
+
+                        $numVal = floatval(preg_replace('/[^\d.]/', '', (string)$newProcess));
+                        $isFinished = ($newStatus === '已完成' || $newStatus === '已结课' || $newStatus === '已学完' || ($numVal >= 100 && $newStatus !== '异常' && $newStatus !== '待重刷' && $newStatus !== '补刷中'));
+                        $isExamStage = in_array($newStatus, array('待考试', '平时分', '平时分中', '已暂停'), true);
+
+                        if ($isFinished) {
+                            $newStatus = '已完成';
+                        }
+
+                        $setYidSql = (!empty($uYid) && $uYid !== '0') ? ", `yid`='$uYid'" : '';
+                        $DB->query("UPDATE `qingka_wangke_order` SET 
+                            `status`='$newStatus', 
+                            `process`='$newProcess', 
+                            `remarks`='$newRemarks',
+                            `courseStartTime`='$newKcks',
+                            `courseEndTime`='$newKcjs',
+                            `finalupdate`=NOW() 
+                            $setYidSql 
+                            WHERE oid='$oid'");
+
+                        if ($isFinished) {
+                            $logs[] = "  [✔] 订单 #$oid [{$a['kcname']}] (单课兜底) 进度达 100% 并结课，已自动标记【已完成】归档！";
+                        } elseif ($isExamStage) {
+                            $logs[] = "  [🐢] 订单 #$oid [{$a['kcname']}] (单课兜底) 看课完毕转入【{$newStatus}】，已自动移交慢速巡检池！";
+                        } else {
+                            $logs[] = "  [~] 订单 #$oid [{$a['kcname']}] (单课兜底) 状态: {$newStatus}, 进度: {$a['process']} -> {$newProcess}";
+                        }
+                        $updated = true;
+                        $successCount++;
+                    }
+
                     if (!$updated) {
                         $logs[] = "  [?] 订单 #$oid 上游未返回对应课程进度";
                     }
@@ -208,13 +258,18 @@ function scheduler_execute_task($taskId) {
                 $results = processCx($oid);
                 if (is_array($results) && !empty($results)) {
                     $updated = false;
+                    $cleanOrderKc = trim(preg_replace('/[【\(（]课程进度.*?[】\)）]/u', '', $a['kcname']));
+
                     foreach ($results as $item) {
-                        if (isset($item['kcname']) && $item['kcname'] === $a['kcname']) {
+                        if (!is_array($item) || !isset($item['kcname'])) continue;
+                        $cleanItemKc = trim(preg_replace('/[【\(（]课程进度.*?[】\)）]/u', '', $item['kcname']));
+                        if ($item['kcname'] === $a['kcname'] || $cleanItemKc === $cleanOrderKc) {
                             $newProcess = isset($item['process']) ? daddslashes($item['process']) : $a['process'];
                             $newStatus = isset($item['status_text']) ? daddslashes($item['status_text']) : $a['status'];
                             $newRemarks = isset($item['remarks']) ? daddslashes($item['remarks']) : $a['remarks'];
                             $newKcks = isset($item['kcks']) ? daddslashes($item['kcks']) : $a['courseStartTime'];
                             $newKcjs = isset($item['kcjs']) ? daddslashes($item['kcjs']) : $a['courseEndTime'];
+                            $uYid = isset($item['yid']) ? daddslashes(strval($item['yid'])) : '';
 
                             $numVal = floatval(preg_replace('/[^\d.]/', '', (string)$newProcess));
                             $isFinished = ($newStatus === '已完成' || $newStatus === '已结课' || $newStatus === '已学完' || ($numVal >= 100 && $newStatus !== '异常' && $newStatus !== '待重刷' && $newStatus !== '补刷中'));
@@ -223,6 +278,7 @@ function scheduler_execute_task($taskId) {
                                 $newStatus = '已完成';
                             }
 
+                            $setYidSql = (!empty($uYid) && $uYid !== '0') ? ", `yid`='$uYid'" : '';
                             $DB->query("UPDATE `qingka_wangke_order` SET 
                                 `status`='$newStatus', 
                                 `process`='$newProcess', 
@@ -230,6 +286,7 @@ function scheduler_execute_task($taskId) {
                                 `courseStartTime`='$newKcks',
                                 `courseEndTime`='$newKcjs',
                                 `finalupdate`=NOW() 
+                                $setYidSql 
                                 WHERE oid='$oid'");
 
                             if ($isFinished) {
@@ -241,6 +298,42 @@ function scheduler_execute_task($taskId) {
                             $successCount++;
                             break;
                         }
+                    }
+
+                    if (!$updated && count($results) === 1 && isset($results[0]['status_text'])) {
+                        $item = $results[0];
+                        $newProcess = isset($item['process']) ? daddslashes($item['process']) : $a['process'];
+                        $newStatus = isset($item['status_text']) ? daddslashes($item['status_text']) : $a['status'];
+                        $newRemarks = isset($item['remarks']) ? daddslashes($item['remarks']) : $a['remarks'];
+                        $newKcks = isset($item['kcks']) ? daddslashes($item['kcks']) : $a['courseStartTime'];
+                        $newKcjs = isset($item['kcjs']) ? daddslashes($item['kcjs']) : $a['courseEndTime'];
+                        $uYid = isset($item['yid']) ? daddslashes(strval($item['yid'])) : '';
+
+                        $numVal = floatval(preg_replace('/[^\d.]/', '', (string)$newProcess));
+                        $isFinished = ($newStatus === '已完成' || $newStatus === '已结课' || $newStatus === '已学完' || ($numVal >= 100 && $newStatus !== '异常' && $newStatus !== '待重刷' && $newStatus !== '补刷中'));
+
+                        if ($isFinished) {
+                            $newStatus = '已完成';
+                        }
+
+                        $setYidSql = (!empty($uYid) && $uYid !== '0') ? ", `yid`='$uYid'" : '';
+                        $DB->query("UPDATE `qingka_wangke_order` SET 
+                            `status`='$newStatus', 
+                            `process`='$newProcess', 
+                            `remarks`='$newRemarks',
+                            `courseStartTime`='$newKcks',
+                            `courseEndTime`='$newKcjs',
+                            `finalupdate`=NOW() 
+                            $setYidSql 
+                            WHERE oid='$oid'");
+
+                        if ($isFinished) {
+                            $logs[] = "  [✔] 订单 #$oid [{$a['kcname']}] (单课兜底) 考试/平时分已完结，已成功归档！";
+                        } else {
+                            $logs[] = "  [~] 订单 #$oid [{$a['kcname']}] (单课兜底) 慢速巡检状态保持: 【{$newStatus}】, 进度: {$newProcess}%";
+                        }
+                        $updated = true;
+                        $successCount++;
                     }
                     if (!$updated) {
                         $logs[] = "  [?] 订单 #$oid 上游未返回对应课程进度";

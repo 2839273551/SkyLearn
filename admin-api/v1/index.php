@@ -3630,13 +3630,31 @@ if ($action === 'order-sync') {
 
     $result = processCx($oid);
     if (!empty($result) && is_array($result)) {
-        for ($i = 0; $i < count($result); $i++) {
-            $uName = daddslashes(isset($result[$i]['name']) ? $result[$i]['name'] : $order['name']);
-            $uStatus = daddslashes(isset($result[$i]['status_text']) ? $result[$i]['status_text'] : $order['status']);
-            $uProcess = daddslashes(isset($result[$i]['process']) ? $result[$i]['process'] : $order['process']);
-            $uRemarks = daddslashes(isset($result[$i]['remarks']) ? $result[$i]['remarks'] : $order['remarks']);
-            $uZhgx = daddslashes(isset($result[$i]['zhgx']) ? $result[$i]['zhgx'] : date('Y-m-d H:i:s'));
-            $uYid = daddslashes(isset($result[$i]['yid']) ? $result[$i]['yid'] : (isset($result[$i]['id']) ? $result[$i]['id'] : ''));
+        $matched = null;
+        $cleanOrderKc = trim(preg_replace('/[【\(（]课程进度.*?[】\)）]/u', '', $order['kcname']));
+        
+        // 优先根据课程名称精准匹配
+        foreach ($result as $item) {
+            if (!is_array($item) || !isset($item['kcname'])) continue;
+            $cleanItemKc = trim(preg_replace('/[【\(（]课程进度.*?[】\)）]/u', '', $item['kcname']));
+            if ($item['kcname'] === $order['kcname'] || $cleanItemKc === $cleanOrderKc) {
+                $matched = $item;
+                break;
+            }
+        }
+
+        // 若仅有1门课程且未匹配到名称，作为兜底匹配
+        if (!$matched && count($result) === 1 && isset($result[0]['status_text'])) {
+            $matched = $result[0];
+        }
+
+        if ($matched) {
+            $uName = daddslashes(isset($matched['name']) && !empty($matched['name']) ? $matched['name'] : $order['name']);
+            $uStatus = daddslashes(isset($matched['status_text']) ? $matched['status_text'] : $order['status']);
+            $uProcess = daddslashes(isset($matched['process']) ? $matched['process'] : $order['process']);
+            $uRemarks = daddslashes(isset($matched['remarks']) ? $matched['remarks'] : $order['remarks']);
+            $uZhgx = daddslashes(isset($matched['zhgx']) ? $matched['zhgx'] : date('Y-m-d H:i:s'));
+            $uYid = daddslashes(isset($matched['yid']) ? $matched['yid'] : (isset($matched['id']) ? $matched['id'] : ''));
 
             // 智能完成判定：若进度满100%或标记学完/结课，自动转为[已完成]归档
             $numVal = floatval(preg_replace('/[^\d.]/', '', (string)$uProcess));
@@ -3900,7 +3918,7 @@ if ($action === 'order-batch-sync') {
 
     $syncSuccess = 0;
     foreach ($oids as $oid) {
-        $order = $DB->get_row("SELECT oid, uid, hid, dockstatus FROM `qingka_wangke_order` WHERE oid='$oid' LIMIT 1");
+        $order = $DB->get_row("SELECT oid, uid, hid, dockstatus, kcname, name, status, process, remarks FROM `qingka_wangke_order` WHERE oid='$oid' LIMIT 1");
         if (!$order) continue;
         if (!$isSuper && intval($order['uid']) !== $currentUid) continue;
         if (strval($order['dockstatus']) === '4' || strval($order['hid']) === '0') continue;
@@ -3908,13 +3926,29 @@ if ($action === 'order-batch-sync') {
         if (function_exists('processCx')) {
             $result = processCx($oid);
             if (!empty($result) && is_array($result)) {
-                for ($i = 0; $i < count($result); $i++) {
-                    $uName = daddslashes(isset($result[$i]['name']) ? $result[$i]['name'] : '');
-                    $uStatus = daddslashes(isset($result[$i]['status_text']) ? $result[$i]['status_text'] : '');
-                    $uProcess = daddslashes(isset($result[$i]['process']) ? $result[$i]['process'] : '');
-                    $uRemarks = daddslashes(isset($result[$i]['remarks']) ? $result[$i]['remarks'] : '');
-                    $uZhgx = daddslashes(isset($result[$i]['zhgx']) ? $result[$i]['zhgx'] : date('Y-m-d H:i:s'));
-                    $uYid = daddslashes(isset($result[$i]['yid']) ? $result[$i]['yid'] : (isset($result[$i]['id']) ? $result[$i]['id'] : ''));
+                $matched = null;
+                $cleanOrderKc = trim(preg_replace('/[【\(（]课程进度.*?[】\)）]/u', '', $order['kcname']));
+
+                foreach ($result as $item) {
+                    if (!is_array($item) || !isset($item['kcname'])) continue;
+                    $cleanItemKc = trim(preg_replace('/[【\(（]课程进度.*?[】\)）]/u', '', $item['kcname']));
+                    if ($item['kcname'] === $order['kcname'] || $cleanItemKc === $cleanOrderKc) {
+                        $matched = $item;
+                        break;
+                    }
+                }
+
+                if (!$matched && count($result) === 1 && isset($result[0]['status_text'])) {
+                    $matched = $result[0];
+                }
+
+                if ($matched) {
+                    $uName = daddslashes(isset($matched['name']) && !empty($matched['name']) ? $matched['name'] : $order['name']);
+                    $uStatus = daddslashes(isset($matched['status_text']) ? $matched['status_text'] : $order['status']);
+                    $uProcess = daddslashes(isset($matched['process']) ? $matched['process'] : $order['process']);
+                    $uRemarks = daddslashes(isset($matched['remarks']) ? $matched['remarks'] : $order['remarks']);
+                    $uZhgx = daddslashes(isset($matched['zhgx']) ? $matched['zhgx'] : date('Y-m-d H:i:s'));
+                    $uYid = daddslashes(isset($matched['yid']) ? $matched['yid'] : (isset($matched['id']) ? $matched['id'] : ''));
 
                     // 智能完成判定：若进度满100%或标记学完/结课，自动转为[已完成]归档
                     $numVal = floatval(preg_replace('/[^\d.]/', '', (string)$uProcess));
@@ -3932,8 +3966,8 @@ if ($action === 'order-batch-sync') {
 
                     $sqlSet = implode(',', $setFields);
                     $DB->query("UPDATE `qingka_wangke_order` SET $sqlSet $setYid WHERE `oid`='$oid'");
+                    $syncSuccess++;
                 }
-                $syncSuccess++;
             }
         }
     }

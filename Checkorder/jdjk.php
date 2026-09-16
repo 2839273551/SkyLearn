@@ -4,18 +4,19 @@ function processCx($oid)//进度代码
 {
 	global $DB;
 	$d = $DB->get_row("select * from qingka_wangke_order where oid='{$oid}' ");
-	$b = $DB->get_row("select hid,user,pass from qingka_wangke_order where oid='{$oid}' ");
-	$a = $DB->get_row("select * from qingka_wangke_huoyuan where hid='{$b["hid"]}' ");
+	$orderInfo = $DB->get_row("select hid,user,pass from qingka_wangke_order where oid='{$oid}' ");
+	$a = $DB->get_row("select * from qingka_wangke_huoyuan where hid='{$orderInfo["hid"]}' ");
 	$type = $a["pt"];
 	$cookie = $a["cookie"];
 	$token = $a["token"];
 	$ip = $a["ip"];
-	$user = $b["user"];
-	$pass = $b["pass"];
+	$user = $orderInfo["user"];
+	$pass = $orderInfo["pass"];
 	$kcname = $d["kcname"];
 	$school = $d["school"];
 	$pt = $d["noun"];
 	$kcid = $d["kcid"];
+	$b = array();
 	
 	//27同步状态接口
   
