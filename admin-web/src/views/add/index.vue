@@ -504,24 +504,16 @@ onMounted(loadCatalog);
 
             <!-- 辅助按钮组：手机端并排等高，PC端紧跟 -->
             <div class="flex items-center gap-10px w-full sm:w-auto">
-              <NPopconfirm
-                positive-text="确认立即提交"
-                negative-text="取消"
-                @positive-click="submitOrders"
+              <NButton
+                type="success"
+                size="large"
+                :loading="submitLoading"
+                :disabled="selections.length === 0"
+                class="flex-1 sm:flex-none sm:px-24px font-bold"
+                @click="submitOrders"
               >
-                <template #trigger>
-                  <NButton
-                    type="success"
-                    size="large"
-                    :loading="submitLoading"
-                    :disabled="selections.length === 0"
-                    class="flex-1 sm:flex-none sm:px-24px font-bold"
-                  >
-                    🚀 提交订单 ({{ selections.length }} 门)
-                  </NButton>
-                </template>
-                确定提交已勾选的 {{ selections.length }} 门课程吗？预计扣除 ¥{{ estimatedSubmitCost }} 积分。
-              </NPopconfirm>
+                🚀 提交订单 ({{ selections.length }} 门)
+              </NButton>
 
               <NButton size="large" secondary class="w-96px sm:w-auto shrink-0" @click="clearForm">
                 清空数据

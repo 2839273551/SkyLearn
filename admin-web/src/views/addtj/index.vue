@@ -169,28 +169,20 @@ async function handleSubmit() {
     return;
   }
 
-  window.$dialog?.warning({
-    title: '确认提交交单',
-    content: `已解析出 ${parsedResults.value.length} 个账号，共 ${totalOrdersCount.value} 门课程订单。预计扣费 ¥${estimatedCost.value}，确认立即交单吗？`,
-    positiveText: '确认交单',
-    negativeText: '取消',
-    onPositiveClick: async () => {
-      submitting.value = true;
-      const { data, error } = await submitOrderNocheck({
-        cid: Number(selectedCid.value),
-        content: rawContent.value
-      });
-      submitting.value = false;
-
-      if (!error && data) {
-        window.$message?.success(
-          `交单成功！已创建 ${data.success_count} 笔订单，扣费 ¥${data.deducted_money}`
-        );
-        userMoney.value = data.remain_money;
-        rawContent.value = '';
-      }
-    }
+  submitting.value = true;
+  const { data, error } = await submitOrderNocheck({
+    cid: Number(selectedCid.value),
+    content: rawContent.value
   });
+  submitting.value = false;
+
+  if (!error && data) {
+    window.$message?.success(
+      `交单成功！已创建 ${data.success_count} 笔订单，扣费 ¥${data.deducted_money}`
+    );
+    userMoney.value = data.remain_money;
+    rawContent.value = '';
+  }
 }
 
 onMounted(() => {
