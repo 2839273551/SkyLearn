@@ -158,7 +158,7 @@ async function handleClearLogs(taskId?: string) {
 
 // 复制宝塔定时任务指令
 function copyBtCommand() {
-  const cmd = `curl -sS -L --connect-timeout 10 -m 60 'https://sk.yunxnet.cn/admin-api/v1/index.php?action=scheduler-run-all'`;
+  const cmd = `/www/server/php/74/bin/php /www/wwwroot/sk.yunxnet.cn/admin-api/v1/cron.php`;
   navigator.clipboard.writeText(cmd);
   window.$message?.success('宝塔计划任务指令已复制到剪贴板');
 }
@@ -251,6 +251,17 @@ onMounted(() => {
           <span class="text-14px">🧹</span>
           <span><strong>自动瘦身清理已开启：</strong>系统每次调度后<strong>自动清理超过 3 天的历史过期日志</strong>，单任务保留上限 200 条，永久保护数据库轻盈！</span>
         </div>
+      </div>
+
+      <div class="mt-10px flex flex-wrap items-center justify-between gap-8px rounded-8px bg-blue-50/70 dark:bg-dark-600 p-10px border border-blue-200/80 dark:border-dark-500 text-12px text-blue-900 dark:text-blue-300">
+        <div class="flex items-center gap-6px flex-wrap">
+          <span class="font-bold">🖥️ 宝塔计划任务一键配置：</span>
+          <span>类型选【Shell 脚本】，周期选【1 分钟】，命令填：</span>
+          <code class="bg-white dark:bg-dark-700 px-6px py-2px rounded font-mono text-primary font-bold border border-blue-200 dark:border-dark-400">/www/server/php/74/bin/php /www/wwwroot/sk.yunxnet.cn/admin-api/v1/cron.php</code>
+        </div>
+        <NButton size="tiny" type="primary" secondary @click="copyBtCommand">
+          📋 点击一键复制指令
+        </NButton>
       </div>
     </NCard>
 
