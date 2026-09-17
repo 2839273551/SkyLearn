@@ -336,7 +336,18 @@ onUnmounted(() => {
         <!-- 窗口底部动作栏 (单行平铺，绝不折行) -->
         <div class="mt-10px flex items-center justify-between gap-8px pt-8px border-t border-gray-100 dark:border-dark-600 text-12px">
           <div class="text-gray-500 shrink-0 whitespace-nowrap text-12px">
-            累计处理: <strong class="text-gray-800 dark:text-gray-200 font-mono font-bold">{{ task.total_success }}</strong> 笔
+            <template v-if="task.id === 'progress_active'">
+              已同步: <strong class="text-gray-900 dark:text-gray-100 font-mono font-bold">{{ task.total_success }}</strong> 笔订单
+            </template>
+            <template v-else-if="task.id === 'order_dispatch'">
+              已出单: <strong class="text-gray-900 dark:text-gray-100 font-mono font-bold">{{ task.total_success }}</strong> 笔订单
+            </template>
+            <template v-else-if="task.id === 'progress_exam'">
+              已巡检: <strong class="text-gray-900 dark:text-gray-100 font-mono font-bold">{{ task.total_success }}</strong> 笔订单
+            </template>
+            <template v-else>
+              已留存: <strong class="text-gray-900 dark:text-gray-100 font-mono font-bold">{{ task.total_success }}</strong> 条日志
+            </template>
           </div>
 
           <div class="flex items-center gap-6px shrink-0">

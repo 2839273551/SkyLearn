@@ -10,6 +10,42 @@ if (!defined('IN_CRONLITE')) {
  * 1. 凡是标记【已完成】、已取消、已退款，或进度已达 100% 的订单，永久自动隔离归档，绝不再统计和参与后续轮询！
  * 2. 补刷属于人工操作单次触发，不进行高频无意义死循环提交。
  */
+
+/**
+ * 统计指定任务实际覆盖或处理的真实独立订单数 (去重互斥订单统计，绝非虚高的轮询次数)
+ */
+function scheduler_get_distinct_order_count($taskId) {
+    global $DB;
+    switch ($taskId) {
+        case 'order_dispatch':
+        case 'add':
+            // 真实已成功出单的订单总数
+            return intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_order` WHERE dockstatus=1"));
+
+        case 'progress_active':
+        case 'cc':
+        case 'bb':
+        case 'aa':
+        case 'plsx':
+            // 真实已同步过进度的互斥订单数 (有同步更新时间)
+            return intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_order` WHERE dockstatus=1 AND finalupdate IS NOT NULL AND finalupdate != ''"));
+
+        case 'progress_exam':
+        case 'dd':
+        case 'ee':
+            // 真实处于考试或平时分收尾的订单数
+            return intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_order` WHERE dockstatus=1 AND status IN ('待考试','平时分','平时分中')"));
+
+        case 'auto_prune':
+        case 'log_clean':
+            // 当前日志池健康存量
+            return intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_cron_log`"));
+
+        default:
+            return 0;
+    }
+}
+
 function scheduler_count_pending($taskId) {
     global $DB;
     $completedFilter = "status NOT IN ('已完成','已取消','已退款') AND (status IN ('补刷中','重刷中','待补刷') OR process NOT LIKE '100%')";
@@ -518,6 +554,7 @@ if ($action === 'scheduler-tasks-list') {
         // 获取最新一条日志
         $lastLog = $DB->get_row("SELECT * FROM `qingka_wangke_cron_log` WHERE task_id='{$r['id']}' ORDER BY id DESC LIMIT 1");
 
+        $realOrderCount = scheduler_get_distinct_order_count($r['id']);
         $tasks[] = array(
             'id' => (string)$r['id'],
             'name' => (string)$r['name'],
@@ -529,7 +566,7 @@ if ($action === 'scheduler-tasks-list') {
             'last_status' => intval($r['last_status']),
             'last_result' => (string)$r['last_result'],
             'total_runs' => intval($r['total_runs']),
-            'total_success' => intval($r['total_success']),
+            'total_success' => $realOrderCount,
             'total_failed' => intval($r['total_failed']),
             'pending_count' => $pending,
             'latest_log' => $lastLog ? (string)$lastLog['content'] : '暂无历史运行日志'
