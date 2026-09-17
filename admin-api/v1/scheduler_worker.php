@@ -34,6 +34,11 @@ function scheduler_count_pending($taskId) {
             // 引擎 3：待考试与平时分慢速收尾订单 (待考试、平时分、平时分中、已暂停)
             return intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_order` WHERE dockstatus=1 AND status IN ('待考试','平时分','平时分中','已暂停') AND status NOT IN ('已完成','已取消','已退款')"));
 
+        case 'auto_prune':
+        case 'log_clean':
+            // 引擎 4：待清理的过期历史日志数 (超过3天的日志)
+            return intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_cron_log` WHERE `created_at` < DATE_SUB(NOW(), INTERVAL 3 DAY)"));
+
         default:
             return 0;
     }
@@ -354,6 +359,52 @@ function scheduler_execute_task($taskId) {
         $logs[] = "[$timeStr] 提示：补刷机制已升级为人工单次触发受控模式，不再进行重复后台轮询。";
         $successCount = 0;
     }
+    // ==========================================
+    // 引擎 4：过期日志自动清理与瘦身引擎 (auto_prune)
+    // ==========================================
+    elseif ($taskId === 'auto_prune' || $taskId === 'log_clean') {
+        $logs[] = "[$timeStr] 扫描历史日志池，正在执行过期数据瘦身...";
+        
+        // 1. 删除 3 天前的过期历史日志
+        $DB->query("DELETE FROM `qingka_wangke_cron_log` WHERE `created_at` < DATE_SUB(NOW(), INTERVAL 3 DAY)");
+        $prunedDays = $DB->affected();
+        if ($prunedDays > 0) {
+            $logs[] = "  [+] 已自动清理 3 天前的历史日志: {$prunedDays} 条";
+        } else {
+            $logs[] = "  [-] 暂无超过 3 天的历史过期日志";
+        }
+
+        // 2. 清除废弃任务残留碎片
+        $DB->query("DELETE FROM `qingka_wangke_cron_log` WHERE `task_id` NOT IN ('order_dispatch', 'progress_active', 'progress_exam', 'auto_prune')");
+        $prunedAbandoned = $DB->affected();
+        if ($prunedAbandoned > 0) {
+            $logs[] = "  [+] 已清理废弃任务残留碎片: {$prunedAbandoned} 条";
+        }
+
+        // 3. 截断各个任务超过 200 条的历史记录
+        $prunedOverflow = 0;
+        $taskIds = array('order_dispatch', 'progress_active', 'progress_exam', 'auto_prune');
+        foreach ($taskIds as $tid) {
+            $count = intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_cron_log` WHERE `task_id`='$tid'"));
+            if ($count > 200) {
+                $cutoff = $DB->get_row("SELECT id FROM `qingka_wangke_cron_log` WHERE `task_id`='$tid' ORDER BY id DESC LIMIT 200, 1");
+                if ($cutoff && !empty($cutoff['id'])) {
+                    $cutoffId = intval($cutoff['id']);
+                    $DB->query("DELETE FROM `qingka_wangke_cron_log` WHERE `task_id`='$tid' AND id <= '$cutoffId'");
+                    $prunedOverflow += $DB->affected();
+                }
+            }
+        }
+        if ($prunedOverflow > 0) {
+            $logs[] = "  [+] 各任务超量历史记录自动截断: {$prunedOverflow} 条";
+        }
+
+        $totalCleaned = $prunedDays + $prunedAbandoned + $prunedOverflow;
+        $successCount = $totalCleaned;
+
+        $curTotalLogs = intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_cron_log`"));
+        $logs[] = "[$timeStr] 瘦身整理完毕！本轮共清理 {$totalCleaned} 条，当前日志池留存 {$curTotalLogs} 条（轻盈健康）。";
+    }
 
     $costMs = round((microtime(true) - $st) * 1000);
     $endTimeStr = date('H:i:s');
@@ -430,6 +481,7 @@ function scheduler_run_all_enabled() {
         WHEN 'order_dispatch' THEN 1 
         WHEN 'progress_active' THEN 2 
         WHEN 'progress_exam' THEN 3 
+        WHEN 'auto_prune' THEN 4 
         ELSE 9 END ASC");
     $reports = array();
     while ($r = $DB->fetch($res)) {
@@ -453,6 +505,7 @@ if ($action === 'scheduler-tasks-list') {
         WHEN 'order_dispatch' THEN 1 
         WHEN 'progress_active' THEN 2 
         WHEN 'progress_exam' THEN 3 
+        WHEN 'auto_prune' THEN 4 
         ELSE 9 END ASC");
 
     $tasks = array();
@@ -634,6 +687,7 @@ if ($action === 'scheduler-cron') {
         WHEN 'order_dispatch' THEN 1 
         WHEN 'progress_active' THEN 2 
         WHEN 'progress_exam' THEN 3 
+        WHEN 'auto_prune' THEN 4 
         ELSE 9 END ASC");
     $now = time();
     $ranReports = array();

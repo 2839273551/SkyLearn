@@ -55,6 +55,7 @@ $res = $DB->query("SELECT * FROM `qingka_wangke_cron_task` WHERE enabled=1 ORDER
     WHEN 'order_dispatch' THEN 1 
     WHEN 'progress_active' THEN 2 
     WHEN 'progress_exam' THEN 3 
+    WHEN 'auto_prune' THEN 4 
     ELSE 9 END ASC");
 
 $tasks = array();

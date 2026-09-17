@@ -249,7 +249,7 @@ onUnmounted(() => {
     </NCard>
 
     <!-- 任务多窗口列表栅格 (每个任务一个简洁干净的窗口) -->
-    <div class="grid grid-cols-1 gap-14px lg:grid-cols-3">
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-14px">
       <div
         v-for="task in tasks"
         :key="task.id"
