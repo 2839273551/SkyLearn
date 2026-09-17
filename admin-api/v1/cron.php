@@ -30,8 +30,9 @@ if (!$isCli) {
 $now = time();
 $timeStr = date('Y-m-d H:i:s');
 
-// 记录宝塔计划任务最新执行心跳 (供后台实时监控状态)
-$DB->query("INSERT INTO `qingka_wangke_config` (`k`,`v`) VALUES ('bt_cron_heartbeat', '$now') ON DUPLICATE KEY UPDATE `v`='$now'");
+// 记录宝塔计划任务最新执行心跳 (先删后插，确保心跳毫秒级绝对最新)
+$DB->query("DELETE FROM `qingka_wangke_config` WHERE `k`='bt_cron_heartbeat'");
+$DB->query("INSERT INTO `qingka_wangke_config` (`k`,`v`) VALUES ('bt_cron_heartbeat', '$now')");
 $isForce = false;
 
 if ($isCli) {

@@ -489,7 +489,7 @@ if ($action === 'scheduler-tasks-list') {
     $totalLogs = intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_cron_log`"));
 
     // 查询宝塔计划任务实时心跳
-    $rowHeart = $DB->get_row("SELECT `v` FROM `qingka_wangke_config` WHERE `k`='bt_cron_heartbeat' LIMIT 1");
+    $rowHeart = $DB->get_row("SELECT `v` FROM `qingka_wangke_config` WHERE `k`='bt_cron_heartbeat' ORDER BY CAST(`v` AS UNSIGNED) DESC LIMIT 1");
     $lastHeartbeat = ($rowHeart && !empty($rowHeart['v'])) ? intval($rowHeart['v']) : 0;
     $now = time();
     $elapsed = $lastHeartbeat > 0 ? ($now - $lastHeartbeat) : 999999;
