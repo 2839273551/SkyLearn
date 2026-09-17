@@ -488,6 +488,13 @@ if ($action === 'scheduler-tasks-list') {
 
     $totalLogs = intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_cron_log`"));
 
+    // 查询宝塔计划任务实时心跳
+    $rowHeart = $DB->get_row("SELECT `v` FROM `qingka_wangke_config` WHERE `k`='bt_cron_heartbeat' LIMIT 1");
+    $lastHeartbeat = ($rowHeart && !empty($rowHeart['v'])) ? intval($rowHeart['v']) : 0;
+    $now = time();
+    $elapsed = $lastHeartbeat > 0 ? ($now - $lastHeartbeat) : 999999;
+    $isActive = ($elapsed <= 120); // 120秒内有心跳则视为活跃开启中
+
     api_respond(0, 'ok', array(
         'tasks' => $tasks,
         'summary' => array(
@@ -496,6 +503,11 @@ if ($action === 'scheduler-tasks-list') {
             'total_runs_all' => $totalRunsAll,
             'total_success_all' => $totalSuccessAll,
             'total_logs' => $totalLogs
+        ),
+        'bt_cron' => array(
+            'is_active' => $isActive,
+            'last_heartbeat_time' => $lastHeartbeat > 0 ? date('Y-m-d H:i:s', $lastHeartbeat) : '',
+            'elapsed_seconds' => $elapsed
         )
     ));
 }

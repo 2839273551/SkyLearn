@@ -657,9 +657,16 @@ declare namespace Api {
       total_logs?: number;
     }
 
+    interface BtCronStatus {
+      is_active: boolean;
+      last_heartbeat_time: string;
+      elapsed_seconds: number;
+    }
+
     interface TasksListResponse {
       tasks: TaskItem[];
       summary: Summary;
+      bt_cron?: BtCronStatus;
     }
 
     interface RunResult {

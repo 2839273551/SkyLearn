@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import {
   NAlert,
   NBadge,
@@ -43,6 +43,12 @@ const summary = ref<Api.Scheduler.Summary>({
   total_success_all: 0
 });
 
+const btCron = ref<Api.Scheduler.BtCronStatus>({
+  is_active: false,
+  last_heartbeat_time: '',
+  elapsed_seconds: 999999
+});
+
 // 单任务运行状态映射
 const runningTaskMap = ref<Record<string, boolean>>({});
 
@@ -73,6 +79,9 @@ async function loadTasks() {
   if (!error && data) {
     tasks.value = data.tasks;
     summary.value = data.summary;
+    if (data.bt_cron) {
+      btCron.value = data.bt_cron;
+    }
   }
 }
 
@@ -163,8 +172,31 @@ function copyBtCommand() {
   window.$message?.success('宝塔计划任务指令已复制到剪贴板');
 }
 
+function formatHeartbeat(bt: Api.Scheduler.BtCronStatus) {
+  if (!bt.last_heartbeat_time || bt.elapsed_seconds >= 86400) {
+    return '暂无心跳记录';
+  }
+  if (bt.elapsed_seconds < 60) {
+    return `${bt.elapsed_seconds} 秒前`;
+  }
+  const mins = Math.floor(bt.elapsed_seconds / 60);
+  return `${mins} 分钟前`;
+}
+
+let timer: any = null;
 onMounted(() => {
   loadTasks();
+  timer = setInterval(() => {
+    fetchSchedulerTasksList().then(({ data }) => {
+      if (data?.bt_cron) {
+        btCron.value = data.bt_cron;
+      }
+    });
+  }, 10000);
+});
+
+onUnmounted(() => {
+  if (timer) clearInterval(timer);
 });
 </script>
 
@@ -253,15 +285,68 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="mt-10px flex flex-wrap items-center justify-between gap-8px rounded-8px bg-blue-50/70 dark:bg-dark-600 p-10px border border-blue-200/80 dark:border-dark-500 text-12px text-blue-900 dark:text-blue-300">
+      <!-- 宝塔计划任务实时运行状态大看板 (直观显示 开了 / 没开) -->
+      <div
+        class="mt-14px flex flex-wrap items-center justify-between gap-12px rounded-10px p-14px border transition-all"
+        :class="
+          btCron.is_active
+            ? 'bg-emerald-50/80 border-emerald-300 dark:bg-emerald-950/30 dark:border-emerald-700'
+            : 'bg-slate-50 dark:bg-dark-600 border-slate-200 dark:border-dark-500'
+        "
+      >
+        <div class="flex items-center gap-12px">
+          <!-- 状态呼吸灯 / 圆点 -->
+          <div
+            class="flex h-36px w-36px items-center justify-center rounded-full text-18px shrink-0"
+            :class="
+              btCron.is_active
+                ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/60 dark:text-emerald-300 animate-pulse'
+                : 'bg-gray-200 text-gray-500 dark:bg-dark-500 dark:text-gray-400'
+            "
+          >
+            {{ btCron.is_active ? '🟢' : '⚪' }}
+          </div>
+          <div>
+            <div class="flex items-center gap-8px">
+              <span class="text-15px font-bold text-gray-900 dark:text-gray-100">
+                宝塔定时任务状态：
+              </span>
+              <NTag
+                :type="btCron.is_active ? 'success' : 'default'"
+                size="small"
+                round
+                class="font-bold px-8px"
+              >
+                {{ btCron.is_active ? '已开启 · 每分钟自动巡检中' : '未开启 / 已暂停' }}
+              </NTag>
+            </div>
+            <p class="mt-4px text-12px leading-normal text-gray-500 dark:text-gray-400">
+              <template v-if="btCron.is_active">
+                心跳正常（最近触发于: <span class="font-mono font-medium text-emerald-600 dark:text-emerald-400">{{ btCron.last_heartbeat_time || '刚刚' }}</span>，{{ formatHeartbeat(btCron) }}）。系统全自动调度中。
+              </template>
+              <template v-else>
+                当前未检测到宝塔定时任务调用（系统已完全静默休眠，零资源占用）。只有你在宝塔开启该任务后才会运行。
+              </template>
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-8px">
+          <NButton size="small" secondary :loading="loading" @click="loadTasks">
+            🔄 检查状态
+          </NButton>
+          <NButton size="small" type="primary" secondary @click="copyBtCommand">
+            📋 复制宝塔命令
+          </NButton>
+        </div>
+      </div>
+
+      <div class="mt-10px flex flex-wrap items-center justify-between gap-8px rounded-8px bg-blue-50/60 dark:bg-dark-600 p-10px border border-blue-100 dark:border-dark-500 text-12px text-blue-900 dark:text-blue-300">
         <div class="flex items-center gap-6px flex-wrap">
-          <span class="font-bold">🖥️ 宝塔计划任务一键配置：</span>
-          <span>类型选【Shell 脚本】，周期选【1 分钟】，命令填：</span>
+          <span class="font-bold">🖥️ 宝塔计划任务配置命令：</span>
           <code class="bg-white dark:bg-dark-700 px-6px py-2px rounded font-mono text-primary font-bold border border-blue-200 dark:border-dark-400">/www/server/php/74/bin/php /www/wwwroot/sk.yunxnet.cn/admin-api/v1/cron.php</code>
         </div>
-        <NButton size="tiny" type="primary" secondary @click="copyBtCommand">
-          📋 点击一键复制指令
-        </NButton>
+        <span class="text-11px text-gray-400">类型选【Shell 脚本】，周期选【1 分钟】</span>
       </div>
     </NCard>
 

@@ -29,6 +29,9 @@ if (!$isCli) {
 
 $now = time();
 $timeStr = date('Y-m-d H:i:s');
+
+// 记录宝塔计划任务最新执行心跳 (供后台实时监控状态)
+$DB->query("INSERT INTO `qingka_wangke_config` (`k`,`v`) VALUES ('bt_cron_heartbeat', '$now') ON DUPLICATE KEY UPDATE `v`='$now'");
 $isForce = false;
 
 if ($isCli) {
