@@ -434,7 +434,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
             title: `点击复制订单号: #${row.orderId}`,
             onClick: () => copyText(String(row.orderId), '订单ID')
           },
-          row.orderId ? `-${row.orderId}` : '-'
+          row.orderId ? `${row.orderId}` : '-'
         )
     },
     // 2. 操作 (补刷 + 更新 + ∨更多)
@@ -992,14 +992,16 @@ onMounted(loadOrders);
         striped
       />
 
-      <div class="mt-16px flex justify-end">
+      <div class="mt-16px flex w-full items-center justify-center sm:justify-end overflow-x-auto py-4px">
         <NPagination
           v-model:page="query.page"
           v-model:page-size="query.pageSize"
           :item-count="total"
           :page-sizes="[20, 50, 100]"
-          show-size-picker
-          show-quick-jumper
+          :page-slot="appStore.isMobile ? 5 : 9"
+          :size="appStore.isMobile ? 'small' : 'medium'"
+          :show-size-picker="!appStore.isMobile"
+          :show-quick-jumper="!appStore.isMobile"
           @update:page="changePage"
           @update:page-size="changePageSize"
         />
