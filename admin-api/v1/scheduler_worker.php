@@ -12,7 +12,7 @@ if (!defined('IN_CRONLITE')) {
  */
 function scheduler_count_pending($taskId) {
     global $DB;
-    $completedFilter = "status NOT IN ('已完成','已取消','已退款') AND process NOT LIKE '100%'";
+    $completedFilter = "status NOT IN ('已完成','已取消','已退款') AND (status IN ('补刷中','重刷中','待补刷') OR process NOT LIKE '100%')";
 
     switch ($taskId) {
         case 'order_dispatch':
@@ -123,7 +123,7 @@ function scheduler_execute_task($taskId) {
     // 引擎 2：活跃看课·高频同步引擎 (progress_active / cc / bb / aa / plsx)
     // =========================================================================
     elseif ($taskId === 'progress_active' || in_array($taskId, array('cc', 'bb', 'aa', 'plsx'), true)) {
-        $completedFilter = "status NOT IN ('已完成','已取消','已退款') AND process NOT LIKE '100%'";
+        $completedFilter = "status NOT IN ('已完成','已取消','已退款') AND (status IN ('补刷中','重刷中','待补刷') OR process NOT LIKE '100%')";
         // 覆盖所有已对接上游、但尚未结课归档的订单（包括待处理、待上号、进行中、上号中、重刷中、待刷新等）
         $where = "dockstatus=1 AND status NOT IN ('已完成','已取消','已退款','待考试','平时分','平时分中') AND $completedFilter";
 

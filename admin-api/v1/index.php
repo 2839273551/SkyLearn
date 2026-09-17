@@ -3915,7 +3915,7 @@ if ($action === 'order-rebrush') {
         require_once ROOT . '../Checkorder/bsjk.php';
     }
 
-    $DB->query("UPDATE qingka_wangke_order SET status='补刷中', `bsnum`=bsnum+1 WHERE oid='$oid'");
+    $DB->query("UPDATE qingka_wangke_order SET status='补刷中', `bsnum`=bsnum+1, `process`='0.00%', `remarks`='已提交补刷请求，等待上游开课进度...' WHERE oid='$oid'");
 
     $msg = '补刷请求已成功提交！状态已变更为补刷中';
     if (function_exists('budanWk') && strval($order['dockstatus']) !== '99') {
@@ -4223,7 +4223,7 @@ if ($action === 'order-batch-rebrush') {
         if (!$order) continue;
         if (!$isSuper && intval($order['uid']) !== $currentUid) continue;
 
-        $DB->query("UPDATE `qingka_wangke_order` SET status='补刷中', `bsnum`=bsnum+1 WHERE oid='$oid'");
+        $DB->query("UPDATE `qingka_wangke_order` SET status='补刷中', `bsnum`=bsnum+1, `process`='0.00%', `remarks`='已批量提交补刷请求，等待上游开课进度...' WHERE oid='$oid'");
         if (function_exists('budanWk') && strval($order['dockstatus']) !== '99') {
             budanWk($oid);
         }

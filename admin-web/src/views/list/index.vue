@@ -154,8 +154,10 @@ async function handleRebrush(row: Api.Orders.Record) {
   actionLoadingMap[key] = false;
   if (!error && data) {
     row.status = data.status || '补刷中';
+    row.progress = '0.00%';
     if (currentDetail.value && currentDetail.value.orderId === row.orderId) {
       currentDetail.value.status = data.status || '补刷中';
+      currentDetail.value.progress = '0.00%';
     }
     window.$message?.success(`订单 #${row.orderId} 已成功加入补刷排队！`);
   }
