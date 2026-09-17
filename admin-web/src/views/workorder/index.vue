@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { h, onMounted, reactive, ref } from 'vue';
+import { useRoute } from 'vue-router';
 import type { DataTableColumns } from 'naive-ui';
 import { NAvatar, NButton, NPopconfirm, NSpace, NTag, NTooltip } from 'naive-ui';
 import {
@@ -314,8 +315,14 @@ async function handleDelete(gid: number) {
   }
 }
 
+const route = useRoute();
 onMounted(() => {
   loadData();
+  if (route.query.oid) {
+    createForm.type = 'order';
+    createForm.oid = Number(route.query.oid);
+    createModal.value = true;
+  }
 });
 </script>
 

@@ -1,19 +1,18 @@
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import type { DataTableRowKey, DataTableColumns } from 'naive-ui';
 import {
   NAlert,
   NButton,
   NCard,
   NDataTable,
-  NDescriptions,
-  NDescriptionsItem,
-  NDivider,
   NDropdown,
   NInput,
   NModal,
   NPagination,
   NPopconfirm,
+  NPopover,
   NProgress,
   NSelect,
   NSpace,
@@ -35,6 +34,7 @@ import { useAppStore } from '@/store/modules/app';
 
 defineOptions({ name: 'List' });
 
+const router = useRouter();
 const authStore = useAuthStore();
 const appStore = useAppStore();
 const isSuperAdmin = computed(() => authStore.userInfo.roles.includes('R_SUPER'));
@@ -48,7 +48,7 @@ const checkedRowKeys = ref<DataTableRowKey[]>([]);
 
 const actionLoadingMap = reactive<Record<string, boolean>>({});
 
-// 详情弹窗相关
+// 详情弹窗相关 (保留11项完整参数规范)
 const detailModalVisible = ref(false);
 const currentDetail = ref<Api.Orders.Record | null>(null);
 
@@ -77,7 +77,7 @@ function statusType(status: string): 'default' | 'info' | 'success' | 'warning' 
 }
 
 function copyText(text: string, label = '内容') {
-  if (!text) {
+  if (!text || text === '-') {
     window.$message?.warning('暂无可复制内容');
     return;
   }
@@ -85,10 +85,10 @@ function copyText(text: string, label = '内容') {
   window.$message?.success(`${label}已复制到剪贴板`);
 }
 
-// 复制全部（学校+账号+密码+课程）
+// 复制全部（学校+账号+密码+课程+订单号）
 function copyAll(row: Api.Orders.Record) {
   const lines = [
-    `学校: ${row.school || '无'}`,
+    `学校: ${row.school || '自动识别'}`,
     `账号: ${row.account}`,
     `密码: ${row.password || '无'}`,
     `课程: ${row.courseName}`,
@@ -113,6 +113,14 @@ function copyFormattedDetail(row: Api.Orders.Record) {
     `10. 备注：${row.remarks || '无'}`
   ].join('\n');
   copyText(text, '订单完整详情');
+}
+
+// 跳转工单中心，并自动关联该订单号
+function handleOpenWorkorder(row: Api.Orders.Record) {
+  router.push({
+    path: '/index/workorder',
+    query: { oid: String(row.orderId) }
+  });
 }
 
 // 单单同步最新进度
@@ -316,210 +324,440 @@ function handleSelectDockStatus(key: string) {
   handleBatchDockStatus(key, dockStatusLabelMap[key] || key);
 }
 
+// 解析进度百分比
+function parseProgress(row: Api.Orders.Record): number {
+  const pStr = row.progress || '0%';
+  const numMatch = pStr.match(/(\d+(?:\.\d+)?)/);
+  if (numMatch) {
+    return Math.min(100, Math.max(0, parseFloat(numMatch[1])));
+  }
+  return row.status === '已完成' ? 100 : 0;
+}
+
+// 动态计算【更多】下拉菜单项
+function getMoreOptions(row: Api.Orders.Record) {
+  const options: any[] = [
+    {
+      label: '🔍 查看11项完整详情',
+      key: 'detail'
+    },
+    {
+      label: '📋 复制全部学员信息',
+      key: 'copyAll'
+    },
+    {
+      label: '🎫 提交该单售后工单',
+      key: 'workorder'
+    }
+  ];
+
+  if (isSuperAdmin.value) {
+    options.push({ type: 'divider', key: 'd1' });
+    if (String(row.dockStatus) === '2' || row.status === '异常') {
+      options.push({
+        label: '🚀 重新向货源交单',
+        key: 'dock'
+      });
+    }
+    options.push(
+      {
+        label: '💰 单单原路退款',
+        key: 'refund'
+      },
+      {
+        label: '🗑️ 彻底删除此单',
+        key: 'delete'
+      }
+    );
+  }
+
+  return options;
+}
+
+function handleMoreSelect(key: string, row: Api.Orders.Record) {
+  if (key === 'detail') {
+    openDetail(row);
+  } else if (key === 'copyAll') {
+    copyAll(row);
+  } else if (key === 'workorder') {
+    handleOpenWorkorder(row);
+  } else if (key === 'dock') {
+    handleDock(row);
+  } else if (key === 'refund') {
+    window.$dialog?.warning({
+      title: '订单退款确认',
+      content: `确定为订单 #${row.orderId} 全额退款吗？扣费金额将原路退回用户余额。`,
+      positiveText: '确定退款',
+      negativeText: '取消',
+      onPositiveClick: async () => {
+        const res = await batchRefundOrders([row.orderId]);
+        if (res !== null) {
+          window.$message?.success(`订单 #${row.orderId} 退款成功`);
+          loadOrders();
+        }
+      }
+    });
+  } else if (key === 'delete') {
+    window.$dialog?.error({
+      title: '删除订单确认',
+      content: `确定彻底删除订单 #${row.orderId} 吗？此操作不可恢复！`,
+      positiveText: '确定删除',
+      negativeText: '取消',
+      onPositiveClick: async () => {
+        const res = await batchDeleteOrders([row.orderId]);
+        if (res !== null) {
+          window.$message?.success(`订单 #${row.orderId} 删除成功`);
+          loadOrders();
+        }
+      }
+    });
+  }
+}
+
 /**
- * 严格按照用户指定与经典排版顺序（状态与进度合二为一）：
- * [复选框] [操作] [详细] [订单所属平台] [账号] [备注] [任务名称] [状态与进度] [订单详细信息] [时间] [状态(对接状态)] [UID] [扣费]
+ * 1:1 精准复刻目标简洁版表格列结构：
+ * [复选框] [订单ID] [操作] [平台] [学校 账号 密码] [课程] [课程ID] [任务状态] [进度] [备注] [提交时间] [学分]
  */
 const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
   const cols: DataTableColumns<Api.Orders.Record> = [
-    // 0. 多选小框 (复选框)
+    // 0. 复选框
     {
       type: 'selection',
-      width: 36
+      width: 36,
+      align: 'center'
     },
-    // 1. 操作
+    // 1. 订单ID (居中展示，支持点击一键复制单号)
+    {
+      title: '订单ID',
+      key: 'orderId',
+      width: 65,
+      align: 'center',
+      render: row =>
+        h(
+          'span',
+          {
+            class: 'font-mono text-12px text-gray-500 hover:text-primary cursor-pointer transition-colors select-none',
+            title: `点击复制订单号: #${row.orderId}`,
+            onClick: () => copyText(String(row.orderId), '订单ID')
+          },
+          row.orderId ? `-${row.orderId}` : '-'
+        )
+    },
+    // 2. 操作 (补刷 + 更新 + ∨更多)
     {
       title: '操作',
       key: 'actions',
-      width: 95,
+      width: 108,
+      align: 'center',
       render: row =>
-        h(NSpace, { size: 4, align: 'center' }, () => [
+        h('div', { class: 'flex flex-col items-center gap-4px py-2px' }, [
+          // 上层：补刷 + 更新
+          h('div', { class: 'flex items-center gap-4px' }, [
+            h(
+              NPopconfirm,
+              {
+                onPositiveClick: () => handleRebrush(row)
+              },
+              {
+                trigger: () =>
+                  h(
+                    NButton,
+                    {
+                      size: 'tiny',
+                      type: 'primary',
+                      class: 'px-6px h-22px font-bold text-11px rounded-4px shadow-xs',
+                      loading: Boolean(actionLoadingMap[`rebrush_${row.orderId}`])
+                    },
+                    { default: () => '补刷' }
+                  ),
+                default: () => `确定为订单 #${row.orderId} 申请补刷吗？`
+              }
+            ),
+            h(
+              NButton,
+              {
+                size: 'tiny',
+                type: 'default',
+                class: 'px-6px h-22px text-11px rounded-4px border-gray-300 text-gray-700 hover:text-primary hover:border-primary',
+                loading: Boolean(actionLoadingMap[`sync_${row.orderId}`]),
+                onClick: () => handleSync(row)
+              },
+              { default: () => '更新' }
+            )
+          ]),
+          // 下层：∨ 更多
           h(
-            NButton,
+            NDropdown,
             {
-              size: 'tiny',
-              type: 'primary',
-              secondary: true,
-              loading: Boolean(actionLoadingMap[`sync_${row.orderId}`]),
-              onClick: () => handleSync(row)
-            },
-            { default: () => '🔄 同步' }
-          ),
-          h(
-            NPopconfirm,
-            {
-              onPositiveClick: () => handleRebrush(row)
+              trigger: 'click',
+              options: getMoreOptions(row),
+              onSelect: (key: string) => handleMoreSelect(key, row)
             },
             {
-              trigger: () =>
+              default: () =>
                 h(
-                  NButton,
+                  'span',
                   {
-                    size: 'tiny',
-                    type: 'warning',
-                    secondary: true,
-                    loading: Boolean(actionLoadingMap[`rebrush_${row.orderId}`])
+                    class: 'text-11px text-blue-600 hover:text-blue-700 dark:text-blue-400 cursor-pointer font-medium hover:underline select-none'
                   },
-                  { default: () => '🚀 补刷' }
-                ),
-              default: () => `确定为订单 #${row.orderId} 申请补刷吗？`
+                  '∨ 更多'
+                )
             }
           )
         ])
     },
-    // 2. 详细
+    // 3. 平台
     {
-      title: '详细',
-      key: 'detail',
-      width: 40,
-      align: 'center',
-      render: row =>
-        h(
-          NButton,
-          {
-            size: 'tiny',
-            type: 'info',
-            round: true,
-            title: '查看订单11项详细参数',
-            onClick: () => openDetail(row)
-          },
-          { default: () => '🔍' }
-        )
-    },
-    // 3. 订单所属平台
-    {
-      title: '订单所属平台',
+      title: '平台',
       key: 'platform',
-      minWidth: 125,
+      minWidth: 120,
       render: row =>
         h(
           'div',
-          { class: 'whitespace-normal break-words font-medium leading-relaxed text-gray-800 dark:text-gray-100' },
+          { class: 'whitespace-normal break-words text-12px font-medium leading-relaxed text-gray-800 dark:text-gray-100' },
           row.platform || '无'
         )
     },
-    // 4. 账号
+    // 4. 学校 账号 密码 (3行竖排紧凑结构 + 独立[⎘ 复制]按钮)
     {
-      title: '账号',
-      key: 'account',
-      minWidth: 160,
+      title: '学校 账号 密码',
+      key: 'accountInfo',
+      minWidth: 175,
       render: row =>
-        h('div', { class: 'flex flex-col gap-3px py-3px text-12px' }, [
-          row.school
-            ? h('div', { class: 'flex items-center gap-4px' }, [
-                h(
-                  NButton,
-                  { size: 'tiny', tertiary: true, type: 'primary', class: 'px-4px h-18px text-10px', onClick: () => copyText(row.school, '学校') },
-                  { default: () => '学校' }
-                ),
-                h('span', { class: 'text-gray-600 dark:text-gray-300 break-words whitespace-normal leading-normal font-medium' }, row.school)
-              ])
-            : null,
-          h('div', { class: 'flex items-center gap-4px' }, [
+        h('div', { class: 'flex flex-col gap-2px py-2px text-11px font-mono' }, [
+          // 学校行
+          h('div', { class: 'flex items-center justify-between gap-4px' }, [
             h(
-              NButton,
-              { size: 'tiny', tertiary: true, type: 'info', class: 'px-4px h-18px text-10px', onClick: () => copyText(row.account, '账号') },
-              { default: () => '账号' }
+              'span',
+              { class: 'text-gray-600 dark:text-gray-300 truncate max-w-105px font-sans', title: row.school || '自动识别' },
+              row.school || '自动识别'
             ),
-            h('span', { class: 'font-mono font-bold text-gray-800 dark:text-gray-100' }, row.account)
-          ]),
-          row.password
-            ? h('div', { class: 'flex items-center gap-4px' }, [
-                h(
-                  NButton,
-                  { size: 'tiny', tertiary: true, class: 'px-4px h-18px text-10px text-gray-400', onClick: () => copyText(row.password || '', '密码') },
-                  { default: () => '密码' }
-                ),
-                h('span', { class: 'font-mono text-11px text-gray-500' }, row.password)
-              ])
-            : null,
-          h('div', { class: 'mt-2px' }, [
             h(
-              NButton,
-              { size: 'tiny', quaternary: true, type: 'success', class: 'px-4px h-18px text-10px', onClick: () => copyAll(row) },
-              { default: () => '📋 全部复制' }
+              'button',
+              {
+                class: 'px-4px py-1px text-10px text-gray-500 hover:text-primary bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded cursor-pointer transition-colors shrink-0 leading-tight flex items-center gap-2px',
+                title: '复制学校',
+                onClick: (e: MouseEvent) => {
+                  e.stopPropagation();
+                  copyText(row.school || '自动识别', '学校');
+                }
+              },
+              [
+                h('span', { class: 'text-10px' }, '⎘'),
+                h('span', {}, '复制')
+              ]
+            )
+          ]),
+          // 账号行
+          h('div', { class: 'flex items-center justify-between gap-4px' }, [
+            h(
+              'span',
+              { class: 'font-mono text-gray-900 dark:text-gray-100 font-medium truncate max-w-105px', title: row.account },
+              row.account
+            ),
+            h(
+              'button',
+              {
+                class: 'px-4px py-1px text-10px text-gray-500 hover:text-primary bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded cursor-pointer transition-colors shrink-0 leading-tight flex items-center gap-2px',
+                title: '复制账号',
+                onClick: (e: MouseEvent) => {
+                  e.stopPropagation();
+                  copyText(row.account, '账号');
+                }
+              },
+              [
+                h('span', { class: 'text-10px' }, '⎘'),
+                h('span', {}, '复制')
+              ]
+            )
+          ]),
+          // 密码行
+          h('div', { class: 'flex items-center justify-between gap-4px' }, [
+            h(
+              'span',
+              { class: 'font-mono text-gray-500 truncate max-w-105px text-11px', title: row.password || '-' },
+              row.password || '-'
+            ),
+            h(
+              'button',
+              {
+                class: 'px-4px py-1px text-10px text-gray-500 hover:text-primary bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded cursor-pointer transition-colors shrink-0 leading-tight flex items-center gap-2px',
+                title: '复制密码',
+                onClick: (e: MouseEvent) => {
+                  e.stopPropagation();
+                  copyText(row.password || '', '密码');
+                }
+              },
+              [
+                h('span', { class: 'text-10px' }, '⎘'),
+                h('span', {}, '复制')
+              ]
             )
           ])
         ])
     },
-    // 5. 任务名称
+    // 5. 课程
     {
-      title: '任务名称',
+      title: '课程',
       key: 'courseName',
-      minWidth: 135,
+      minWidth: 150,
       render: row =>
         h(
           'div',
-          { class: 'whitespace-normal break-words font-medium leading-relaxed text-gray-800 dark:text-gray-100' },
+          { class: 'whitespace-normal break-words text-12px font-medium leading-relaxed text-gray-900 dark:text-gray-100' },
           row.courseName || '无'
         )
     },
-    // 6. 任务状态与进度 (状态与进度二合一：高饱和清晰醒目款)
+    // 6. 课程ID (浅蓝色[查看]链接，气泡查看KCID与YID)
     {
-      title: '状态与进度',
-      key: 'statusProgress',
-      minWidth: 145,
+      title: '课程ID',
+      key: 'courseId',
+      width: 65,
+      align: 'center',
+      render: row =>
+        h(
+          NPopover,
+          {
+            trigger: 'click',
+            placement: 'bottom'
+          },
+          {
+            trigger: () =>
+              h(
+                'span',
+                {
+                  class: 'text-12px text-blue-600 hover:text-blue-700 dark:text-blue-400 cursor-pointer font-medium hover:underline select-none'
+                },
+                '查看'
+              ),
+            default: () =>
+              h('div', { class: 'p-6px flex flex-col gap-6px text-12px min-w-170px' }, [
+                h('div', { class: 'flex items-center justify-between border-b pb-4px' }, [
+                  h('span', { class: 'text-gray-500' }, '课程 ID (KCID):'),
+                  h('strong', { class: 'font-mono text-primary' }, row.kcid || '无')
+                ]),
+                h('div', { class: 'flex items-center justify-between border-b pb-4px' }, [
+                  h('span', { class: 'text-gray-500' }, '上游 YID:'),
+                  h('strong', { class: 'font-mono text-emerald-600' }, (row.yid && row.yid !== '0') ? row.yid : '暂无')
+                ]),
+                h('div', { class: 'flex items-center justify-between' }, [
+                  h('span', { class: 'text-gray-500' }, '订单单号:'),
+                  h('span', { class: 'font-mono font-bold' }, `#${row.orderId}`)
+                ]),
+                h(
+                  NButton,
+                  {
+                    size: 'tiny',
+                    type: 'primary',
+                    secondary: true,
+                    class: 'mt-4px w-full',
+                    onClick: () => openDetail(row)
+                  },
+                  { default: () => '查看11项完整参数' }
+                )
+              ])
+          }
+        )
+    },
+    // 7. 任务状态 (彩色胶囊 + 紫色[工单]小标)
+    {
+      title: '任务状态',
+      key: 'taskStatus',
+      width: 125,
       render: row => {
-        const pStr = row.progress || '0%';
-        const numMatch = pStr.match(/(\d+(?:\.\d+)?)/);
-        const percent = numMatch ? Math.min(100, Math.max(0, parseFloat(numMatch[1]))) : (row.status === '已完成' ? 100 : 0);
+        const percent = parseProgress(row);
         const isComplete = percent >= 100 || row.status === '已完成';
         const isError = row.status === '异常';
         const isCancel = row.status === '已取消';
+        const isRebrush = row.status === '补刷中';
+        const isQueue = row.status === '待处理' || percent === 0;
 
-        // 状态标签属性与高饱和进度条渐变配置
-        let tagType: 'success' | 'info' | 'warning' | 'error' | 'default' = 'info';
-        let statusLabel = row.status || '进行中';
-        let trackColor = 'linear-gradient(90deg, #3b82f6 0%, #6366f1 100%)';
+        let tagColor = { color: '#eff6ff', textColor: '#2563eb', borderColor: '#bfdbfe' }; // 队列中：浅蓝
+        let statusText = '队列中';
+        let icon = '🕒';
 
         if (isComplete) {
-          tagType = 'success';
-          statusLabel = '已完成';
-          trackColor = 'linear-gradient(90deg, #10b981 0%, #059669 100%)';
+          tagColor = { color: '#ecfdf5', textColor: '#059669', borderColor: '#a7f3d0' };
+          statusText = '已完成';
+          icon = '✔';
         } else if (isError) {
-          tagType = 'error';
-          statusLabel = '异常';
-          trackColor = 'linear-gradient(90deg, #ef4444 0%, #dc2626 100%)';
+          tagColor = { color: '#fef2f2', textColor: '#dc2626', borderColor: '#fecaca' };
+          statusText = '异常';
+          icon = '✖';
         } else if (isCancel) {
-          tagType = 'default';
-          statusLabel = '已取消';
-          trackColor = '#94a3b8';
-        } else if (percent === 0 || row.status === '待处理') {
-          tagType = 'warning';
-          statusLabel = '待处理';
-          trackColor = 'linear-gradient(90deg, #f59e0b 0%, #d97706 100%)';
+          tagColor = { color: '#f8fafc', textColor: '#64748b', borderColor: '#cbd5e1' };
+          statusText = '已取消';
+          icon = '⚪';
+        } else if (isRebrush) {
+          tagColor = { color: '#faf5ff', textColor: '#7c3aed', borderColor: '#e9d5ff' };
+          statusText = '补刷中';
+          icon = '🔄';
+        } else if (!isQueue) {
+          tagColor = { color: '#fffbeb', textColor: '#d97706', borderColor: '#fde68a' };
+          statusText = '进行中';
+          icon = '⚡';
         }
 
-        return h('div', { class: 'flex flex-col gap-4px w-135px py-2px' }, [
-          // 上排：高饱和彩色药丸状态标签 + 粗体百分比
-          h('div', { class: 'flex items-center justify-between' }, [
-            h(
-              NTag,
-              { type: tagType, size: 'tiny', round: true, class: 'font-bold px-6px' },
-              { default: () => statusLabel }
-            ),
-            h(
-              'span',
-              {
-                class: `font-mono text-12px font-extrabold ${
-                  isComplete
-                    ? 'text-emerald-600 dark:text-emerald-400'
-                    : 'text-gray-800 dark:text-gray-100'
-                }`
-              },
-              isComplete ? '100% ✔' : `${percent}%`
-            )
-          ]),
-          // 下排：高清晰度实心双色渐变轨道条 (高度 6px，强对比度底槽)
+        return h('div', { class: 'flex items-center gap-4px py-2px' }, [
+          // 圆角药丸胶囊状态
+          h(
+            NTag,
+            {
+              size: 'tiny',
+              round: true,
+              color: tagColor,
+              class: 'font-bold px-6px text-11px'
+            },
+            { default: () => `${icon} ${statusText}` }
+          ),
+          // 紫色微型【工单】标签按钮
+          h(
+            'button',
+            {
+              class: 'px-5px py-1px text-10px font-medium rounded text-white bg-purple-600 hover:bg-purple-700 transition-colors cursor-pointer border-none shadow-xs leading-tight flex items-center justify-center shrink-0',
+              title: `针对订单 #${row.orderId} 发起售后工单`,
+              onClick: (e: MouseEvent) => {
+                e.stopPropagation();
+                handleOpenWorkorder(row);
+              }
+            },
+            '工单'
+          )
+        ]);
+      }
+    },
+    // 8. 进度 (上排百分比，下排4px细进度条)
+    {
+      title: '进度',
+      key: 'progress',
+      width: 95,
+      render: row => {
+        const percent = parseProgress(row);
+        const isComplete = percent >= 100 || row.status === '已完成';
+        const percentText = (isComplete ? 100 : percent).toFixed(2) + '%';
+        const barColor = isComplete ? '#10b981' : '#3b82f6';
+
+        return h('div', { class: 'flex flex-col gap-3px w-75px py-2px' }, [
+          // 上排百分比文本
           h(
             'div',
-            { class: 'w-full h-6px rounded-full bg-gray-200 dark:bg-dark-500 overflow-hidden shadow-inner' },
+            {
+              class: `font-mono text-11px font-medium text-center ${
+                isComplete ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-blue-600 dark:text-blue-400'
+              }`
+            },
+            percentText
+          ),
+          // 下排4px纤细高饱和轨道条
+          h(
+            'div',
+            { class: 'w-full h-4px rounded-full bg-gray-200 dark:bg-dark-500 overflow-hidden' },
             [
               h('div', {
                 class: 'h-full rounded-full transition-all duration-300',
                 style: {
-                  width: `${percent}%`,
-                  background: trackColor
+                  width: `${isComplete ? 100 : percent}%`,
+                  backgroundColor: barColor
                 }
               })
             ]
@@ -527,62 +765,26 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
         ]);
       }
     },
-    // 7. 订单详细信息 (大字号、高对比、层级醒目)
+    // 9. 备注 (灰色详细进度与说明记录)
     {
-      title: '订单详细信息',
-      key: 'detailInfo',
-      minWidth: 210,
+      title: '备注',
+      key: 'remarks',
+      minWidth: 220,
       render: row => {
-        const text = row.remarks || (row.finalupdate ? `上次同步: ${row.finalupdate}` : '暂无详细上游记录');
-        if (!row.remarks) {
-          return h('span', { class: 'text-gray-400 text-13px font-medium' }, text);
-        }
-        // 如果包含 || 或 | 分隔符，做分行结构化大字号展示
-        const delimiter = text.includes('||') ? '||' : (text.includes('|') ? '|' : null);
-        if (delimiter) {
-          const parts = text.split(delimiter).map((s: string) => s.trim()).filter(Boolean);
-          return h(
-            'div',
-            { class: 'flex flex-col gap-4px py-4px leading-relaxed' },
-            parts.map((p: string, idx: number) => {
-              if (idx === 0) {
-                // 第一行：当前执行主体，14px 粗体高对比
-                return h(
-                  'div',
-                  { class: 'text-13px sm:text-14px font-bold text-gray-900 dark:text-gray-100 tracking-wide' },
-                  p
-                );
-              }
-              // 子行高亮判定：状态或进度高对比显示
-              let colorClass = 'text-gray-700 dark:text-gray-300';
-              if (p.includes('进行中') || p.includes('刷课中')) {
-                colorClass = 'text-blue-600 dark:text-blue-400 font-bold';
-              } else if (p.includes('已完成') || p.includes('全部做完') || p.includes('100%')) {
-                colorClass = 'text-emerald-600 dark:text-emerald-400 font-bold';
-              } else if (p.includes('异常') || p.includes('失败') || p.includes('错误')) {
-                colorClass = 'text-rose-600 dark:text-rose-400 font-bold';
-              }
-              return h(
-                'div',
-                { class: `flex items-center gap-4px text-12px sm:text-13px font-medium font-mono ${colorClass}` },
-                [
-                  h('span', { class: 'text-gray-400 font-normal select-none' }, '•'),
-                  h('span', {}, p)
-                ]
-              );
-            })
-          );
-        }
+        const text = row.remarks || '-';
         return h(
           'div',
-          { class: 'whitespace-normal break-words text-13px sm:text-14px font-bold leading-relaxed text-gray-900 dark:text-gray-100 py-4px' },
+          {
+            class: 'whitespace-normal break-words text-12px leading-relaxed text-gray-700 dark:text-gray-300 py-2px font-sans',
+            title: text !== '-' ? text : ''
+          },
           text
         );
       }
     },
-    // 10. 时间 (双行紧凑展示)
+    // 10. 提交时间 (双行紧凑展示)
     {
-      title: '时间',
+      title: '提交时间',
       key: 'createdAt',
       width: 95,
       render: row => {
@@ -593,87 +795,21 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
             h('div', {}, parts[1])
           ]);
         }
-        return h('span', { class: 'text-11px font-mono' }, row.createdAt || '-');
+        return h('span', { class: 'text-11px font-mono text-gray-500' }, row.createdAt || '-');
+      }
+    },
+    // 11. 学分 (扣费数值展示)
+    {
+      title: '学分',
+      key: 'fees',
+      width: 75,
+      align: 'right',
+      render: row => {
+        const num = row.fees !== undefined && row.fees !== null ? Number(row.fees).toFixed(3) : '0.000';
+        return h('span', { class: 'font-mono text-12px text-gray-800 dark:text-gray-200 font-medium' }, num);
       }
     }
   ];
-
-  // 11. 状态 (对接状态: 严格根据用户指令，放到后面，且仅管理员可见)
-  if (isSuperAdmin.value) {
-    cols.push({
-      title: '状态',
-      key: 'dockStatus',
-      width: 85,
-      render: row => {
-        const ds = String(row.dockStatus ?? '');
-        if (ds === '1') {
-          return h(NTag, { type: 'success', size: 'small', round: true }, { default: () => '处理成功' });
-        }
-        if (ds === '0') {
-          return h(NTag, { type: 'info', size: 'small', round: true }, { default: () => '等待处理' });
-        }
-        if (ds === '2') {
-          // 提交失败：管理员可点击重新对接提交
-          return h(
-            NPopconfirm,
-            {
-              onPositiveClick: () => handleDock(row)
-            },
-            {
-              trigger: () =>
-                h(
-                  NButton,
-                  {
-                    size: 'tiny',
-                    type: 'error',
-                    dashed: true,
-                    loading: Boolean(actionLoadingMap[`dock_${row.orderId}`])
-                  },
-                  { default: () => '❌ 提交失败 (重推)' }
-                ),
-              default: () => `确定重新向货源提交订单 #${row.orderId} 吗？`
-            }
-          );
-        }
-        if (ds === '3') {
-          return h(NTag, { type: 'default', size: 'small', round: true }, { default: () => '重复下单' });
-        }
-        if (ds === '4') {
-          return h(NTag, { type: 'default', size: 'small', round: true }, { default: () => '已取消' });
-        }
-        if (ds === '99') {
-          return h(NTag, { type: 'warning', size: 'small', round: true }, { default: () => '自营订单' });
-        }
-        return h(NTag, { type: 'default', size: 'small', round: true }, { default: () => '未知状态' });
-      }
-    });
-  }
-
-  // 12. UID
-  cols.push({
-    title: 'UID',
-    key: 'ownerId',
-    width: 42,
-    align: 'center',
-    render: row => h('span', { class: 'font-mono text-12px font-bold text-gray-500' }, row.ownerId || '1')
-  });
-
-  // 13. 扣费
-  cols.push({
-    title: '扣费',
-    key: 'fees',
-    minWidth: 72,
-    align: 'center',
-    render: row =>
-      h(
-        'div',
-        { class: 'inline-flex items-baseline justify-center font-mono font-bold text-rose-500 whitespace-nowrap' },
-        [
-          h('span', { class: 'text-11px mr-1px' }, '¥'),
-          h('span', { class: 'text-12px' }, row.fees ?? '0.00')
-        ]
-      )
-  });
 
   return cols;
 });
@@ -747,7 +883,7 @@ onMounted(loadOrders);
         </NButton>
       </div>
 
-      <!-- 快捷批量动作与提示栏 (完全消除折叠空行，采用一体化下拉操作) -->
+      <!-- 快捷批量动作与提示栏 (一体化下拉操作) -->
       <div class="mb-14px flex flex-wrap items-center justify-between gap-12px rounded-8px bg-blue-50/60 dark:bg-dark-600 p-10px border border-blue-100 dark:border-dark-500">
         <div class="flex flex-wrap items-center gap-8px">
           <span class="text-13px text-gray-700 dark:text-gray-200">
@@ -778,7 +914,7 @@ onMounted(loadOrders);
         </div>
       </div>
 
-      <!-- 数据表格 (带首列多选框与移动端横向滑动保护) -->
+      <!-- 数据表格 (1:1 复刻目标版精细排版) -->
       <NDataTable
         v-model:checked-row-keys="checkedRowKeys"
         :loading="loading"
@@ -786,7 +922,7 @@ onMounted(loadOrders);
         :data="records"
         :row-key="(row: Api.Orders.Record) => row.orderId"
         :pagination="false"
-        :scroll-x="1280"
+        :scroll-x="1260"
         striped
       />
 
@@ -808,7 +944,7 @@ onMounted(loadOrders);
     <NModal
       v-model:show="detailModalVisible"
       preset="card"
-      :title="`订单详细参数 [反向反馈ID: ${currentDetail?.orderId || ''}]`"
+      :title="`订单详细参数 [站内反馈ID: #${currentDetail?.orderId || ''}]`"
       :style="{ width: appStore.isMobile ? '92vw' : '620px' }"
     >
       <div v-if="currentDetail" class="flex flex-col gap-12px text-13px">
@@ -939,8 +1075,12 @@ onMounted(loadOrders);
 <style scoped>
 :deep(.n-data-table-th) {
   white-space: nowrap !important;
+  font-size: 12px;
+  background-color: #fafafc !important;
+  color: #374151 !important;
 }
 :deep(.n-data-table-td) {
   vertical-align: middle;
+  padding: 6px 8px !important;
 }
 </style>
