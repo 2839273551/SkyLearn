@@ -249,7 +249,7 @@ onUnmounted(() => {
     </NCard>
 
     <!-- 任务多窗口列表栅格 (每个任务一个简洁干净的窗口) -->
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-14px">
+    <div class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-4 gap-14px">
       <div
         v-for="task in tasks"
         :key="task.id"
@@ -257,51 +257,65 @@ onUnmounted(() => {
         :class="task.enabled ? 'border-gray-200 hover:border-primary/50 dark:border-dark-500' : 'border-dashed border-gray-300 opacity-75 dark:border-dark-600'"
       >
         <div>
-          <!-- 窗口头部：任务标识、开关、周期选择 -->
-          <div class="flex items-start justify-between gap-8px border-b border-gray-100 pb-8px dark:border-dark-600">
-            <div>
-              <div class="flex items-center gap-6px flex-wrap">
-                <span class="rounded bg-primary/10 px-6px py-1px font-mono text-11px font-bold text-primary">
-                  {{ task.id.toUpperCase() }}
-                </span>
-                <span class="text-14px font-bold text-gray-800 dark:text-gray-100">
-                  {{ task.name }}
-                </span>
-                <NTag
-                  v-if="task.id === 'progress_active' || task.id === 'progress_exam' || task.id === 'order_dispatch'"
-                  :type="(task.pending_count ?? 0) > 0 ? (task.id === 'progress_active' ? 'info' : 'warning') : 'default'"
-                  size="tiny"
-                  round
-                  class="font-mono font-bold px-6px"
-                >
-                  {{ (task.pending_count ?? 0) > 0 ? `轮询中: ${task.pending_count} 单` : '0 单在轮询' }}
-                </NTag>
-              </div>
-              <p class="mt-3px text-12px text-gray-400 line-clamp-1" :title="task.description">
-                {{ task.description }}
-              </p>
+          <!-- 窗口头部：任务标识、名称与开关单行齐平对齐，绝不换行断裂 -->
+          <div class="flex items-center justify-between gap-8px border-b border-gray-100 pb-8px dark:border-dark-600">
+            <div class="flex items-center gap-6px min-w-0">
+              <span class="rounded bg-primary/10 px-6px py-1px font-mono text-11px font-bold text-primary shrink-0">
+                {{ task.id.toUpperCase() }}
+              </span>
+              <span class="text-14px font-bold text-gray-800 dark:text-gray-100 truncate" :title="task.name">
+                {{ task.name }}
+              </span>
             </div>
 
             <!-- 任务开关 -->
-            <div class="flex items-center gap-6px">
-              <NSwitch
-                :value="task.enabled"
-                size="small"
-                @update:value="checked => handleToggleSwitch(task, checked)"
-              />
-            </div>
+            <NSwitch
+              :value="task.enabled"
+              size="small"
+              class="shrink-0"
+              @update:value="checked => handleToggleSwitch(task, checked)"
+            />
           </div>
 
-          <!-- 调度周期设置（几分钟运行一次） -->
-          <div class="mt-8px flex items-center justify-between gap-8px rounded-6px bg-gray-50/80 px-8px py-4px text-12px dark:bg-dark-600">
-            <span class="text-gray-500">运行频次：</span>
-            <NSelect
-              :value="task.interval_mins"
-              :options="intervalOptions"
-              size="tiny"
-              class="w-140px"
-              @update:value="mins => handleIntervalChange(task, mins)"
-            />
+          <!-- 任务描述 -->
+          <p class="mt-4px text-12px text-gray-400 truncate" :title="task.description">
+            {{ task.description }}
+          </p>
+
+          <!-- 核心指标与频次控制栏 (两端整齐对齐：左侧统一轮询单量，右侧频次下拉，完全规整一致) -->
+          <div class="mt-8px flex items-center justify-between gap-8px rounded-6px bg-gray-50/90 dark:bg-dark-600 px-10px py-6px text-12px">
+            <!-- 左侧：统一规范的轮询单量显示 -->
+            <div class="flex items-center gap-4px shrink-0 whitespace-nowrap">
+              <template v-if="task.id === 'progress_active' || task.id === 'progress_exam' || task.id === 'order_dispatch'">
+                <span class="text-gray-500 font-medium">当前轮询:</span>
+                <span
+                  class="font-mono text-14px font-extrabold"
+                  :class="(task.pending_count ?? 0) > 0 ? 'text-primary' : 'text-gray-400'"
+                >
+                  {{ task.pending_count ?? 0 }}
+                </span>
+                <span class="text-gray-400 text-11px">单</span>
+              </template>
+              <template v-else>
+                <span class="text-gray-500 font-medium">日志留存:</span>
+                <span class="font-mono text-13px font-bold text-gray-700 dark:text-gray-300">
+                  {{ summary.total_logs ?? 0 }}
+                </span>
+                <span class="text-gray-400 text-11px">条</span>
+              </template>
+            </div>
+
+            <!-- 右侧：频次选择 -->
+            <div class="flex items-center gap-4px shrink-0">
+              <span class="text-gray-400 text-11px">频次:</span>
+              <NSelect
+                :value="task.interval_mins"
+                :options="intervalOptions"
+                size="tiny"
+                class="w-130px"
+                @update:value="mins => handleIntervalChange(task, mins)"
+              />
+            </div>
           </div>
 
           <!-- 黑客流极客终端视窗 (实时日志) -->
@@ -319,39 +333,24 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- 窗口底部动作栏 -->
+        <!-- 窗口底部动作栏 (单行平铺，绝不折行) -->
         <div class="mt-10px flex items-center justify-between gap-8px pt-8px border-t border-gray-100 dark:border-dark-600 text-12px">
-          <div class="flex items-center gap-4px">
-            <template v-if="task.id === 'progress_active' || task.id === 'progress_exam' || task.id === 'order_dispatch'">
-              <span class="text-gray-500">正在轮询:</span>
-              <strong
-                class="font-mono text-14px font-bold"
-                :class="(task.pending_count ?? 0) > 0 ? 'text-primary' : 'text-gray-400'"
-              >
-                {{ task.pending_count ?? 0 }}
-              </strong>
-              <span class="text-gray-400 text-11px">单</span>
-              <span class="text-gray-300 mx-2px">|</span>
-              <span class="text-gray-400 text-11px">累计 {{ task.total_success }} 笔</span>
-            </template>
-            <template v-else>
-              <span class="text-gray-500">已清理:</span>
-              <strong class="font-mono text-13px text-gray-700 dark:text-gray-300 font-bold">{{ task.total_success }}</strong>
-              <span class="text-gray-400 text-11px">条</span>
-            </template>
+          <div class="text-gray-500 shrink-0 whitespace-nowrap text-12px">
+            累计处理: <strong class="text-gray-800 dark:text-gray-200 font-mono font-bold">{{ task.total_success }}</strong> 笔
           </div>
 
-          <div class="flex items-center gap-6px">
-            <NButton size="tiny" secondary @click="openLogs(task)">
-              📜 历史日志
+          <div class="flex items-center gap-6px shrink-0">
+            <NButton size="tiny" secondary class="px-6px" @click="openLogs(task)">
+              📜 日志
             </NButton>
             <NButton
               size="tiny"
               type="primary"
+              class="px-8px font-medium"
               :loading="Boolean(runningTaskMap[task.id])"
               @click="handleRunSingle(task)"
             >
-              ▶️ 立即运行
+              ▶️ 运行
             </NButton>
           </div>
         </div>
