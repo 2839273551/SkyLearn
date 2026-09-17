@@ -415,20 +415,20 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
     // 0. 复选框
     {
       type: 'selection',
-      width: 36,
+      width: 40,
       align: 'center'
     },
     // 1. 订单ID (居中展示，支持点击一键复制单号)
     {
       title: '订单ID',
       key: 'orderId',
-      width: 65,
+      width: 75,
       align: 'center',
       render: row =>
         h(
           'span',
           {
-            class: 'font-mono text-12px text-gray-500 hover:text-primary cursor-pointer transition-colors select-none',
+            class: 'font-mono text-13px sm:text-14px font-bold text-gray-600 dark:text-gray-300 hover:text-primary cursor-pointer transition-colors select-none',
             title: `点击复制订单号: #${row.orderId}`,
             onClick: () => copyText(String(row.orderId), '订单ID')
           },
@@ -439,12 +439,12 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
     {
       title: '操作',
       key: 'actions',
-      width: 108,
+      width: 120,
       align: 'center',
       render: row =>
-        h('div', { class: 'flex flex-col items-center gap-4px py-2px' }, [
+        h('div', { class: 'flex flex-col items-center gap-5px py-2px' }, [
           // 上层：补刷 + 更新
-          h('div', { class: 'flex items-center gap-4px' }, [
+          h('div', { class: 'flex items-center gap-5px' }, [
             h(
               NPopconfirm,
               {
@@ -457,7 +457,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
                     {
                       size: 'tiny',
                       type: 'primary',
-                      class: 'px-6px h-22px font-bold text-11px rounded-4px shadow-xs',
+                      class: 'px-8px h-24px font-bold text-12px rounded-4px shadow-xs',
                       loading: Boolean(actionLoadingMap[`rebrush_${row.orderId}`])
                     },
                     { default: () => '补刷' }
@@ -470,7 +470,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
               {
                 size: 'tiny',
                 type: 'default',
-                class: 'px-6px h-22px text-11px rounded-4px border-gray-300 text-gray-700 hover:text-primary hover:border-primary',
+                class: 'px-8px h-24px text-12px font-medium rounded-4px border-gray-300 text-gray-700 hover:text-primary hover:border-primary',
                 loading: Boolean(actionLoadingMap[`sync_${row.orderId}`]),
                 onClick: () => handleSync(row)
               },
@@ -490,7 +490,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
                 h(
                   'span',
                   {
-                    class: 'text-11px text-blue-600 hover:text-blue-700 dark:text-blue-400 cursor-pointer font-medium hover:underline select-none'
+                    class: 'text-12px text-blue-600 hover:text-blue-700 dark:text-blue-400 cursor-pointer font-medium hover:underline select-none'
                   },
                   '∨ 更多'
                 )
@@ -502,32 +502,32 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
     {
       title: '平台',
       key: 'platform',
-      minWidth: 120,
+      minWidth: 125,
       render: row =>
         h(
           'div',
-          { class: 'whitespace-normal break-words text-12px font-medium leading-relaxed text-gray-800 dark:text-gray-100' },
+          { class: 'whitespace-normal break-words text-13px sm:text-14px font-medium leading-relaxed text-gray-800 dark:text-gray-100' },
           row.platform || '无'
         )
     },
-    // 4. 学校 账号 密码 (3行竖排紧凑结构 + 独立[⎘ 复制]按钮)
+    // 4. 学校 账号 密码 (3行竖排紧凑结构 + 独立[⎘ 复制]按钮，大号高清字号)
     {
       title: '学校 账号 密码',
       key: 'accountInfo',
-      minWidth: 175,
+      minWidth: 185,
       render: row =>
-        h('div', { class: 'flex flex-col gap-2px py-2px text-11px font-mono' }, [
+        h('div', { class: 'flex flex-col gap-3px py-2px text-13px' }, [
           // 学校行
           h('div', { class: 'flex items-center justify-between gap-4px' }, [
             h(
               'span',
-              { class: 'text-gray-600 dark:text-gray-300 truncate max-w-105px font-sans', title: row.school || '自动识别' },
+              { class: 'text-gray-700 dark:text-gray-200 truncate max-w-115px font-sans text-13px', title: row.school || '自动识别' },
               row.school || '自动识别'
             ),
             h(
               'button',
               {
-                class: 'px-4px py-1px text-10px text-gray-500 hover:text-primary bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded cursor-pointer transition-colors shrink-0 leading-tight flex items-center gap-2px',
+                class: 'px-5px py-2px text-11px text-gray-600 hover:text-primary bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded cursor-pointer transition-colors shrink-0 leading-tight flex items-center gap-2px',
                 title: '复制学校',
                 onClick: (e: MouseEvent) => {
                   e.stopPropagation();
@@ -535,7 +535,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
                 }
               },
               [
-                h('span', { class: 'text-10px' }, '⎘'),
+                h('span', { class: 'text-11px' }, '⎘'),
                 h('span', {}, '复制')
               ]
             )
@@ -544,13 +544,13 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
           h('div', { class: 'flex items-center justify-between gap-4px' }, [
             h(
               'span',
-              { class: 'font-mono text-gray-900 dark:text-gray-100 font-medium truncate max-w-105px', title: row.account },
+              { class: 'font-mono text-gray-900 dark:text-gray-100 font-bold text-14px truncate max-w-115px', title: row.account },
               row.account
             ),
             h(
               'button',
               {
-                class: 'px-4px py-1px text-10px text-gray-500 hover:text-primary bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded cursor-pointer transition-colors shrink-0 leading-tight flex items-center gap-2px',
+                class: 'px-5px py-2px text-11px text-gray-600 hover:text-primary bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded cursor-pointer transition-colors shrink-0 leading-tight flex items-center gap-2px',
                 title: '复制账号',
                 onClick: (e: MouseEvent) => {
                   e.stopPropagation();
@@ -558,7 +558,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
                 }
               },
               [
-                h('span', { class: 'text-10px' }, '⎘'),
+                h('span', { class: 'text-11px' }, '⎘'),
                 h('span', {}, '复制')
               ]
             )
@@ -567,13 +567,13 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
           h('div', { class: 'flex items-center justify-between gap-4px' }, [
             h(
               'span',
-              { class: 'font-mono text-gray-500 truncate max-w-105px text-11px', title: row.password || '-' },
+              { class: 'font-mono text-gray-600 dark:text-gray-300 truncate max-w-115px text-13px font-medium', title: row.password || '-' },
               row.password || '-'
             ),
             h(
               'button',
               {
-                class: 'px-4px py-1px text-10px text-gray-500 hover:text-primary bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded cursor-pointer transition-colors shrink-0 leading-tight flex items-center gap-2px',
+                class: 'px-5px py-2px text-11px text-gray-600 hover:text-primary bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded cursor-pointer transition-colors shrink-0 leading-tight flex items-center gap-2px',
                 title: '复制密码',
                 onClick: (e: MouseEvent) => {
                   e.stopPropagation();
@@ -581,7 +581,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
                 }
               },
               [
-                h('span', { class: 'text-10px' }, '⎘'),
+                h('span', { class: 'text-11px' }, '⎘'),
                 h('span', {}, '复制')
               ]
             )
@@ -592,11 +592,11 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
     {
       title: '课程',
       key: 'courseName',
-      minWidth: 150,
+      minWidth: 160,
       render: row =>
         h(
           'div',
-          { class: 'whitespace-normal break-words text-12px font-medium leading-relaxed text-gray-900 dark:text-gray-100' },
+          { class: 'whitespace-normal break-words text-13px sm:text-14px font-bold leading-normal text-gray-900 dark:text-gray-100' },
           row.courseName || '无'
         )
     },
@@ -604,7 +604,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
     {
       title: '课程ID',
       key: 'courseId',
-      width: 65,
+      width: 70,
       align: 'center',
       render: row =>
         h(
@@ -618,12 +618,12 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
               h(
                 'span',
                 {
-                  class: 'text-12px text-blue-600 hover:text-blue-700 dark:text-blue-400 cursor-pointer font-medium hover:underline select-none'
+                  class: 'text-13px text-blue-600 hover:text-blue-700 dark:text-blue-400 cursor-pointer font-bold hover:underline select-none'
                 },
                 '查看'
               ),
             default: () =>
-              h('div', { class: 'p-6px flex flex-col gap-6px text-12px min-w-170px' }, [
+              h('div', { class: 'p-8px flex flex-col gap-6px text-13px min-w-180px' }, [
                 h('div', { class: 'flex items-center justify-between border-b pb-4px' }, [
                   h('span', { class: 'text-gray-500' }, '课程 ID (KCID):'),
                   h('strong', { class: 'font-mono text-primary' }, row.kcid || '无')
@@ -651,27 +651,30 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
           }
         )
     },
-    // 7. 任务状态 (彩色胶囊 + 紫色[工单]小标)
+    // 7. 任务状态 (彻底去除工单按钮，高亮补刷中优先级，绝不被100%误判为已完成)
     {
       title: '任务状态',
       key: 'taskStatus',
-      width: 125,
+      width: 110,
+      align: 'center',
       render: row => {
         const percent = parseProgress(row);
-        const isComplete = percent >= 100 || row.status === '已完成';
+        const isRebrush = row.status === '补刷中';
         const isError = row.status === '异常';
         const isCancel = row.status === '已取消';
-        const isRebrush = row.status === '补刷中';
-        const isQueue = row.status === '待处理' || percent === 0;
+        const isOngoing = row.status === '进行中';
+        const isQueue = row.status === '待处理';
+        // 关键修复：只要是补刷中，绝对不判定为已完成！
+        const isComplete = !isRebrush && (percent >= 100 || row.status === '已完成');
 
         let tagColor = { color: '#eff6ff', textColor: '#2563eb', borderColor: '#bfdbfe' }; // 队列中：浅蓝
         let statusText = '队列中';
         let icon = '🕒';
 
-        if (isComplete) {
-          tagColor = { color: '#ecfdf5', textColor: '#059669', borderColor: '#a7f3d0' };
-          statusText = '已完成';
-          icon = '✔';
+        if (isRebrush) {
+          tagColor = { color: '#faf5ff', textColor: '#7c3aed', borderColor: '#e9d5ff' };
+          statusText = '补刷中';
+          icon = '🔄';
         } else if (isError) {
           tagColor = { color: '#fef2f2', textColor: '#dc2626', borderColor: '#fecaca' };
           statusText = '异常';
@@ -680,75 +683,70 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
           tagColor = { color: '#f8fafc', textColor: '#64748b', borderColor: '#cbd5e1' };
           statusText = '已取消';
           icon = '⚪';
-        } else if (isRebrush) {
-          tagColor = { color: '#faf5ff', textColor: '#7c3aed', borderColor: '#e9d5ff' };
-          statusText = '补刷中';
-          icon = '🔄';
-        } else if (!isQueue) {
+        } else if (isComplete) {
+          tagColor = { color: '#ecfdf5', textColor: '#059669', borderColor: '#a7f3d0' };
+          statusText = '已完成';
+          icon = '✔';
+        } else if (isOngoing) {
           tagColor = { color: '#fffbeb', textColor: '#d97706', borderColor: '#fde68a' };
           statusText = '进行中';
           icon = '⚡';
+        } else if (isQueue || percent === 0) {
+          tagColor = { color: '#eff6ff', textColor: '#2563eb', borderColor: '#bfdbfe' };
+          statusText = '队列中';
+          icon = '🕒';
+        } else {
+          tagColor = { color: '#fffbeb', textColor: '#d97706', borderColor: '#fde68a' };
+          statusText = row.status || '进行中';
+          icon = '⚡';
         }
 
-        return h('div', { class: 'flex items-center gap-4px py-2px' }, [
-          // 圆角药丸胶囊状态
-          h(
-            NTag,
-            {
-              size: 'tiny',
-              round: true,
-              color: tagColor,
-              class: 'font-bold px-6px text-11px'
-            },
-            { default: () => `${icon} ${statusText}` }
-          ),
-          // 紫色微型【工单】标签按钮
-          h(
-            'button',
-            {
-              class: 'px-5px py-1px text-10px font-medium rounded text-white bg-purple-600 hover:bg-purple-700 transition-colors cursor-pointer border-none shadow-xs leading-tight flex items-center justify-center shrink-0',
-              title: `针对订单 #${row.orderId} 发起售后工单`,
-              onClick: (e: MouseEvent) => {
-                e.stopPropagation();
-                handleOpenWorkorder(row);
-              }
-            },
-            '工单'
-          )
-        ]);
+        return h(
+          NTag,
+          {
+            size: 'small',
+            round: true,
+            color: tagColor,
+            class: 'font-bold px-8px text-12px shadow-xs'
+          },
+          { default: () => `${icon} ${statusText}` }
+        );
       }
     },
-    // 8. 进度 (上排百分比，下排4px细进度条)
+    // 8. 进度 (上排大号百分比，下排5px细进度条)
     {
       title: '进度',
       key: 'progress',
-      width: 95,
+      width: 100,
       render: row => {
         const percent = parseProgress(row);
-        const isComplete = percent >= 100 || row.status === '已完成';
-        const percentText = (isComplete ? 100 : percent).toFixed(2) + '%';
-        const barColor = isComplete ? '#10b981' : '#3b82f6';
+        const isRebrush = row.status === '补刷中';
+        const isComplete = !isRebrush && (percent >= 100 || row.status === '已完成');
+        const percentText = isRebrush ? '补刷中' : ((isComplete ? 100 : percent).toFixed(2) + '%');
+        const barColor = isRebrush ? '#a855f7' : (isComplete ? '#10b981' : '#3b82f6');
 
-        return h('div', { class: 'flex flex-col gap-3px w-75px py-2px' }, [
+        return h('div', { class: 'flex flex-col gap-3px w-80px py-2px' }, [
           // 上排百分比文本
           h(
             'div',
             {
-              class: `font-mono text-11px font-medium text-center ${
-                isComplete ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-blue-600 dark:text-blue-400'
+              class: `font-mono text-12px font-bold text-center ${
+                isRebrush
+                  ? 'text-purple-600 dark:text-purple-400'
+                  : (isComplete ? 'text-emerald-600 dark:text-emerald-400' : 'text-blue-600 dark:text-blue-400')
               }`
             },
             percentText
           ),
-          // 下排4px纤细高饱和轨道条
+          // 下排5px高饱和轨道条
           h(
             'div',
-            { class: 'w-full h-4px rounded-full bg-gray-200 dark:bg-dark-500 overflow-hidden' },
+            { class: 'w-full h-5px rounded-full bg-gray-200 dark:bg-dark-500 overflow-hidden shadow-inner' },
             [
               h('div', {
                 class: 'h-full rounded-full transition-all duration-300',
                 style: {
-                  width: `${isComplete ? 100 : percent}%`,
+                  width: isRebrush ? '100%' : `${isComplete ? 100 : percent}%`,
                   backgroundColor: barColor
                 }
               })
@@ -757,7 +755,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
         ]);
       }
     },
-    // 9. 备注 (灰色详细进度与说明记录)
+    // 9. 备注 (灰色详细进度与说明记录，字号加大)
     {
       title: '备注',
       key: 'remarks',
@@ -767,7 +765,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
         return h(
           'div',
           {
-            class: 'whitespace-normal break-words text-12px leading-relaxed text-gray-700 dark:text-gray-300 py-2px font-sans',
+            class: 'whitespace-normal break-words text-13px leading-relaxed text-gray-800 dark:text-gray-200 py-2px font-sans',
             title: text !== '-' ? text : ''
           },
           text
@@ -778,27 +776,101 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
     {
       title: '提交时间',
       key: 'createdAt',
-      width: 95,
+      width: 100,
       render: row => {
         const parts = (row.createdAt || '').split(' ');
         if (parts.length === 2) {
-          return h('div', { class: 'text-11px font-mono text-gray-500 dark:text-gray-400 leading-tight' }, [
+          return h('div', { class: 'text-12px font-mono text-gray-600 dark:text-gray-400 leading-tight' }, [
             h('div', {}, parts[0]),
-            h('div', {}, parts[1])
+            h('div', { class: 'font-semibold' }, parts[1])
           ]);
         }
-        return h('span', { class: 'text-11px font-mono text-gray-500' }, row.createdAt || '-');
+        return h('span', { class: 'text-12px font-mono text-gray-600' }, row.createdAt || '-');
       }
     },
-    // 11. 学分 (扣费数值展示)
+    // 11. 金额 (原学分，改为金额，字号放大)
     {
-      title: '学分',
+      title: '金额',
       key: 'fees',
-      width: 75,
+      width: 80,
       align: 'right',
       render: row => {
         const num = row.fees !== undefined && row.fees !== null ? Number(row.fees).toFixed(3) : '0.000';
-        return h('span', { class: 'font-mono text-12px text-gray-800 dark:text-gray-200 font-medium' }, num);
+        return h('span', { class: 'font-mono text-14px text-gray-900 dark:text-gray-100 font-bold' }, `¥${num}`);
+      }
+    },
+    // 12. 提交状态 (显示是否提交成功，失败可点击直接再次重新交单)
+    {
+      title: '提交状态',
+      key: 'dockStatus',
+      width: 105,
+      align: 'center',
+      render: row => {
+        const ds = String(row.dockStatus ?? '0');
+        if (ds === '1') {
+          return h(
+            NTag,
+            { type: 'success', size: 'small', round: true, class: 'font-bold text-12px' },
+            { default: () => '✅ 提交成功' }
+          );
+        }
+        if (ds === '2') {
+          // 提交失败：醒目红字按钮，点击直接触发重新交单，带 loading
+          return h(
+            NPopconfirm,
+            {
+              onPositiveClick: () => handleDock(row)
+            },
+            {
+              trigger: () =>
+                h(
+                  NButton,
+                  {
+                    size: 'tiny',
+                    type: 'error',
+                    dashed: true,
+                    class: 'px-6px h-24px font-bold text-11px rounded-4px shadow-xs',
+                    loading: Boolean(actionLoadingMap[`dock_${row.orderId}`])
+                  },
+                  { default: () => '❌ 失败 (重提)' }
+                ),
+              default: () => `确定重新向货源提交订单 #${row.orderId} 吗？`
+            }
+          );
+        }
+        if (ds === '0') {
+          return h(
+            NTag,
+            { type: 'info', size: 'small', round: true, class: 'text-12px' },
+            { default: () => '⏳ 待提交' }
+          );
+        }
+        if (ds === '3') {
+          return h(
+            NTag,
+            { type: 'default', size: 'small', round: true, class: 'text-12px' },
+            { default: () => '🔁 重复单' }
+          );
+        }
+        if (ds === '4') {
+          return h(
+            NTag,
+            { type: 'default', size: 'small', round: true, class: 'text-12px' },
+            { default: () => '🚫 已取消' }
+          );
+        }
+        if (ds === '99') {
+          return h(
+            NTag,
+            { type: 'warning', size: 'small', round: true, class: 'text-12px font-medium' },
+            { default: () => '🏬 自营单' }
+          );
+        }
+        return h(
+          NTag,
+          { type: 'default', size: 'small', round: true, class: 'text-12px' },
+          { default: () => '未提交' }
+        );
       }
     }
   ];
@@ -914,7 +986,7 @@ onMounted(loadOrders);
         :data="records"
         :row-key="(row: Api.Orders.Record) => row.orderId"
         :pagination="false"
-        :scroll-x="1260"
+        :scroll-x="1360"
         striped
       />
 
@@ -1067,12 +1139,15 @@ onMounted(loadOrders);
 <style scoped>
 :deep(.n-data-table-th) {
   white-space: nowrap !important;
-  font-size: 12px;
-  background-color: #fafafc !important;
-  color: #374151 !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  background-color: #f8fafc !important;
+  color: #1f2937 !important;
+  padding: 8px 10px !important;
 }
 :deep(.n-data-table-td) {
   vertical-align: middle;
-  padding: 6px 8px !important;
+  padding: 8px 10px !important;
+  font-size: 13px !important;
 }
 </style>
