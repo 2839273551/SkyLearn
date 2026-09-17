@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { h, onMounted, reactive, ref } from 'vue';
 import type { DataTableColumns } from 'naive-ui';
+import { useAppStore } from '@/store/modules/app';
 import { NTag } from 'naive-ui';
 import { fetchPaylistList } from '@/service/api';
 
 defineOptions({ name: 'Paylist' });
+
+const appStore = useAppStore();
 
 const loading = ref(false);
 const list = ref<Api.Paylist.Record[]>([]);
@@ -142,14 +145,16 @@ onMounted(() => {
         :scroll-x="1300"
       />
 
-      <div class="mt-16px flex justify-end">
+      <div class="mt-16px flex w-full items-center justify-center sm:justify-end overflow-x-auto py-4px">
         <NPagination
           v-model:page="query.page"
           v-model:page-size="query.pageSize"
           :item-count="total"
           :page-sizes="[20, 50, 100]"
-          show-size-picker
-          show-quick-jumper
+          :page-slot="appStore.isMobile ? 5 : 9"
+          :size="appStore.isMobile ? 'small' : 'medium'"
+          :show-size-picker="!appStore.isMobile"
+          :show-quick-jumper="!appStore.isMobile"
           @update:page="loadData"
           @update:page-size="handleSearch"
         />

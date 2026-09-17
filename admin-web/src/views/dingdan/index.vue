@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { h, onMounted, ref } from 'vue';
 import type { DataTableColumns } from 'naive-ui';
+import { useAppStore } from '@/store/modules/app';
 import { NTag } from 'naive-ui';
 import { fetchOrderAvailable } from '@/service/api';
 
 defineOptions({ name: 'Dingdan' });
+
+const appStore = useAppStore();
 
 const loading = ref(false);
 const list = ref<Api.ProfileArea.AvailableOrder[]>([]);
@@ -74,11 +77,13 @@ onMounted(() => {
         striped
       />
 
-      <div class="mt-16px flex justify-end">
+      <div class="mt-16px flex w-full items-center justify-center sm:justify-end overflow-x-auto py-4px">
         <NPagination
           v-model:page="page"
           :page-size="20"
           :item-count="total"
+          :page-slot="appStore.isMobile ? 5 : 9"
+          :size="appStore.isMobile ? 'small' : 'medium'"
           @update:page="loadData"
         />
       </div>

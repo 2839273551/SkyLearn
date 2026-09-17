@@ -668,15 +668,19 @@ onBeforeUnmount(() => {
         <span class="text-12px text-gray-400">
           全链路入向与出向网络字节负载均已被微秒级捕获并生成审计留痕
         </span>
-        <NPagination
-          v-model:page="query.page"
-          :page-size="query.pageSize"
-          :item-count="total"
-          show-size-picker
-          :page-sizes="[10, 20, 50, 100]"
-          @update:page="loadData"
-          @update:page-size="(s: number) => { query.pageSize = s; query.page = 1; loadData(); }"
-        />
+        <div class="flex w-full sm:w-auto items-center justify-center sm:justify-end overflow-x-auto py-4px">
+          <NPagination
+            v-model:page="query.page"
+            :page-size="query.pageSize"
+            :item-count="total"
+            :page-slot="appStore.isMobile ? 5 : 9"
+            :size="appStore.isMobile ? 'small' : 'medium'"
+            :show-size-picker="!appStore.isMobile"
+            :page-sizes="[10, 20, 50, 100]"
+            @update:page="loadData"
+            @update:page-size="(s: number) => { query.pageSize = s; query.page = 1; loadData(); }"
+          />
+        </div>
       </div>
     </NCard>
 

@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { h, onMounted, reactive, ref } from 'vue';
 import type { DataTableColumns } from 'naive-ui';
+import { useAppStore } from '@/store/modules/app';
 import { NButton, NCard, NDataTable, NInput, NPagination, NSelect, NTag, NTooltip } from 'naive-ui';
 import { fetchLogList } from '@/service/api';
 
 defineOptions({ name: 'Log' });
+
+const appStore = useAppStore();
 
 const loading = ref(false);
 const list = ref<Api.ProfileArea.LogItem[]>([]);
@@ -225,16 +228,20 @@ onMounted(() => {
         :scroll-x="1100"
       />
 
-      <div class="mt-16px flex items-center justify-between border-t border-gray-100 dark:border-gray-800 pt-12px">
+      <div class="mt-16px flex flex-wrap items-center justify-between gap-12px border-t border-gray-100 dark:border-gray-800 pt-12px">
         <span class="text-12px text-gray-400">
           精确记录全站用户的登录态、费率调整、扣费充值与订单变动
         </span>
-        <NPagination
-          v-model:page="query.page"
-          :page-size="20"
-          :item-count="total"
-          @update:page="loadData"
-        />
+        <div class="flex w-full sm:w-auto items-center justify-center sm:justify-end overflow-x-auto py-4px">
+          <NPagination
+            v-model:page="query.page"
+            :page-size="20"
+            :item-count="total"
+            :page-slot="appStore.isMobile ? 5 : 9"
+            :size="appStore.isMobile ? 'small' : 'medium'"
+            @update:page="loadData"
+          />
+        </div>
       </div>
     </NCard>
   </div>

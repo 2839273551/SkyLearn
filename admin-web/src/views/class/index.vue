@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref } from 'vue';
 import type { DataTableRowKey, DataTableColumns } from 'naive-ui';
+import { useAppStore } from '@/store/modules/app';
 import { NAlert, NButton, NInput, NInputNumber, NPopconfirm, NSpace, NSwitch, NTag, NTooltip } from 'naive-ui';
 import {
   batchUpdateClassPriceSort,
@@ -14,6 +15,8 @@ import {
 } from '@/service/api';
 
 defineOptions({ name: 'Class' });
+
+const appStore = useAppStore();
 
 const loading = ref(false);
 const submitting = ref(false);
@@ -557,14 +560,16 @@ onMounted(async () => {
       />
 
       <!-- 分页栏 -->
-      <div class="mt-16px flex justify-end">
+      <div class="mt-16px flex w-full items-center justify-center sm:justify-end overflow-x-auto py-4px">
         <NPagination
           v-model:page="query.page"
           v-model:page-size="query.pageSize"
           :item-count="total"
           :page-sizes="[20, 50, 100, 200]"
-          show-size-picker
-          show-quick-jumper
+          :page-slot="appStore.isMobile ? 5 : 9"
+          :size="appStore.isMobile ? 'small' : 'medium'"
+          :show-size-picker="!appStore.isMobile"
+          :show-quick-jumper="!appStore.isMobile"
           @update:page="loadData"
           @update:page-size="handleSearch"
         />
