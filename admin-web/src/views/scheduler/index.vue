@@ -260,13 +260,22 @@ onUnmounted(() => {
           <!-- 窗口头部：任务标识、开关、周期选择 -->
           <div class="flex items-start justify-between gap-8px border-b border-gray-100 pb-8px dark:border-dark-600">
             <div>
-              <div class="flex items-center gap-6px">
+              <div class="flex items-center gap-6px flex-wrap">
                 <span class="rounded bg-primary/10 px-6px py-1px font-mono text-11px font-bold text-primary">
                   {{ task.id.toUpperCase() }}
                 </span>
                 <span class="text-14px font-bold text-gray-800 dark:text-gray-100">
                   {{ task.name }}
                 </span>
+                <NTag
+                  v-if="task.id === 'progress_active' || task.id === 'progress_exam' || task.id === 'order_dispatch'"
+                  :type="(task.pending_count ?? 0) > 0 ? (task.id === 'progress_active' ? 'info' : 'warning') : 'default'"
+                  size="tiny"
+                  round
+                  class="font-mono font-bold px-6px"
+                >
+                  {{ (task.pending_count ?? 0) > 0 ? `轮询中: ${task.pending_count} 单` : '0 单在轮询' }}
+                </NTag>
               </div>
               <p class="mt-3px text-12px text-gray-400 line-clamp-1" :title="task.description">
                 {{ task.description }}
@@ -311,9 +320,25 @@ onUnmounted(() => {
         </div>
 
         <!-- 窗口底部动作栏 -->
-        <div class="mt-10px flex items-center justify-between gap-8px pt-8px border-t border-gray-100 dark:border-dark-600">
-          <div class="text-11px text-gray-400">
-            成功: <strong class="text-primary font-mono">{{ task.total_success }}</strong> 笔
+        <div class="mt-10px flex items-center justify-between gap-8px pt-8px border-t border-gray-100 dark:border-dark-600 text-12px">
+          <div class="flex items-center gap-4px">
+            <template v-if="task.id === 'progress_active' || task.id === 'progress_exam' || task.id === 'order_dispatch'">
+              <span class="text-gray-500">正在轮询:</span>
+              <strong
+                class="font-mono text-14px font-bold"
+                :class="(task.pending_count ?? 0) > 0 ? 'text-primary' : 'text-gray-400'"
+              >
+                {{ task.pending_count ?? 0 }}
+              </strong>
+              <span class="text-gray-400 text-11px">单</span>
+              <span class="text-gray-300 mx-2px">|</span>
+              <span class="text-gray-400 text-11px">累计 {{ task.total_success }} 笔</span>
+            </template>
+            <template v-else>
+              <span class="text-gray-500">已清理:</span>
+              <strong class="font-mono text-13px text-gray-700 dark:text-gray-300 font-bold">{{ task.total_success }}</strong>
+              <span class="text-gray-400 text-11px">条</span>
+            </template>
           </div>
 
           <div class="flex items-center gap-6px">
