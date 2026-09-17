@@ -536,7 +536,7 @@ onMounted(loadCatalog);
 
             <!-- 选课金额轻提示 -->
             <div v-if="selections.length > 0" class="sm:ml-auto text-13px text-gray-600 dark:text-gray-300 font-mono">
-              已选 <strong class="text-primary font-bold">${selections.length}</strong> 门 | 预计扣费：<strong class="text-rose-500 font-bold text-16px">¥ ${estimatedSubmitCost}</strong> 积分
+              已选 <strong class="text-primary font-bold">{{ selections.length }}</strong> 门 | 预计扣费：<strong class="text-rose-500 font-bold text-16px">¥ {{ estimatedSubmitCost }}</strong> 积分
             </div>
           </div>
         </div>
@@ -651,9 +651,9 @@ onMounted(loadCatalog);
       <!-- 底部吸底结算栏 -->
       <div v-if="selections.length > 0" class="mt-16px flex flex-wrap items-center justify-between gap-12px rounded-6px bg-slate-50 dark:bg-dark-600 p-12px border border-gray-200 dark:border-dark-500">
         <div class="text-14px text-gray-700 dark:text-gray-200 font-mono">
-          已勾选 <strong class="text-primary font-bold text-16px">${selections.length}</strong> 门课程
+          已勾选 <strong class="text-primary font-bold text-16px">{{ selections.length }}</strong> 门课程
           <span class="mx-8px text-gray-300">|</span>
-          预计结算总计：<strong class="text-rose-500 font-bold text-18px">¥ ${estimatedSubmitCost}</strong> 积分
+          预计结算总计：<strong class="text-rose-500 font-bold text-18px">¥ {{ estimatedSubmitCost }}</strong> 积分
         </div>
         <div class="flex items-center gap-8px">
           <NButton size="small" secondary @click="selections = []">清空勾选</NButton>
