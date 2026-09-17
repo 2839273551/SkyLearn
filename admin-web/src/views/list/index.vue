@@ -338,16 +338,8 @@ function parseProgress(row: Api.Orders.Record): number {
 function getMoreOptions(row: Api.Orders.Record) {
   const options: any[] = [
     {
-      label: '🔍 查看11项完整详情',
+      label: '🔍 查看详情',
       key: 'detail'
-    },
-    {
-      label: '📋 复制全部学员信息',
-      key: 'copyAll'
-    },
-    {
-      label: '🎫 提交该单售后工单',
-      key: 'workorder'
     }
   ];
 
@@ -361,7 +353,7 @@ function getMoreOptions(row: Api.Orders.Record) {
     }
     options.push(
       {
-        label: '💰 单单原路退款',
+        label: '💰 订单退款',
         key: 'refund'
       },
       {
@@ -641,7 +633,7 @@ const columns = computed<DataTableColumns<Api.Orders.Record>>(() => {
                   h('strong', { class: 'font-mono text-emerald-600' }, (row.yid && row.yid !== '0') ? row.yid : '暂无')
                 ]),
                 h('div', { class: 'flex items-center justify-between' }, [
-                  h('span', { class: 'text-gray-500' }, '订单单号:'),
+                  h('span', { class: 'text-gray-500' }, '订单编号:'),
                   h('span', { class: 'font-mono font-bold' }, `#${row.orderId}`)
                 ]),
                 h(
