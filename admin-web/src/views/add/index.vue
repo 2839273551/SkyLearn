@@ -2,17 +2,20 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import {
   NAlert,
+  NAvatar,
   NButton,
   NCard,
   NCheckbox,
   NCollapse,
   NCollapseItem,
+  NDivider,
   NEmpty,
   NForm,
   NFormItem,
   NGi,
   NGrid,
   NInput,
+  NPopconfirm,
   NRadioButton,
   NRadioGroup,
   NSelect,
@@ -20,15 +23,19 @@ import {
   NSpin,
   NSwitch,
   NTag,
+  NTimeline,
+  NTimelineItem,
   NTooltip
 } from 'naive-ui';
 import { fetchCourseQuery, fetchOrderCatalog, fetchOrderSubmit } from '@/service/api';
 import { useAuthStore } from '@/store/modules/auth';
+import { useAppStore } from '@/store/modules/app';
 
 defineOptions({ name: 'Add' });
 
 const FAVORITES_KEY = 'COURSE_ADMIN_order_favorites';
 const authStore = useAuthStore();
+const appStore = useAppStore();
 
 const catalogLoading = ref(false);
 const queryLoading = ref(false);
@@ -78,7 +85,7 @@ const allSelected = computed(() => totalCourses.value > 0 && selections.value.le
 
 const inputPlaceholder = computed(() => {
   return batchMode.value === 'batch'
-    ? '请输入多行账号，每行一条（空格隔开）：\n北京大学 2024001122 Abc123456\n清华大学 2024009988 Pwd@1234'
+    ? '请输入多行账号，每行一条：\n北京大学 2024001122 Abc123456\n清华大学 2024009988 Pwd@1234'
     : '请输入下单信息：学校 账号 密码（空格分隔，如无学校可直接：账号 密码）';
 });
 
@@ -336,35 +343,71 @@ onMounted(loadCatalog);
 </script>
 
 <template>
-  <div class="max-w-1180px mx-auto flex flex-col gap-12px p-10px sm:p-16px">
-    <!-- 极简通透 Header：纯净标题 + 可用余额 -->
-    <div class="flex flex-wrap items-center justify-between gap-12px bg-white dark:bg-dark-700 rounded-8px p-12px sm:px-16px border border-gray-100 dark:border-dark-600 shadow-xs">
-      <div class="flex items-center gap-8px">
-        <h1 class="text-16px font-bold text-gray-800 dark:text-gray-100">在线查课与下单</h1>
-        <span class="text-12px text-gray-400">快速检索在学课程并一键交单</span>
-      </div>
-      <div class="flex items-center gap-6px text-13px">
-        <span class="text-gray-500 dark:text-gray-400">可用余额:</span>
-        <strong class="font-mono text-16px font-bold text-emerald-600 dark:text-emerald-400">¥ {{ balance }}</strong>
-      </div>
-    </div>
+  <div class="flex flex-col gap-16px p-10px sm:p-16px">
+    <!-- 顶部极简通透白底资产与控制横幅 (彻底告别突兀黑块，色彩柔和清晰) -->
+    <NCard :bordered="false" class="rounded-12px shadow-sm border border-gray-100 dark:border-dark-600 bg-white dark:bg-dark-700">
+      <div class="flex flex-wrap items-center justify-between gap-16px">
+        <!-- 左侧：标题与资产气泡 -->
+        <div class="flex flex-wrap items-center gap-14px">
+          <div class="flex h-44px w-44px items-center justify-center rounded-12px bg-primary/10 text-primary text-22px">
+            🎓
+          </div>
+          <div>
+            <div class="flex items-center gap-8px">
+              <h1 class="text-17px font-bold text-gray-800 dark:text-gray-100">在线查课与订单提交</h1>
+              <NTag size="tiny" type="primary" round class="font-medium">高速直连</NTag>
+            </div>
+            <div class="mt-4px flex flex-wrap items-center gap-10px text-13px">
+              <span class="inline-flex items-center gap-4px rounded-6px bg-emerald-50 px-8px py-3px text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 font-medium">
+                可用余额：<strong class="font-mono text-15px font-bold text-emerald-600 dark:text-emerald-400">¥ {{ balance }}</strong> 积分
+              </span>
+            </div>
+          </div>
+        </div>
 
-    <!-- 下单通知公告（若有则极简展示） -->
-    <NAlert v-if="notice" type="info" :show-icon="true" class="rounded-8px text-12px leading-relaxed">
-      <div class="whitespace-pre-wrap">{{ notice }}</div>
+        <!-- 右侧：控制选项区（高对比度设计，绝无颜色重叠） -->
+        <div class="flex flex-wrap items-center gap-14px">
+          <!-- AI 纠偏开关胶囊 -->
+          <div class="flex items-center gap-8px rounded-8px bg-gray-50 dark:bg-dark-600 px-10px py-6px border border-gray-200/80 dark:border-dark-500">
+            <NSwitch v-model:value="aiCorrection" size="small" />
+            <span class="text-13px font-medium text-gray-700 dark:text-gray-200">AI 格式纠偏</span>
+            <NTooltip>
+              <template #trigger>
+                <span class="cursor-help text-13px text-gray-400 hover:text-gray-600">ℹ️</span>
+              </template>
+              自动从杂乱聊天记录中智能提取学校、账号和密码。
+            </NTooltip>
+          </div>
+
+          <!-- 模式分段选择器 (Segmented Control，色彩对比极其清晰) -->
+          <NRadioGroup v-model:value="batchMode" size="small">
+            <NRadioButton value="single">
+              <span class="px-4px font-medium">单账号录入</span>
+            </NRadioButton>
+            <NRadioButton value="batch">
+              <span class="px-4px font-medium">多账号批量</span>
+            </NRadioButton>
+          </NRadioGroup>
+        </div>
+      </div>
+    </NCard>
+
+    <!-- 下单特别通知 -->
+    <NAlert v-if="notice" type="warning" title="全站下单特别通知" :show-icon="true" class="rounded-10px">
+      <div class="whitespace-pre-wrap leading-relaxed text-13px">{{ notice }}</div>
     </NAlert>
 
-    <!-- 核心下单配置面板 -->
-    <NCard :bordered="false" class="rounded-8px shadow-sm">
+    <!-- 核心下单主面板 -->
+    <NCard title="网课平台与账号配置" :bordered="false" class="rounded-12px shadow-sm">
       <NSpin :show="catalogLoading">
         <NForm label-placement="top">
-          <!-- 分类标签行 -->
-          <NFormItem label="平台所属分类" class="mb-10px">
-            <div class="w-full overflow-x-auto pb-2px">
+          <!-- 项目分类标签栏 -->
+          <NFormItem label="项目所属分类：">
+            <div class="w-full overflow-x-auto pb-4px">
               <NRadioGroup v-model:value="categoryId" size="small">
-                <NSpace :wrap="false" :size="6">
+                <NSpace :wrap="false">
                   <NRadioButton value="all">全部平台</NRadioButton>
-                  <NRadioButton value="favorites">⭐ 收藏</NRadioButton>
+                  <NRadioButton value="favorites">⭐ 我的收藏</NRadioButton>
                   <NRadioButton v-for="item in categories" :key="item.id" :value="item.id">
                     {{ item.name }}
                   </NRadioButton>
@@ -373,206 +416,241 @@ onMounted(loadCatalog);
             </div>
           </NFormItem>
 
-          <!-- 平台选择与单行紧凑参数 -->
-          <NFormItem label="选择网课平台" class="mb-10px">
-            <div class="w-full flex flex-col gap-6px">
-              <div class="w-full flex items-center gap-8px">
-                <NSelect
-                  v-model:value="productId"
-                  class="flex-1"
-                  filterable
-                  clearable
-                  :options="productOptions"
-                  placeholder="搜索或选择下单平台"
-                  :virtual-scroll="true"
-                />
-                <NTooltip>
-                  <template #trigger>
-                    <NButton circle secondary :disabled="!productId" @click="toggleFavorite">
-                      <template #icon>
-                        <span :class="favoriteIds.includes(productId) ? 'text-amber-500 text-15px' : 'text-gray-400 text-15px'">★</span>
-                      </template>
-                    </NButton>
-                  </template>
-                  {{ favoriteIds.includes(productId) ? '取消收藏' : '添加收藏' }}
-                </NTooltip>
-              </div>
-
-              <!-- 选定平台优雅单行摘要（彻底消除厚重灰底大卡片） -->
-              <div v-if="selectedProduct" class="flex flex-wrap items-center gap-8px text-12px text-gray-600 dark:text-gray-300 bg-slate-50 dark:bg-dark-600 px-10px py-6px rounded-6px border border-slate-100 dark:border-dark-500">
-                <span class="font-medium text-gray-900 dark:text-gray-100">{{ selectedProduct.name }}</span>
-                <span class="text-gray-300 dark:text-gray-600">·</span>
-                <span>单价: <strong class="font-mono text-primary font-bold">¥{{ selectedProduct.price }}</strong>/门</span>
-                <span class="text-gray-300 dark:text-gray-600">·</span>
-                <span>查课费: <strong class="font-mono font-medium">¥{{ selectedProduct.queryFee }}</strong>/次</span>
-                <template v-if="selectedProduct.content">
-                  <span class="text-gray-300 dark:text-gray-600">·</span>
-                  <span class="text-gray-400 truncate max-w-480px" :title="selectedProduct.content">说明: {{ selectedProduct.content }}</span>
+          <!-- 平台选择与收藏 -->
+          <NFormItem label="选择网课平台：">
+            <div class="w-full flex items-center gap-8px">
+              <NSelect
+                v-model:value="productId"
+                class="flex-1"
+                filterable
+                clearable
+                :options="productOptions"
+                placeholder="点击选择下单平台，支持拼音与关键字即时搜索"
+                :virtual-scroll="true"
+              />
+              <NTooltip>
+                <template #trigger>
+                  <NButton circle secondary :disabled="!productId" @click="toggleFavorite">
+                    <template #icon>
+                      <span :class="favoriteIds.includes(productId) ? 'text-amber-500 text-16px' : 'text-gray-400 text-16px'">★</span>
+                    </template>
+                  </NButton>
                 </template>
-              </div>
+                {{ favoriteIds.includes(productId) ? '取消收藏' : '添加收藏' }}
+              </NTooltip>
             </div>
           </NFormItem>
 
-          <!-- 学员账号信息输入区 -->
-          <NFormItem class="mb-12px">
-            <template #label>
-              <div class="w-full flex flex-wrap items-center justify-between gap-8px">
-                <span class="text-13px font-medium text-gray-700 dark:text-gray-200">
-                  学员账号信息
-                  <span class="text-11px text-gray-400 font-normal ml-6px">
-                    {{ batchMode === 'batch' ? '每行一条：学校 账号 密码（空格隔开）' : '格式：学校 账号 密码（无学校可直接：账号 密码）' }}
-                  </span>
+          <!-- 选定平台高光参数卡片 (优雅清爽设计) -->
+          <div v-if="selectedProduct" class="mb-16px rounded-10px bg-slate-50/90 p-14px dark:bg-dark-600/80 border border-slate-200/80 dark:border-dark-500">
+            <div class="flex flex-wrap items-center justify-between gap-10px">
+              <div class="flex items-center gap-8px">
+                <span class="text-14px font-bold text-gray-800 dark:text-gray-100">{{ selectedProduct.name }}</span>
+                <NTag size="tiny" type="info" round>CID: {{ selectedProduct.id }}</NTag>
+              </div>
+              <div class="flex items-center gap-12px text-13px">
+                <span class="text-gray-500">
+                  下单单价：<strong class="font-mono text-primary font-bold text-15px">¥ {{ selectedProduct.price }}</strong> / 门
                 </span>
-                <!-- 右上角紧凑功能条 -->
-                <div class="flex items-center gap-8px text-12px font-normal">
-                  <NRadioGroup v-model:value="batchMode" size="small">
-                    <NRadioButton value="single">单条</NRadioButton>
-                    <NRadioButton value="batch">多条批量</NRadioButton>
-                  </NRadioGroup>
-                  <div class="flex items-center gap-4px text-gray-500 select-none">
-                    <NSwitch v-model:value="aiCorrection" size="small" />
-                    <span class="text-11px">AI纠偏</span>
-                  </div>
-                  <NButton size="tiny" quaternary @click="fillSampleData">示例</NButton>
-                  <NButton size="tiny" quaternary @click="userinfo = ''">清空</NButton>
+                <span class="text-gray-500">
+                  查课扣费：<strong class="font-mono text-gray-700 dark:text-gray-300 font-medium">¥ {{ selectedProduct.queryFee }}</strong> / 账号
+                </span>
+              </div>
+            </div>
+            <div v-if="selectedProduct.content" class="mt-8px text-12px text-gray-500 bg-white dark:bg-dark-500 p-8px rounded-6px border border-gray-100 dark:border-dark-400 leading-relaxed">
+              平台考核要求与说明：{{ selectedProduct.content }}
+            </div>
+          </div>
+
+          <!-- 账号信息填写 -->
+          <NFormItem label="学习账号信息录入：">
+            <div class="w-full flex flex-col gap-8px">
+              <div class="flex flex-wrap items-center justify-between gap-8px text-12px text-gray-400">
+                <span>
+                  {{ batchMode === 'batch' ? '每行一条信息：学校 账号 密码（空格分隔）' : '录入格式：学校 账号 密码（如无学校可直接输入：账号 密码）' }}
+                </span>
+                <div class="flex items-center gap-6px">
+                  <NButton size="tiny" secondary @click="fillSampleData">填入示例</NButton>
+                  <NButton v-if="aiCorrection" size="tiny" type="success" secondary @click="applyAiCorrection(true)">
+                    一键AI纠偏
+                  </NButton>
+                  <NButton size="tiny" secondary type="warning" @click="userinfo = ''">清空输入</NButton>
                 </div>
               </div>
-            </template>
 
-            <NInput
-              v-model:value="userinfo"
-              :type="batchMode === 'batch' ? 'textarea' : 'text'"
-              :autosize="batchMode === 'batch' ? { minRows: 4, maxRows: 8 } : false"
-              :placeholder="inputPlaceholder"
-              class="font-mono text-13px"
-              @blur="applyAiCorrection(false)"
-            />
+              <NInput
+                v-model:value="userinfo"
+                :type="batchMode === 'batch' ? 'textarea' : 'text'"
+                :autosize="batchMode === 'batch' ? { minRows: 4, maxRows: 10 } : false"
+                :placeholder="inputPlaceholder"
+                class="font-mono text-13px leading-relaxed"
+                @blur="applyAiCorrection(false)"
+              />
+            </div>
           </NFormItem>
 
-          <!-- 标准扁平动作条 -->
-          <div class="flex flex-wrap items-center justify-between gap-10px pt-10px border-t border-gray-100 dark:border-dark-600">
-            <div class="flex items-center gap-8px">
+          <!-- 动作操作条 (移动端整齐两段式，杜绝高低错位) -->
+          <div class="mt-14px flex flex-col gap-10px sm:flex-row sm:flex-wrap sm:items-center sm:gap-12px">
+            <!-- 主按钮：查课 (手机端全宽突出，PC端自然尺寸) -->
+            <NButton
+              type="primary"
+              size="large"
+              :loading="queryLoading"
+              class="w-full sm:w-auto px-28px font-bold shadow-sm"
+              @click="queryCourses"
+            >
+              🔍 立即在线查课
+            </NButton>
+
+            <!-- 辅助按钮组：手机端并排等高，PC端紧跟 -->
+            <div class="flex items-center gap-10px w-full sm:w-auto">
               <NButton
-                type="primary"
-                size="medium"
-                :loading="queryLoading"
-                class="px-20px font-medium shadow-xs"
-                @click="queryCourses"
-              >
-                在线查课
-              </NButton>
-              <NButton
-                type="primary"
-                secondary
-                size="medium"
+                type="success"
+                size="large"
                 :loading="submitLoading"
                 :disabled="selections.length === 0"
-                class="px-18px font-medium"
+                class="flex-1 sm:flex-none sm:px-24px font-bold"
                 @click="submitOrders"
               >
-                提交订单 {{ selections.length > 0 ? `(${selections.length}门)` : '' }}
+                🚀 提交订单 ({{ selections.length }} 门)
               </NButton>
-              <NButton size="medium" quaternary @click="clearForm">
-                重置
+
+              <NButton size="large" secondary class="w-96px sm:w-auto shrink-0" @click="clearForm">
+                清空数据
               </NButton>
             </div>
-            <div v-if="selections.length > 0" class="text-13px text-gray-600 dark:text-gray-300 font-mono">
-              已选 <strong class="text-primary font-bold">${selections.length}</strong> 门，预计扣费: <strong class="text-rose-500 font-bold text-15px">¥ ${estimatedSubmitCost}</strong>
-            </div>
+
+            <!-- 选课金额提示 -->
+            <span v-if="selections.length > 0" class="sm:ml-auto font-mono text-13px sm:text-14px text-gray-500 bg-gray-50 dark:bg-dark-600 px-10px py-6px rounded-6px border sm:border-none">
+              已选 <strong class="text-primary font-bold">{{ selections.length }}</strong> 门 | 预计扣费：<strong class="text-rose-500 font-bold">¥ {{ estimatedSubmitCost }}</strong>
+            </span>
           </div>
         </NForm>
       </NSpin>
     </NCard>
 
-    <!-- 查课结果卡片流（极简现代清单） -->
-    <NCard v-if="results.length" :bordered="false" class="rounded-8px shadow-sm">
+    <!-- 查课结果卡片流（立体高级质感，选中状态极致清晰） -->
+    <NCard v-if="results.length" :bordered="false" class="rounded-12px shadow-sm">
       <template #header>
         <div class="flex flex-wrap items-center justify-between gap-10px">
-          <div class="flex items-center gap-8px">
-            <span class="text-15px font-bold text-gray-800 dark:text-gray-100">查课结果</span>
-            <span class="text-12px text-gray-500 font-mono">
-              已勾选 <strong class="text-primary">{{ selections.length }}</strong> / {{ totalCourses }} 门
-            </span>
+          <div class="flex items-center gap-10px">
+            <span class="text-16px font-bold text-gray-800 dark:text-gray-100">在线查课结果清单</span>
+            <NTag size="small" type="primary" round>
+              已选 {{ selections.length }} / {{ totalCourses }} 门
+            </NTag>
           </div>
-          <div class="flex items-center gap-6px">
-            <NButton size="tiny" secondary @click="toggleSelectAll">
-              {{ allSelected ? '取消全选' : '全选' }}
+          <div class="flex items-center gap-8px">
+            <NButton size="small" secondary @click="toggleSelectAll">
+              {{ allSelected ? '取消全选' : '全选所有' }}
             </NButton>
-            <NButton size="tiny" secondary type="primary" @click="selectOnlyOngoing">
+            <NButton size="small" secondary type="primary" @click="selectOnlyOngoing">
               仅勾选开课中
             </NButton>
           </div>
         </div>
       </template>
 
-      <!-- 账号列表手风琴 -->
-      <NCollapse :default-expanded-names="results.map(item => item.userinfo)" class="flex flex-col gap-10px">
+      <NCollapse :default-expanded-names="results.map(item => item.userinfo)" class="flex flex-col gap-12px">
         <NCollapseItem
           v-for="result in results"
           :key="result.userinfo"
           :name="result.userinfo"
-          class="rounded-6px border border-gray-100 bg-slate-50/50 p-4px dark:border-dark-600 dark:bg-dark-600/30"
+          class="rounded-10px border border-gray-100 bg-gray-50/50 p-6px dark:border-dark-600 dark:bg-dark-600/30"
         >
           <template #header>
-            <div class="flex flex-wrap items-center gap-8px text-13px">
-              <span class="font-medium text-gray-800 dark:text-gray-100">{{ result.userName || '学员' }}</span>
-              <span class="font-mono text-11px text-gray-400">({{ result.userinfo }})</span>
-              <NTag :type="result.courses.length > 0 ? 'success' : 'default'" size="tiny" round>
+            <div class="flex flex-wrap items-center gap-10px text-13px">
+              <span class="font-bold text-gray-800 dark:text-gray-100">{{ result.userName || '学生姓名' }}</span>
+              <span class="font-mono text-gray-400">[{{ result.userinfo }}]</span>
+              <NTag :type="result.courses.length > 0 ? 'success' : 'error'" size="tiny" round>
                 {{ result.msg }} ({{ result.courses.length }} 门)
               </NTag>
             </div>
           </template>
 
-          <div v-if="result.courses.length === 0" class="py-12px">
-            <NEmpty :description="result.msg || '未查询到开课记录'" size="small" />
+          <div v-if="result.courses.length === 0" class="py-16px">
+            <NEmpty :description="result.msg || '未查询到任何开课记录'" />
           </div>
 
-          <!-- 极简课程卡片栅格 (无突兀切角，平整高级) -->
-          <NGrid v-else cols="1 s:2 l:3" responsive="screen" :x-gap="10" :y-gap="10" class="mt-6px">
+          <!-- 课程卡片栅格 (选中态高亮 + 勾选微标) -->
+          <NGrid v-else cols="1 s:2 l:3" responsive="screen" :x-gap="12" :y-gap="12" class="mt-8px">
             <NGi v-for="course in result.courses" :key="`${result.userinfo}-${course.id || course.name}`">
               <div
-                class="flex items-center gap-8px p-10px rounded-6px border transition-all cursor-pointer select-none"
+                class="relative rounded-10px border p-12px transition-all cursor-pointer select-none"
                 :class="
                   isSelected(result, course)
-                    ? 'border-blue-400 bg-blue-50/60 dark:bg-blue-950/20 dark:border-blue-700'
+                    ? 'border-primary bg-primary/5 shadow-sm dark:bg-primary/10'
                     : 'border-gray-200 bg-white hover:border-gray-300 dark:border-dark-500 dark:bg-dark-600'
                 "
                 @click="toggleCourse(!isSelected(result, course), result, course)"
               >
-                <NCheckbox
-                  :checked="isSelected(result, course)"
-                  @click.stop
-                  @update:checked="checked => toggleCourse(checked, result, course)"
-                />
-                <div class="flex-1 min-w-0">
-                  <div class="text-13px font-medium text-gray-800 dark:text-gray-100 truncate" :title="course.name">
-                    {{ course.name }}
-                  </div>
-                  <div class="mt-2px flex items-center justify-between text-11px text-gray-400 font-mono">
-                    <span>{{ course.teacher || '默认' }} · {{ course.state || '开课中' }}</span>
-                    <span v-if="selectedProduct" class="text-primary font-bold font-mono">
-                      ¥{{ selectedProduct.price }}
-                    </span>
+                <div class="flex items-start gap-10px">
+                  <NCheckbox
+                    :checked="isSelected(result, course)"
+                    @click.stop
+                    @update:checked="checked => toggleCourse(checked, result, course)"
+                  />
+                  <div class="flex-1 min-w-0">
+                    <div class="font-bold text-14px text-gray-800 dark:text-gray-100 truncate">
+                      {{ course.name }}
+                    </div>
+                    <div class="mt-4px flex flex-wrap items-center gap-8px text-11px text-gray-400 font-mono">
+                      <span>ID: {{ course.id || '-' }}</span>
+                      <span>教师: {{ course.teacher || '未知' }}</span>
+                    </div>
+                    <div class="mt-6px flex items-center justify-between">
+                      <NTag
+                        size="tiny"
+                        :type="course.state && !course.state.includes('结课') ? 'success' : 'default'"
+                        round
+                      >
+                        {{ course.state || '开课中' }}
+                      </NTag>
+                      <span v-if="selectedProduct" class="font-mono text-12px font-bold text-primary">
+                        ¥ {{ selectedProduct.price }}
+                      </span>
+                    </div>
                   </div>
                 </div>
+
+                <!-- 选中微标记 -->
+                <div
+                  v-if="isSelected(result, course)"
+                  class="absolute right-0 top-0 h-0 w-0 border-t-16px border-r-16px border-t-transparent border-r-primary"
+                ></div>
               </div>
             </NGi>
           </NGrid>
         </NCollapseItem>
       </NCollapse>
 
-      <!-- 底部结算栏（极简浅色流） -->
-      <div v-if="selections.length > 0" class="mt-14px flex flex-wrap items-center justify-between gap-10px pt-12px border-t border-gray-100 dark:border-dark-600">
-        <div class="text-13px text-gray-600 dark:text-gray-300 font-mono">
-          已选 <strong class="text-primary font-bold">${selections.length}</strong> 门，总计扣费：<strong class="text-rose-500 font-bold text-16px">¥ ${estimatedSubmitCost}</strong>
+      <!-- 底部吸底结算栏 (高质感通透浅色排版，与全站风格 100% 协调) -->
+      <div v-if="selections.length > 0" class="mt-16px flex flex-wrap items-center justify-between gap-12px rounded-10px bg-slate-50 dark:bg-dark-600 p-14px border border-primary/40 shadow-md">
+        <div class="flex items-center gap-12px">
+          <span class="text-13px text-gray-600 dark:text-gray-300">
+            已勾选 <strong class="text-16px font-bold text-primary font-mono">{{ selections.length }}</strong> 门课程
+          </span>
+          <span class="text-gray-300 dark:text-gray-600">|</span>
+          <span class="text-13px text-gray-600 dark:text-gray-300">
+            预计结算总计：<strong class="text-20px font-bold text-rose-500 font-mono">¥ {{ estimatedSubmitCost }}</strong>
+          </span>
         </div>
         <div class="flex items-center gap-8px">
-          <NButton quaternary size="small" @click="selections = []">清空选择</NButton>
-          <NButton type="primary" size="small" :loading="submitLoading" class="px-16px font-medium" @click="submitOrders">
-            确认提交下单
+          <NButton secondary type="warning" size="small" @click="selections = []">清空勾选</NButton>
+          <NButton type="primary" size="medium" :loading="submitLoading" class="px-20px font-bold" @click="submitOrders">
+            立即提交并扣费
           </NButton>
         </div>
       </div>
+    </NCard>
+
+    <!-- 下单核心注意事项 -->
+    <NCard title="网课下单核心指引与注意事项" :bordered="false" class="rounded-12px shadow-sm">
+      <NTimeline>
+        <NTimelineItem type="error" title="查课与扣费规则" content="请务必在提交前查看对应平台的说明，不同平台支持的平时分和作业进度规则各有不同。" />
+        <NTimelineItem type="warning" title="重复订单防冲突" content="同账号同课程如需复跑或补单，请在订单汇总中操作重跑，或修改密码后再重新下单。" />
+        <NTimelineItem type="info" title="格式规范建议" content="默认标准录入格式为：学校 账号 密码（空格分隔），亦支持自动识别。" />
+        <NTimelineItem type="success" title="异常售后保障" content="查课或下单若遇接口波动，可通过左侧【问题反馈】提交工单，技术客服将快速跟进排查。" />
+      </NTimeline>
     </NCard>
   </div>
 </template>
