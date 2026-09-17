@@ -318,7 +318,10 @@ async function submitOrders() {
   if (!error && data) {
     balance.value = data.balance;
     authStore.userInfo.balance = data.balance;
+    // 提交后清空已选课程、查询结果列表和输入框，保持已选商品不变方便连续下单
     selections.value = [];
+    results.value = [];
+    userinfo.value = '';
 
     window.$notification?.success({
       title: '下单提交完成',
@@ -337,7 +340,12 @@ function clearForm() {
 }
 
 watch(categoryId, () => {
-  if (!visibleProducts.value.some(item => item.id === productId.value)) productId.value = '';
+  // 每个分类点开默认选中该分类下的第一个商品，绝不留空
+  if (visibleProducts.value.length > 0) {
+    productId.value = visibleProducts.value[0].id;
+  } else {
+    productId.value = '';
+  }
   results.value = [];
   selections.value = [];
 });
