@@ -14,6 +14,11 @@ push_complete.log
 
 # Temporary and cache files
 %SystemDrive%/
+*.doc
+*.docx
+build_report.ps1
+report_data.json
+问题复盘与解决方案汇总.txt
 .DS_Store
 Thumbs.db
 *.local
