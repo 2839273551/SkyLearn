@@ -900,6 +900,11 @@ if ($action === 'orders') {
         $conditions[] = "status='" . daddslashes($status) . "'";
     }
 
+    $dockStatus = isset($_GET['dockStatus']) ? trim(strip_tags($_GET['dockStatus'])) : '';
+    if ($dockStatus !== '') {
+        $conditions[] = "dockstatus='" . daddslashes($dockStatus) . "'";
+    }
+
     $where = ' WHERE ' . implode(' AND ', $conditions);
     $result = $DB->query(
         'SELECT oid,uid,cid,user,pass,fees,kcid,yid,finalupdate,ptname,kcname,school,process,remarks,status,dockstatus,addtime '
@@ -3937,8 +3942,11 @@ if ($action === 'order-rebrush') {
 // ==========================================
 if ($action === 'order-dock') {
     api_require_post();
-    api_require_super($userrow, $islogin);
+    api_require_login(isset($islogin) ? $islogin : 0);
     api_require_csrf();
+
+    $currentUid = intval($userrow['uid']);
+    $isSuper = ($currentUid === 1);
 
     $input = api_read_input();
     $oid = isset($input['oid']) ? intval($input['oid']) : 0;
@@ -3946,6 +3954,9 @@ if ($action === 'order-dock') {
 
     $order = $DB->get_row("SELECT * FROM qingka_wangke_order WHERE oid='$oid' LIMIT 1");
     if (!$order) api_respond(404, '订单不存在');
+    if (!$isSuper && intval($order['uid']) !== $currentUid) {
+        api_respond(403, '无权操作此订单');
+    }
 
     if (!function_exists('addWk') && file_exists(ROOT . '../Checkorder/xdjk.php')) {
         require_once ROOT . '../Checkorder/xdjk.php';
@@ -4235,6 +4246,85 @@ if ($action === 'order-batch-rebrush') {
     }
 
     api_respond(0, "已成功将 {$rebrushCount} 笔订单提交至补刷排队队列！");
+}
+
+// ==========================================
+// 订单批量重新向货源提交 (批量重提)
+// ==========================================
+if ($action === 'order-batch-dock') {
+    api_require_post();
+    api_require_login(isset($islogin) ? $islogin : 0);
+    api_require_csrf();
+
+    $currentUid = intval($userrow['uid']);
+    $isSuper = ($currentUid === 1);
+    $input = api_read_input();
+    $oids = isset($input['oids']) && is_array($input['oids']) ? array_map('intval', $input['oids']) : array();
+    if (empty($oids)) {
+        api_respond(422, '请先勾选需要重提的订单');
+    }
+
+    if (!function_exists('addWk') && file_exists(ROOT . '../Checkorder/xdjk.php')) {
+        require_once ROOT . '../Checkorder/xdjk.php';
+    }
+
+    if (!function_exists('addWk')) {
+        api_respond(500, '系统暂未加载交单驱动');
+    }
+
+    @set_time_limit(180);
+
+    $successCount = 0;
+    $failCount = 0;
+    $failedDetails = array();
+
+    foreach ($oids as $oid) {
+        if ($oid <= 0) continue;
+        $order = $DB->get_row("SELECT * FROM qingka_wangke_order WHERE oid='$oid' LIMIT 1");
+        if (!$order) continue;
+        if (!$isSuper && intval($order['uid']) !== $currentUid) continue;
+
+        $cls = $DB->get_row("SELECT docking FROM qingka_wangke_class WHERE cid='{$order['cid']}' LIMIT 1");
+        $result = addWk($oid);
+
+        if (isset($result['code']) && strval($result['code']) === '1') {
+            $hid = $cls ? $cls['docking'] : $order['hid'];
+            $yid = daddslashes(isset($result['yid']) ? $result['yid'] : '');
+            $DB->query("UPDATE qingka_wangke_order SET 
+                `hid`='$hid',
+                `status`='进行中',
+                `dockstatus`=1,
+                `yid`='$yid',
+                `remarks`='批量重新提交货源成功' 
+                WHERE oid='$oid'");
+            $successCount++;
+        } else {
+            $failMsg = isset($result['msg']) ? $result['msg'] : '货源接口返回失败';
+            $DB->query("UPDATE qingka_wangke_order SET `dockstatus`=2 WHERE oid='$oid'");
+            $failCount++;
+            if (count($failedDetails) < 3) {
+                $failedDetails[] = "#{$oid}: {$failMsg}";
+            }
+        }
+    }
+
+    $totalProcessed = $successCount + $failCount;
+    if (function_exists('wlog')) {
+        $operator = $isSuper ? "管理员" : "用户[{$currentUid}]";
+        wlog($currentUid, "批量重提", "{$operator}批量重提了 {$totalProcessed} 笔订单 (成功: {$successCount}, 失败: {$failCount})", 0);
+    }
+
+    $msg = "批量重提完成：成功 {$successCount} 笔，失败 {$failCount} 笔";
+    if (!empty($failedDetails)) {
+        $msg .= " (" . implode('; ', $failedDetails) . ")";
+    }
+
+    api_respond(0, $msg, array(
+        'total' => $totalProcessed,
+        'success' => $successCount,
+        'failed' => $failCount,
+        'message' => $msg
+    ));
 }
 
 require_once __DIR__ . '/actions_user_order.php';

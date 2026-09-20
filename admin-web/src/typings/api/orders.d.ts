@@ -5,6 +5,7 @@ declare namespace Api {
       pageSize: number;
       keyword?: string;
       status?: string;
+      dockStatus?: string;
     }
 
     interface Record {

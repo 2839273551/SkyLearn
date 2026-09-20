@@ -71,3 +71,11 @@ export function batchRebrushOrders(oids: (string | number)[]) {
     data: { oids: oids.map(Number) }
   });
 }
+
+export function batchDockOrders(oids: (string | number)[]) {
+  return request<{ total: number; success: number; failed: number; message?: string }>({
+    url: 'admin-api/v1/index.php?action=order-batch-dock',
+    method: 'post',
+    data: { oids: oids.map(Number) }
+  });
+}

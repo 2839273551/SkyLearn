@@ -20,6 +20,7 @@ import {
 } from 'naive-ui';
 import {
   batchDeleteOrders,
+  batchDockOrders,
   batchRebrushOrders,
   batchRefundOrders,
   batchSyncOrders,
@@ -43,7 +44,7 @@ const loading = ref(false);
 const batchLoading = ref(false);
 const records = ref<Api.Orders.Record[]>([]);
 const total = ref(0);
-const query = reactive<Api.Orders.Query>({ page: 1, pageSize: 20, keyword: '', status: '' });
+const query = reactive<Api.Orders.Query>({ page: 1, pageSize: 20, keyword: '', status: '', dockStatus: '' });
 const checkedRowKeys = ref<DataTableRowKey[]>([]);
 
 const actionLoadingMap = reactive<Record<string, boolean>>({});
@@ -65,6 +66,15 @@ const statusOptions = [
   { label: '补刷中', value: '补刷中' },
   { label: '异常', value: '异常' },
   { label: '已取消', value: '已取消' }
+];
+
+const dockStatusFilterOptions = [
+  { label: '全部提交状态', value: '' },
+  { label: '❌ 提交失败', value: '2' },
+  { label: '✅ 提交成功', value: '1' },
+  { label: '⏳ 待提交', value: '0' },
+  { label: '🔁 重复单', value: '3' },
+  { label: '🚫 已取消', value: '4' }
 ];
 
 function statusType(status: string): 'default' | 'info' | 'success' | 'warning' | 'error' {
@@ -264,6 +274,20 @@ async function handleBatchRebrush() {
   batchLoading.value = false;
   if (res !== null) {
     window.$message?.success('批量补单加入排队成功');
+    checkedRowKeys.value = [];
+    loadOrders();
+  }
+}
+
+// 批量重提 (重新向货源提交)
+async function handleBatchDock() {
+  if (!checkSelected()) return;
+  batchLoading.value = true;
+  const { data, error } = await batchDockOrders(checkedRowKeys.value as (string | number)[]);
+  batchLoading.value = false;
+  if (!error && data) {
+    const msg = data.message || `批量重提已完成！`;
+    window.$message?.success(msg);
     checkedRowKeys.value = [];
     loadOrders();
   }
@@ -898,6 +922,7 @@ function search() {
 function reset() {
   query.keyword = '';
   query.status = '';
+  query.dockStatus = '';
   query.page = 1;
   loadOrders();
 }
@@ -940,7 +965,8 @@ onMounted(loadOrders);
         >
           <template #prefix><SvgIcon icon="ph:magnifying-glass" /></template>
         </NInput>
-        <NSelect v-model:value="query.status" class="w-140px" :options="statusOptions" />
+        <NSelect v-model:value="query.status" class="w-130px" :options="statusOptions" />
+        <NSelect v-model:value="query.dockStatus" class="w-145px" :options="dockStatusFilterOptions" />
         <NButton type="primary" @click="search">查询</NButton>
         <NButton @click="reset">重置</NButton>
         <NButton quaternary :loading="loading" @click="loadOrders">
@@ -961,6 +987,14 @@ onMounted(loadOrders);
           <NButton size="small" type="warning" :loading="batchLoading" :disabled="!checkedRowKeys.length" @click="handleBatchRebrush">
             📝 批量补单
           </NButton>
+          <NPopconfirm :disabled="!checkedRowKeys.length" @positive-click="handleBatchDock">
+            <template #trigger>
+              <NButton size="small" type="error" :loading="batchLoading" :disabled="!checkedRowKeys.length">
+                🚀 批量重提
+              </NButton>
+            </template>
+            确定将已勾选的 {{ checkedRowKeys.length }} 笔订单重新向货源提交吗？
+          </NPopconfirm>
           <NDropdown trigger="click" :options="taskStatusDropdownOptions" @select="handleSelectTaskStatus">
             <NButton size="small" type="info" secondary :loading="batchLoading" :disabled="!checkedRowKeys.length">
               ✏️ 修改任务状态 ▾
