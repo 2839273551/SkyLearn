@@ -2333,22 +2333,12 @@ if ($action === 'zzbz-info') {
     $docRoot = isset($_SERVER['DOCUMENT_ROOT']) ? $_SERVER['DOCUMENT_ROOT'] : '/www/wwwroot/sk.yunxnet.cn';
 
     $crons = array(
-        array('title' => '玉帝实时进度', 'cycle' => '1-5 分钟 1 次', 'url' => $baseUrl . '/cron/YD.php'),
-        array('title' => '邀请次数上限', 'cycle' => '每天 00:10 执行 1 次', 'url' => $baseUrl . '/cron/yqm.php'),
-        array('title' => '提交入队', 'cycle' => '1 分钟 1 次', 'url' => $baseUrl . '/redis/addru.php'),
-        array('title' => '实时入队', 'cycle' => '1 分钟 1 次', 'url' => $baseUrl . '/redis/ccru.php'),
-        array('title' => '批量补刷入队', 'cycle' => '1 分钟 1 次', 'url' => $baseUrl . '/redis/plbsru.php'),
-        array('title' => '批量刷新入队', 'cycle' => '1 分钟 1 次', 'url' => $baseUrl . '/redis/plsxru.php'),
-        array('title' => '补刷入队', 'cycle' => '1 分钟 1 次', 'url' => $baseUrl . '/redis/bsru.php'),
-        array('title' => '价格同步', 'cycle' => '建议每日定时执行', 'url' => $baseUrl . '/cron/updateprice.php')
+        array('title' => '网课全自动调度引擎 (推荐)', 'cycle' => '宝塔计划任务 1 分钟 1 次', 'url' => $baseUrl . '/admin-api/v1/cron.php'),
+        array('title' => '轻量兼容心跳接口', 'cycle' => '宝塔计划任务 1 分钟 1 次', 'url' => $baseUrl . '/cron/worker.php')
     );
 
     $daemons = array(
-        array('name' => '提交出队 (add)', 'count' => 1, 'cmd' => 'nohup php addchu.php &', 'dir' => $docRoot . '/redis'),
-        array('name' => '批量补刷 (plbs)', 'count' => 5, 'cmd' => 'nohup php plbschu.php &', 'dir' => $docRoot . '/redis'),
-        array('name' => '批量刷新 (plsx)', 'count' => 5, 'cmd' => 'nohup php plsxchu.php &', 'dir' => $docRoot . '/redis'),
-        array('name' => '补刷出队 (bs)', 'count' => 5, 'cmd' => 'nohup php bschu.php &', 'dir' => $docRoot . '/redis'),
-        array('name' => '实时出队 (cc)', 'count' => 10, 'cmd' => 'nohup php ccchu.php &', 'dir' => $docRoot . '/redis')
+        array('name' => '宝塔单命令调度引擎 (无需后台常驻进程)', 'count' => 1, 'cmd' => '/www/server/php/74/bin/php ' . $docRoot . '/admin-api/v1/cron.php', 'dir' => $docRoot . '/admin-api/v1')
     );
 
     api_respond(0, 'ok', array('crons' => $crons, 'daemons' => $daemons));

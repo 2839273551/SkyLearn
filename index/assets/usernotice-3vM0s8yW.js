@@ -1,0 +1,1 @@
+import{H as e,O as t,S as n,W as r}from"./vendor-icons-B7yid5VR.js";import{b as i}from"./vendor-vue-DNdmcjOm.js";var a=t({name:`usernotice`,__name:`index`,setup(t){let a=i();return e(()=>{a.replace(`/home`)}),(e,t)=>(r(),n(`div`))}});export{a as default};

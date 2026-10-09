@@ -1,0 +1,1 @@
+import{O as e,S as t,W as n,y as r}from"./vendor-icons-B7yid5VR.js";var i={class:`h-full`},a=[`src`],o=e({name:`iframe-page`,__name:`[url]`,props:{url:{}},setup(e){return(o,s)=>(n(),t(`div`,i,[r(`iframe`,{id:`iframePage`,class:`size-full`,src:e.url},null,8,a)]))}});export{o as default};

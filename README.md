@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./assets/images/logo.png" alt="SkyLearn Logo" width="100" height="100" onerror="this.src='https://raw.githubusercontent.com/2839273551/SkyLearn/main/logo.png';this.onerror=null;" style="margin-bottom: 12px;"/>
+  <img src="./logo.png" alt="SkyLearn Logo" width="100" height="100" onerror="this.src='https://raw.githubusercontent.com/2839273551/SkyLearn/main/logo.png';this.onerror=null;" style="margin-bottom: 12px;"/>
   <h1>SkyLearn · 在线教育业务中枢与智能分流分销平台</h1>
   <p>企业级多货源聚合分发 · 高可靠状态机异步调度引擎 · Vue 3 + TypeScript 现代化纯单页管理后台</p>
 
