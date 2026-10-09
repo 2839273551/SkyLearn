@@ -3858,6 +3858,9 @@ if ($action === 'order-sync') {
             $numVal = floatval(preg_replace('/[^\d.]/', '', (string)$uProcess));
             if ($uStatus === '已完成' || $uStatus === '已结课' || $uStatus === '已学完' || ($numVal >= 100 && $uStatus !== '异常' && $uStatus !== '待重刷' && $uStatus !== '补刷中')) {
                 $uStatus = '已完成';
+                if (strpos($uRemarks, '当前执行:') !== false) {
+                    $uRemarks = str_replace(array('status:【进行中】', 'status:【待上号】'), 'status:【已结课】', $uRemarks);
+                }
             }
 
             // 仅在本地尚未绑定有效 yid 时才安全回填，严禁覆盖篡改已有 yid

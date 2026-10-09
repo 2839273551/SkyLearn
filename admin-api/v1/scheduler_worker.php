@@ -251,6 +251,56 @@ function scheduler_execute_task($taskId) {
                 $failedCount++;
             }
         }
+
+        // =========================================================================
+        // 引擎 2 扩展：完结订单·末次收尾二次核验池 (Final-Sync Buffer Queue)
+        // 专门扫描已完成但备注中仍残留过程日志（当前执行 / status:【进行中】）的订单，
+        // 向上游拉取真正的结算终态信息（如: 课件详情:13/13 || 讨论:无），彻底永久封板归档！
+        // =========================================================================
+        $finalSyncWhere = "dockstatus=1 AND status='已完成' AND (remarks LIKE '%当前执行%' OR remarks LIKE '%status:【进行中】%' OR remarks LIKE '%【待上号】%') AND (finalupdate IS NULL OR finalupdate='' OR finalupdate < DATE_SUB(NOW(), INTERVAL 25 SECOND))";
+        $finalSyncRes = $DB->query("SELECT * FROM `qingka_wangke_order` WHERE $finalSyncWhere ORDER BY finalupdate ASC, oid ASC LIMIT 15");
+        $finalOrders = array();
+        while ($r = $DB->fetch($finalSyncRes)) { $finalOrders[] = $r; }
+
+        if (!empty($finalOrders) && function_exists('processCx')) {
+            $logs[] = "  [*] 扫描到待收尾二次确认的完结订单: " . count($finalOrders) . " 笔，开始拉取终态汇总...";
+            foreach ($finalOrders as $fOrder) {
+                $fOid = $fOrder['oid'];
+                $fResults = processCx($fOid);
+                if (is_array($fResults) && !empty($fResults)) {
+                    $item = function_exists('matchOrderProgressItem') ? matchOrderProgressItem($fOrder, $fResults) : null;
+                    if ($item && !empty($item['remarks'])) {
+                        $upRemarks = trim($item['remarks']);
+                        $hasFinalSummary = (strpos($upRemarks, '当前执行:') === false);
+
+                        if ($hasFinalSummary) {
+                            $safeRemarks = daddslashes($upRemarks);
+                            $DB->query("UPDATE `qingka_wangke_order` SET `remarks`='$safeRemarks', `finalupdate`=NOW() WHERE oid='$fOid'");
+                            $logs[] = "    [★] 订单 #$fOid [{$fOrder['kcname']}] 已成功捕获终态结算信息: [{$upRemarks}]，已永久封板归档！";
+                            $successCount++;
+                        } else {
+                            // 若上游依然为中间日志，且已经完成超过 10 分钟，自动将中间态规整清洗为已结课，避免死循环
+                            $lastUpTime = !empty($fOrder['finalupdate']) ? strtotime($fOrder['finalupdate']) : 0;
+                            if ($lastUpTime > 0 && (time() - $lastUpTime) > 600) {
+                                $cleanRemarks = str_replace(array('status:【进行中】', 'status:【待上号】'), 'status:【已结课】', $upRemarks);
+                                if (strpos($cleanRemarks, '【已结课】') === false) {
+                                    $cleanRemarks .= ' || status:【已结课】';
+                                }
+                                $safeClean = daddslashes($cleanRemarks);
+                                $DB->query("UPDATE `qingka_wangke_order` SET `remarks`='$safeClean', `finalupdate`=NOW() WHERE oid='$fOid'");
+                                $logs[] = "    [✔] 订单 #$fOid [{$fOrder['kcname']}] 超时仍无新结算，已智能规整中间态为【已结课】封板归档！";
+                            } else {
+                                $DB->query("UPDATE `qingka_wangke_order` SET `finalupdate`=NOW() WHERE oid='$fOid'");
+                            }
+                        }
+                    } else {
+                        $DB->query("UPDATE `qingka_wangke_order` SET `finalupdate`=NOW() WHERE oid='$fOid'");
+                    }
+                } else {
+                    $DB->query("UPDATE `qingka_wangke_order` SET `finalupdate`=NOW() WHERE oid='$fOid'");
+                }
+            }
+        }
     }
 
     // =========================================================================
