@@ -3868,13 +3868,19 @@ if ($action === 'order-sync') {
             if ((empty($order['yid']) || strval($order['yid']) === '0') && !empty($matchedYid) && $matchedYid !== '0') {
                 $setYidSql = ", `yid`='$matchedYid'";
             }
+            $setDocknum = '';
+            if ($uStatus === '已完成') {
+                $isInter = function_exists('isOrderRemarksIntermediate') ? isOrderRemarksIntermediate($uRemarks) : false;
+                $docknumVal = $isInter ? 0 : 2;
+                $setDocknum = ", `docknum`='$docknumVal'";
+            }
 
             $DB->query("UPDATE qingka_wangke_order SET 
                 `name`='$uName',
                 `status`='$uStatus',
                 `process`='$uProcess',
                 `finalupdate`='$uZhgx',
-                `remarks`='$uRemarks' $setYidSql 
+                `remarks`='$uRemarks' $setYidSql $setDocknum 
                 WHERE `oid`='$oid'");
         }
     }
@@ -4229,6 +4235,11 @@ if ($action === 'order-batch-sync') {
                     $setYid = '';
                     if ((empty($order['yid']) || strval($order['yid']) === '0') && !empty($matchedYid) && $matchedYid !== '0') {
                         $setYid = ", `yid`='$matchedYid'";
+                    }
+                    if ($uStatus === '已完成') {
+                        $isInter = function_exists('isOrderRemarksIntermediate') ? isOrderRemarksIntermediate($uRemarks) : false;
+                        $docknumVal = $isInter ? 0 : 2;
+                        $setFields[] = "`docknum`='$docknumVal'";
                     }
 
                     $sqlSet = implode(',', $setFields);

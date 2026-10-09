@@ -303,6 +303,18 @@ function processCx($oid)//进度代码
 }
 
 /**
+ * 判定订单详细进度备注是否处于中间过程态（未完成最终结算汇报）
+ *
+ * @param string $remarks 备注信息
+ * @return bool true=过程态（需要等待/拉取上游终态汇总）, false=终态（已汇总封板）
+ */
+function isOrderRemarksIntermediate($remarks) {
+    if (empty($remarks)) return true;
+    $rem = trim($remarks);
+    return (bool)preg_match('/(当前执行:|正在阅读|正在播放|正在做|正在处理|正在答题|正在学习|正在观看|正在考试|正在提交|正在|\[处理中\]|【进行中】|status:【进行中】|【待上号】|待上号|排队中|队列中|上号中)/u', $rem);
+}
+
+/**
  * 智能匹配上游进度条目与本地订单（解决同账号同课程下单课件与单答题进度混淆、yid覆盖等系统性缺陷）
  *
  * @param array $order 本地订单信息数组（包含 oid, yid, kcname, ptname, user 等）
