@@ -4145,6 +4145,7 @@ if ($action === 'order-batch-sync') {
         if (!$order) continue;
         if (!$isSuper && intval($order['uid']) !== $currentUid) continue;
         if (strval($order['dockstatus']) === '4' || strval($order['hid']) === '0') continue;
+        if (in_array($order['status'], array('已完成', '已取消', '已退款'), true)) continue;
 
         if (function_exists('processCx')) {
             $result = processCx($oid);
