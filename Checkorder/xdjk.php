@@ -31,7 +31,21 @@ function checkAddWkResult($b) {
       return array("code" => 1, "msg" => "上游已存在该订单(自动纳管)", "already_exists" => true);
     }
   }
-  return checkAddWkResult($b);
+  return $b;
+}
+
+function extractUpstreamOrderId($result) {
+  if (!is_array($result)) return '';
+  if (isset($result['id']) && is_numeric($result['id']) && intval($result['id']) > 0) {
+    return strval($result['id']);
+  }
+  if (isset($result['yid']) && is_numeric($result['yid']) && intval($result['yid']) > 0) {
+    return strval($result['yid']);
+  }
+  if (isset($result['oid']) && is_numeric($result['oid']) && intval($result['oid']) > 0) {
+    return strval($result['oid']);
+  }
+  return '';
 }
 
 function addWk($oid){//下单接口代码
@@ -85,21 +99,22 @@ function addWk($oid){//下单接口代码
  
 	
  //27下单接口
-	 
+		 
 	 if ($type == "27") {
     $data = array("uid" => $a["user"], "key" => $a["pass"], "platform" => $noun, "school" => $school, "user" => $user, "pass" => $pass, "kcname" => $kcname);
     $eq_rl = $a["url"];
     $eq_url = "$eq_rl/api.php?act=add";
     $result = get_url($eq_url, $data, $cookie);
     $result = json_decode($result, true);
-    if ($result["code"] == "0") {
-      $b = array("code" => 1, "msg" => "下单成功");
+    if ($result["code"] == "0" || $result["code"] == "1") {
+      $yid = extractUpstreamOrderId($result);
+      $b = array("code" => 1, "msg" => "下单成功", "yid" => $yid);
     } else {
       $b = array("code" => -1, "msg" => $result["msg"]);
     }
     return checkAddWkResult($b);
   }
-	 
+		 
 	 //29系统下单接口
   else if ($type == "29") {
     $data = array("uid" => $a["user"], "key" => $a["pass"], "platform" => $noun, "school" => $school, "user" => $user, "pass" => $pass, "kcname" => $kcname, "kcid" => $kcid);
@@ -107,8 +122,9 @@ function addWk($oid){//下单接口代码
     $dx_url = "$dx_rl/api.php?act=add";
     $result = get_url($dx_url, $data);
     $result = json_decode($result, true);
-    if ($result["code"] == "0") {
-      $b = array("code" => 1, "msg" => "下单成功");
+    if ($result["code"] == "0" || $result["code"] == "1") {
+      $yid = extractUpstreamOrderId($result);
+      $b = array("code" => 1, "msg" => "下单成功", "yid" => $yid);
     } else {
       $b = array("code" => -1, "msg" => $result["msg"]);
     }
@@ -120,8 +136,9 @@ function addWk($oid){//下单接口代码
     $ixx_url = $a["url"] . "/api/add";
     $result = httpRequest('POST', $ixx_url, $data, [], true);
     $result = json_decode($result, true);
-    if ($result["code"] == "1") {
-      $b = array("code" => 1, "msg" => "下单成功", "yid" => $result["id"]);
+    if ($result["code"] == "1" || $result["code"] == "0") {
+      $yid = extractUpstreamOrderId($result);
+      $b = array("code" => 1, "msg" => "下单成功", "yid" => $yid);
     } else {
       $b = array("code" => -1, "msg" => $result["msg"]);
     }
@@ -134,8 +151,9 @@ function addWk($oid){//下单接口代码
     $benz_url = "$benz_rl/api/add";
     $result = get_url($benz_url, $data, $cookie);
     $result = json_decode($result, true);
-    if ($result["code"] == "0") {
-      $b = array("code" => 1, "msg" => "下单成功");
+    if ($result["code"] == "0" || $result["code"] == "1") {
+      $yid = extractUpstreamOrderId($result);
+      $b = array("code" => 1, "msg" => "下单成功", "yid" => $yid);
     } else {
       $b = array("code" => -1, "msg" => $result["msg"]);
     }
@@ -148,14 +166,15 @@ function addWk($oid){//下单接口代码
     $eq_url = "$eq_rl/api.php?act=add";
     $result = get_url($eq_url, $data);
     $result = json_decode($result, true);
-    if ($result["code"] == "1") {
-      $b = array("code" => 1, "msg" => "下单成功", "yid" => $result["id"]);
+    if ($result["code"] == "1" || $result["code"] == "0") {
+      $yid = extractUpstreamOrderId($result);
+      $b = array("code" => 1, "msg" => "下单成功", "yid" => $yid);
     } else {
       $b = array("code" => -1, "msg" => $result["msg"]);
     }
     return checkAddWkResult($b);
   }
-	 
+		 
 	 // SkyLearn
   else if ($type == "xm") {
     $data = array("uid" => $a["user"], "key" => $a["pass"], "platform" => $noun, "school" => $school, "user" => $user, "pass" => $pass, "kcname" => $kcname, "kcid" => $kcid);
@@ -163,8 +182,9 @@ function addWk($oid){//下单接口代码
     $eq_url = "$eq_rl/api.php?act=add";
     $result = get_url($eq_url, $data, $cookie);
     $result = json_decode($result, true);
-    if ($result["code"] == "0") {
-      $b = array("code" => 1, "msg" => "下单成功", "yid" => $result["id"]);
+    if ($result["code"] == "0" || $result["code"] == "1") {
+      $yid = extractUpstreamOrderId($result);
+      $b = array("code" => 1, "msg" => "下单成功", "yid" => $yid);
     } else {
       $b = array("code" => -1, "msg" => $result["msg"]);
     }
@@ -177,8 +197,9 @@ function addWk($oid){//下单接口代码
     $dx_url = "$dx_rl/api.php?act=add";
     $result = get_url($dx_url, $data);
     $result = json_decode($result, true);
-    if ($result["code"] == "0") {
-      $b = array("code" => 1, "msg" => "下单成功");
+    if ($result["code"] == "0" || $result["code"] == "1") {
+      $yid = extractUpstreamOrderId($result);
+      $b = array("code" => 1, "msg" => "下单成功", "yid" => $yid);
     } else {
       $b = array("code" => -1, "msg" => $result["msg"]);
     }
@@ -190,8 +211,9 @@ function addWk($oid){//下单接口代码
     $dx_url = "$dx_rl/api.php?act=add";
     $result = get_url($dx_url, $data);
     $result = json_decode($result, true);
-    if ($result["code"] == "0") {
-      $b = array("code" => 1, "msg" => "下单成功", "yid" => $result['id']);
+    if ($result["code"] == "0" || $result["code"] == "1") {
+      $yid = extractUpstreamOrderId($result);
+      $b = array("code" => 1, "msg" => "下单成功", "yid" => $yid);
     } else {
       $b = array("code" => -1, "msg" => $result["msg"]);
     }

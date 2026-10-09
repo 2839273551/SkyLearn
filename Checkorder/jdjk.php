@@ -301,3 +301,114 @@ function processCx($oid)//进度代码
     return $b;
   }
 }
+
+/**
+ * 智能匹配上游进度条目与本地订单（解决同账号同课程下单课件与单答题进度混淆、yid覆盖等系统性缺陷）
+ *
+ * @param array $order 本地订单信息数组（包含 oid, yid, kcname, ptname, user 等）
+ * @param array $results 上游 processCx 返回的条目数组
+ * @return array|null 最佳匹配的上游条目
+ */
+function matchOrderProgressItem($order, $results) {
+    if (empty($results) || !is_array($results)) {
+        return null;
+    }
+
+    $orderYid = isset($order['yid']) ? trim(strval($order['yid'])) : '';
+    $orderOid = isset($order['oid']) ? intval($order['oid']) : 0;
+
+    // 1. 最高优先级：若订单已有明确的上游 yid，优先精准按 yid 匹配
+    if ($orderYid !== '' && $orderYid !== '0') {
+        foreach ($results as $item) {
+            if (!is_array($item)) continue;
+            $itemYid = isset($item['yid']) ? trim(strval($item['yid'])) : (isset($item['id']) ? trim(strval($item['id'])) : '');
+            if ($itemYid === $orderYid) {
+                return $item;
+            }
+        }
+    }
+
+    // 2. 筛选出所有与当前课程名匹配的候选集
+    $orderKc = isset($order['kcname']) ? $order['kcname'] : '';
+    $cleanOrderKc = trim(preg_replace('/[【\(（]课程进度.*?[】\)）]/u', '', $orderKc));
+    $candidates = array();
+    foreach ($results as $item) {
+        if (!is_array($item)) continue;
+        $itemKc = isset($item['kcname']) ? $item['kcname'] : '';
+        $cleanItemKc = trim(preg_replace('/[【\(（]课程进度.*?[】\)）]/u', '', $itemKc));
+        if (($itemKc !== '' && $itemKc === $orderKc) || ($cleanItemKc !== '' && $cleanItemKc === $cleanOrderKc)) {
+            $candidates[] = $item;
+        }
+    }
+
+    // 兜底：若没有任何课程名匹配，但上游仅返回了1条记录且包含状态，返回它
+    if (empty($candidates)) {
+        if (count($results) === 1 && isset($results[0]['status_text'])) {
+            return $results[0];
+        }
+        return null;
+    }
+
+    // 若匹配课程只有1条候选，直接返回
+    if (count($candidates) === 1) {
+        return $candidates[0];
+    }
+
+    // 3. 多条候选时的精细化智能裁决（单课件 vs 单答题/单考试、排他性占用等）
+    $ptname = isset($order['ptname']) ? $order['ptname'] : '';
+    $isExamOrder = preg_match('/(考试|答题|测试|测验|作业)/u', $ptname . ' ' . $orderKc);
+
+    // 查询该账号下其他同名课程订单已占用的 yid，避免重复抢占同一个上游订单
+    global $DB;
+    $occupiedYids = array();
+    if (isset($DB) && is_object($DB) && !empty($order['user'])) {
+        $userEsc = daddslashes($order['user']);
+        $occRes = $DB->query("SELECT yid FROM qingka_wangke_order WHERE `user`='$userEsc' AND oid != '$orderOid' AND yid != '' AND yid != '0'");
+        if ($occRes) {
+            while ($row = $DB->fetch($occRes)) {
+                if (!empty($row['yid'])) {
+                    $occupiedYids[strval($row['yid'])] = true;
+                }
+            }
+        }
+    }
+
+    $bestItem = null;
+    $bestScore = -999;
+
+    foreach ($candidates as $item) {
+        $itemYid = isset($item['yid']) ? trim(strval($item['yid'])) : (isset($item['id']) ? trim(strval($item['id'])) : '');
+        $remarks = isset($item['remarks']) ? $item['remarks'] : '';
+        $statusText = isset($item['status_text']) ? $item['status_text'] : '';
+        $isExamItem = preg_match('/(考试|答题|测试|测验|作业|分\))/u', $remarks . ' ' . $statusText);
+
+        $score = 0;
+
+        // 订单属性与上游条目特征匹配
+        if ($isExamOrder) {
+            if ($isExamItem) {
+                $score += 50; // 强匹配考试
+            } else {
+                $score -= 30; // 课件记录扣分
+            }
+        } else {
+            if (!$isExamItem) {
+                $score += 50; // 强匹配课件
+            } else {
+                $score -= 30; // 考试记录扣分
+            }
+        }
+
+        // 避免匹配已经被其他本地订单占用的 yid
+        if (!empty($itemYid) && isset($occupiedYids[$itemYid])) {
+            $score -= 100;
+        }
+
+        if ($score > $bestScore) {
+            $bestScore = $score;
+            $bestItem = $item;
+        }
+    }
+
+    return $bestItem ? $bestItem : $candidates[0];
+}

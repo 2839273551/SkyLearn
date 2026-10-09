@@ -3830,22 +3830,20 @@ if ($action === 'order-sync') {
 
     $result = processCx($oid);
     if (!empty($result) && is_array($result)) {
-        $matched = null;
-        $cleanOrderKc = trim(preg_replace('/[【\(（]课程进度.*?[】\)）]/u', '', $order['kcname']));
-        
-        // 优先根据课程名称精准匹配
-        foreach ($result as $item) {
-            if (!is_array($item) || !isset($item['kcname'])) continue;
-            $cleanItemKc = trim(preg_replace('/[【\(（]课程进度.*?[】\)）]/u', '', $item['kcname']));
-            if ($item['kcname'] === $order['kcname'] || $cleanItemKc === $cleanOrderKc) {
-                $matched = $item;
-                break;
+        $matched = function_exists('matchOrderProgressItem') ? matchOrderProgressItem($order, $result) : null;
+        if (!$matched) {
+            $cleanOrderKc = trim(preg_replace('/[【\(\（]课程进度.*?[】\)\）]/u', '', $order['kcname']));
+            foreach ($result as $item) {
+                if (!is_array($item) || !isset($item['kcname'])) continue;
+                $cleanItemKc = trim(preg_replace('/[【\(\（]课程进度.*?[】\)\）]/u', '', $item['kcname']));
+                if ($item['kcname'] === $order['kcname'] || $cleanItemKc === $cleanOrderKc) {
+                    $matched = $item;
+                    break;
+                }
             }
-        }
-
-        // 若仅有1门课程且未匹配到名称，作为兜底匹配
-        if (!$matched && count($result) === 1 && isset($result[0]['status_text'])) {
-            $matched = $result[0];
+            if (!$matched && count($result) === 1 && isset($result[0]['status_text'])) {
+                $matched = $result[0];
+            }
         }
 
         if ($matched) {
@@ -3854,7 +3852,7 @@ if ($action === 'order-sync') {
             $uProcess = daddslashes(isset($matched['process']) ? $matched['process'] : $order['process']);
             $uRemarks = daddslashes(isset($matched['remarks']) ? $matched['remarks'] : $order['remarks']);
             $uZhgx = daddslashes(isset($matched['zhgx']) ? $matched['zhgx'] : date('Y-m-d H:i:s'));
-            $uYid = daddslashes(isset($matched['yid']) ? $matched['yid'] : (isset($matched['id']) ? $matched['id'] : ''));
+            $matchedYid = daddslashes(isset($matched['yid']) ? $matched['yid'] : (isset($matched['id']) ? $matched['id'] : ''));
 
             // 智能完成判定：若进度满100%或标记学完/结课，自动转为[已完成]归档
             $numVal = floatval(preg_replace('/[^\d.]/', '', (string)$uProcess));
@@ -3862,7 +3860,12 @@ if ($action === 'order-sync') {
                 $uStatus = '已完成';
             }
 
-            $setYidSql = (!empty($uYid) && $uYid !== '0') ? ", `yid`='$uYid'" : '';
+            // 仅在本地尚未绑定有效 yid 时才安全回填，严禁覆盖篡改已有 yid
+            $setYidSql = '';
+            if ((empty($order['yid']) || strval($order['yid']) === '0') && !empty($matchedYid) && $matchedYid !== '0') {
+                $setYidSql = ", `yid`='$matchedYid'";
+            }
+
             $DB->query("UPDATE qingka_wangke_order SET 
                 `name`='$uName',
                 `status`='$uStatus',
@@ -3974,22 +3977,30 @@ if ($action === 'order-dock') {
         if (function_exists('processCx')) {
             $resSync = processCx($oid);
             if (!empty($resSync) && is_array($resSync)) {
-                $cleanOrderKc = trim(preg_replace('/[【\(（]课程进度.*?[】\)）]/u', '', $order['kcname']));
-                foreach ($resSync as $item) {
-                    if (!is_array($item) || !isset($item['kcname'])) continue;
-                    $cleanItemKc = trim(preg_replace('/[【\(（]课程进度.*?[】\)）]/u', '', $item['kcname']));
-                    if ($item['kcname'] === $order['kcname'] || $cleanItemKc === $cleanOrderKc) {
-                        $newStatus = isset($item['status_text']) ? daddslashes($item['status_text']) : '进行中';
-                        $newProcess = isset($item['process']) ? daddslashes($item['process']) : $order['process'];
-                        $newRemarks = isset($item['remarks']) ? daddslashes($item['remarks']) : $order['remarks'];
-                        $uYid = isset($item['yid']) ? daddslashes(strval($item['yid'])) : $yid;
-                        $numVal = floatval(preg_replace('/[^\d.]/', '', (string)$newProcess));
-                        if ($newStatus === '已完成' || $newStatus === '已结课' || $newStatus === '已学完' || ($numVal >= 100 && $newStatus !== '异常' && $newStatus !== '待重刷' && $newStatus !== '补刷中')) {
-                            $newStatus = '已完成';
+                $item = function_exists('matchOrderProgressItem') ? matchOrderProgressItem($order, $resSync) : null;
+                if (!$item) {
+                    $cleanOrderKc = trim(preg_replace('/[【\(\（]课程进度.*?[】\)\）]/u', '', $order['kcname']));
+                    foreach ($resSync as $cand) {
+                        if (!is_array($cand) || !isset($cand['kcname'])) continue;
+                        $cleanItemKc = trim(preg_replace('/[【\(\（]课程进度.*?[】\)\）]/u', '', $cand['kcname']));
+                        if ($cand['kcname'] === $order['kcname'] || $cleanItemKc === $cleanOrderKc) {
+                            $item = $cand;
+                            break;
                         }
-                        $DB->query("UPDATE qingka_wangke_order SET `status`='$newStatus', `process`='$newProcess', `remarks`='$newRemarks', `yid`='$uYid', `finalupdate`=NOW() WHERE oid='$oid'");
-                        break;
                     }
+                }
+                if ($item) {
+                    $newStatus = isset($item['status_text']) ? daddslashes($item['status_text']) : '进行中';
+                    $newProcess = isset($item['process']) ? daddslashes($item['process']) : $order['process'];
+                    $newRemarks = isset($item['remarks']) ? daddslashes($item['remarks']) : $order['remarks'];
+                    $itemYid = isset($item['yid']) ? daddslashes(strval($item['yid'])) : '';
+                    $finalYid = !empty($yid) ? $yid : ((empty($order['yid']) || strval($order['yid']) === '0') ? $itemYid : $order['yid']);
+                    $numVal = floatval(preg_replace('/[^\d.]/', '', (string)$newProcess));
+                    if ($newStatus === '已完成' || $newStatus === '已结课' || $newStatus === '已学完' || ($numVal >= 100 && $newStatus !== '异常' && $newStatus !== '待重刷' && $newStatus !== '补刷中')) {
+                        $newStatus = '已完成';
+                    }
+                    $setYidSql = !empty($finalYid) ? ", `yid`='$finalYid'" : '';
+                    $DB->query("UPDATE qingka_wangke_order SET `status`='$newStatus', `process`='$newProcess', `remarks`='$newRemarks' $setYidSql, `finalupdate`=NOW() WHERE oid='$oid'");
                 }
             }
         }
@@ -4175,20 +4186,20 @@ if ($action === 'order-batch-sync') {
         if (function_exists('processCx')) {
             $result = processCx($oid);
             if (!empty($result) && is_array($result)) {
-                $matched = null;
-                $cleanOrderKc = trim(preg_replace('/[【\(（]课程进度.*?[】\)）]/u', '', $order['kcname']));
-
-                foreach ($result as $item) {
-                    if (!is_array($item) || !isset($item['kcname'])) continue;
-                    $cleanItemKc = trim(preg_replace('/[【\(（]课程进度.*?[】\)）]/u', '', $item['kcname']));
-                    if ($item['kcname'] === $order['kcname'] || $cleanItemKc === $cleanOrderKc) {
-                        $matched = $item;
-                        break;
+                $matched = function_exists('matchOrderProgressItem') ? matchOrderProgressItem($order, $result) : null;
+                if (!$matched) {
+                    $cleanOrderKc = trim(preg_replace('/[【\(\（]课程进度.*?[】\)\）]/u', '', $order['kcname']));
+                    foreach ($result as $item) {
+                        if (!is_array($item) || !isset($item['kcname'])) continue;
+                        $cleanItemKc = trim(preg_replace('/[【\(\（]课程进度.*?[】\)\）]/u', '', $item['kcname']));
+                        if ($item['kcname'] === $order['kcname'] || $cleanItemKc === $cleanOrderKc) {
+                            $matched = $item;
+                            break;
+                        }
                     }
-                }
-
-                if (!$matched && count($result) === 1 && isset($result[0]['status_text'])) {
-                    $matched = $result[0];
+                    if (!$matched && count($result) === 1 && isset($result[0]['status_text'])) {
+                        $matched = $result[0];
+                    }
                 }
 
                 if ($matched) {
@@ -4197,7 +4208,7 @@ if ($action === 'order-batch-sync') {
                     $uProcess = daddslashes(isset($matched['process']) ? $matched['process'] : $order['process']);
                     $uRemarks = daddslashes(isset($matched['remarks']) ? $matched['remarks'] : $order['remarks']);
                     $uZhgx = daddslashes(isset($matched['zhgx']) ? $matched['zhgx'] : date('Y-m-d H:i:s'));
-                    $uYid = daddslashes(isset($matched['yid']) ? $matched['yid'] : (isset($matched['id']) ? $matched['id'] : ''));
+                    $matchedYid = daddslashes(isset($matched['yid']) ? $matched['yid'] : (isset($matched['id']) ? $matched['id'] : ''));
 
                     // 智能完成判定：若进度满100%或标记学完/结课，自动转为[已完成]归档
                     $numVal = floatval(preg_replace('/[^\d.]/', '', (string)$uProcess));
@@ -4205,13 +4216,17 @@ if ($action === 'order-batch-sync') {
                         $uStatus = '已完成';
                     }
 
-                    $setYid = (!empty($uYid) && $uYid !== '0') ? ", `yid`='$uYid'" : '';
                     $setFields = array();
                     if ($uName) $setFields[] = "`name`='$uName'";
                     if ($uStatus) $setFields[] = "`status`='$uStatus'";
                     if ($uProcess) $setFields[] = "`process`='$uProcess'";
                     if ($uRemarks) $setFields[] = "`remarks`='$uRemarks'";
                     $setFields[] = "`finalupdate`='$uZhgx'";
+
+                    $setYid = '';
+                    if ((empty($order['yid']) || strval($order['yid']) === '0') && !empty($matchedYid) && $matchedYid !== '0') {
+                        $setYid = ", `yid`='$matchedYid'";
+                    }
 
                     $sqlSet = implode(',', $setFields);
                     $DB->query("UPDATE `qingka_wangke_order` SET $sqlSet $setYid WHERE `oid`='$oid'");
@@ -4318,22 +4333,30 @@ if ($action === 'order-batch-dock') {
             if (!empty($result['already_exists']) && function_exists('processCx')) {
                 $resSync = processCx($oid);
                 if (!empty($resSync) && is_array($resSync)) {
-                    $cleanOrderKc = trim(preg_replace('/[【\(（]课程进度.*?[】\)）]/u', '', $order['kcname']));
-                    foreach ($resSync as $item) {
-                        if (!is_array($item) || !isset($item['kcname'])) continue;
-                        $cleanItemKc = trim(preg_replace('/[【\(（]课程进度.*?[】\)）]/u', '', $item['kcname']));
-                        if ($item['kcname'] === $order['kcname'] || $cleanItemKc === $cleanOrderKc) {
-                            $newStatus = isset($item['status_text']) ? daddslashes($item['status_text']) : '进行中';
-                            $newProcess = isset($item['process']) ? daddslashes($item['process']) : $order['process'];
-                            $newRemarks = isset($item['remarks']) ? daddslashes($item['remarks']) : $order['remarks'];
-                            $uYid = isset($item['yid']) ? daddslashes(strval($item['yid'])) : $yid;
-                            $numVal = floatval(preg_replace('/[^\d.]/', '', (string)$newProcess));
-                            if ($newStatus === '已完成' || $newStatus === '已结课' || $newStatus === '已学完' || ($numVal >= 100 && $newStatus !== '异常' && $newStatus !== '待重刷' && $newStatus !== '补刷中')) {
-                                $newStatus = '已完成';
+                    $item = function_exists('matchOrderProgressItem') ? matchOrderProgressItem($order, $resSync) : null;
+                    if (!$item) {
+                        $cleanOrderKc = trim(preg_replace('/[【\(\（]课程进度.*?[】\)\）]/u', '', $order['kcname']));
+                        foreach ($resSync as $cand) {
+                            if (!is_array($cand) || !isset($cand['kcname'])) continue;
+                            $cleanItemKc = trim(preg_replace('/[【\(\（]课程进度.*?[】\)\）]/u', '', $cand['kcname']));
+                            if ($cand['kcname'] === $order['kcname'] || $cleanItemKc === $cleanOrderKc) {
+                                $item = $cand;
+                                break;
                             }
-                            $DB->query("UPDATE qingka_wangke_order SET `status`='$newStatus', `process`='$newProcess', `remarks`='$newRemarks', `yid`='$uYid', `finalupdate`=NOW() WHERE oid='$oid'");
-                            break;
                         }
+                    }
+                    if ($item) {
+                        $newStatus = isset($item['status_text']) ? daddslashes($item['status_text']) : '进行中';
+                        $newProcess = isset($item['process']) ? daddslashes($item['process']) : $order['process'];
+                        $newRemarks = isset($item['remarks']) ? daddslashes($item['remarks']) : $order['remarks'];
+                        $itemYid = isset($item['yid']) ? daddslashes(strval($item['yid'])) : '';
+                        $finalYid = !empty($yid) ? $yid : ((empty($order['yid']) || strval($order['yid']) === '0') ? $itemYid : $order['yid']);
+                        $numVal = floatval(preg_replace('/[^\d.]/', '', (string)$newProcess));
+                        if ($newStatus === '已完成' || $newStatus === '已结课' || $newStatus === '已学完' || ($numVal >= 100 && $newStatus !== '异常' && $newStatus !== '待重刷' && $newStatus !== '补刷中')) {
+                            $newStatus = '已完成';
+                        }
+                        $setYidSql = !empty($finalYid) ? ", `yid`='$finalYid'" : '';
+                        $DB->query("UPDATE qingka_wangke_order SET `status`='$newStatus', `process`='$newProcess', `remarks`='$newRemarks' $setYidSql, `finalupdate`=NOW() WHERE oid='$oid'");
                     }
                 }
             }

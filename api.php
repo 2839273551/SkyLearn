@@ -546,8 +546,16 @@ if($username != ""){
        	    exit(json_encode($result));
        }       	     
 	       $result=processCx($oid);
-	       for($i=0;$i<count($result);$i++){
-	        	$a=$DB->query("update qingka_wangke_order set `yid`='{$result[$i]['yid']}',`status`='{$result[$i]['status_text']}',`courseStartTime`='{$result[$i]['kcks']}',`courseEndTime`='{$result[$i]['kcjs']}',`examStartTime`='{$result[$i]['ksks']}',`name`='{$result[$i]['name']}',`examEndTime`='{$result[$i]['ksjs']}',`process`='{$result[$i]['process']}',`remarks`='{$result[$i]['remarks']}' where `user`='{$result[$i]['user']}' and `pass`='{$result[$i]['pass']}' and `kcname`='{$result[$i]['kcname']}' and `oid`='{$oid}'");    	             
+	       if (!empty($result) && is_array($result)) {
+	           $item = function_exists('matchOrderProgressItem') ? matchOrderProgressItem($row, $result) : (isset($result[0]) ? $result[0] : null);
+	           if ($item) {
+	               $setYidSql = '';
+	               $itemYid = isset($item['yid']) ? daddslashes(strval($item['yid'])) : '';
+	               if ((empty($row['yid']) || strval($row['yid']) === '0') && !empty($itemYid) && $itemYid !== '0') {
+	                   $setYidSql = ", `yid`='$itemYid'";
+	               }
+	               $DB->query("update qingka_wangke_order set `status`='{$item['status_text']}',`courseStartTime`='{$item['kcks']}',`courseEndTime`='{$item['kcjs']}',`examStartTime`='{$item['ksks']}',`name`='{$item['name']}',`examEndTime`='{$item['ksjs']}',`process`='{$item['process']}',`remarks`='{$item['remarks']}' $setYidSql where `oid`='{$oid}'");
+	           }
 	       }
 	       exit('{"code":1,"msg":"同步成功，请重新查询信息"}');
   break;
@@ -571,8 +579,16 @@ if($username != ""){
            	    jsonReturn(1,'实时进度，无需更新');
            }       	     
     	       $result=processCx($oid);
-    	       for($i=0;$i<count($result);$i++){
-    	        	$DB->query("update qingka_wangke_order set `name`='{$result[$i]['name']}',`yid`='{$result[$i]['yid']}',`status`='{$result[$i]['status_text']}',`courseStartTime`='{$result[$i]['kcks']}',`courseEndTime`='{$result[$i]['kcjs']}',`examStartTime`='{$result[$i]['ksks']}',`examEndTime`='{$result[$i]['ksjs']}',`process`='{$result[$i]['process']}',`remarks`='{$result[$i]['remarks']}' where `user`='{$result[$i]['user']}' and `kcname`='{$result[$i]['kcname']}' and `oid`='{$oid}'");
+    	       if (!empty($result) && is_array($result)) {
+    	           $item = function_exists('matchOrderProgressItem') ? matchOrderProgressItem($row, $result) : (isset($result[0]) ? $result[0] : null);
+    	           if ($item) {
+    	               $setYidSql = '';
+    	               $itemYid = isset($item['yid']) ? daddslashes(strval($item['yid'])) : '';
+    	               if ((empty($row['yid']) || strval($row['yid']) === '0') && !empty($itemYid) && $itemYid !== '0') {
+    	                   $setYidSql = ", `yid`='$itemYid'";
+    	               }
+    	               $DB->query("update qingka_wangke_order set `name`='{$item['name']}',`status`='{$item['status_text']}',`courseStartTime`='{$item['kcks']}',`courseEndTime`='{$item['kcjs']}',`examStartTime`='{$item['ksks']}',`examEndTime`='{$item['ksjs']}',`process`='{$item['process']}',`remarks`='{$item['remarks']}' $setYidSql where `oid`='{$oid}'");
+    	           }
     	       }
     	       exit('{"code":1,"msg":"同步成功"}');
   break;
