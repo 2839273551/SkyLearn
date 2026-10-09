@@ -13,6 +13,7 @@ feedback_error.log
 push_complete.log
 
 # Temporary and cache files
+之前提交的记录.md
 %SystemDrive%/
 *.doc
 *.docx
