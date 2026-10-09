@@ -29,7 +29,7 @@ export function setupElegantRouter() {
       const routeMetaMap: Record<string, Partial<RouteMeta>> = {
         main: { title: '主页', icon: 'ph:house', order: 1 },
         home: { title: '系统公告', icon: 'ph:megaphone', order: 2, hideInMenu: true },
-        add: { title: '马上学习', icon: 'ph:shopping-cart-simple', order: 3 },
+        add: { title: '提交订单', icon: 'ph:shopping-cart-simple', order: 3 },
         addpl: { title: '批量学习', icon: 'ph:stack', order: 4 },
         addtj: { title: '无查提交', icon: 'ph:upload-simple', order: 5 },
         list: { title: '订单汇总', icon: 'ph:list-checks', order: 6 },

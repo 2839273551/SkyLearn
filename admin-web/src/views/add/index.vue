@@ -1,64 +1,77 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, h, onMounted, ref, watch } from 'vue';
+import type { SelectOption } from 'naive-ui';
 import {
   NAlert,
   NButton,
-  NCard,
   NCheckbox,
-  NCollapse,
-  NCollapseItem,
   NEmpty,
   NInput,
   NSelect,
-  NSpace,
   NSpin,
-  NSwitch,
-  NTag,
-  NTooltip
+  NSwitch
 } from 'naive-ui';
 import { fetchCourseQuery, fetchOrderCatalog, fetchOrderSubmit } from '@/service/api';
 import { useAuthStore } from '@/store/modules/auth';
 
 defineOptions({ name: 'Add' });
 
-const FAVORITES_KEY = 'COURSE_ADMIN_order_favorites';
 const authStore = useAuthStore();
 
+// 加载状态
 const catalogLoading = ref(false);
 const queryLoading = ref(false);
 const submitLoading = ref(false);
 
+// 目录与分类商品
 const categories = ref<Api.OrderEntry.Category[]>([]);
 const products = ref<Api.OrderEntry.Product[]>([]);
 const categoryId = ref('all');
 const productId = ref('');
-const userinfo = ref('');
-const aiCorrection = ref(false);
+
+// 页面交互控制
+const showId = ref(false); // 展示ID开关
+const filterKeyword = ref(''); // 查询结果关键字过滤
+const userinfo = ref(''); // 用户输入的账号信息（支持单账号或多账号直接换行输入）
+
+// 查课结果与勾选
 const results = ref<Api.OrderEntry.QueryResult[]>([]);
 const selections = ref<Api.OrderEntry.Selection[]>([]);
+const expandedAccounts = ref<Set<string>>(new Set());
+
+// 余额与配置
 const balance = ref('0.00');
 const queryEnabled = ref(true);
 const orderEnabled = ref(true);
 const notice = ref('');
-const favoriteIds = ref<string[]>(loadFavorites());
 
+// 当前选中的商品对象
 const selectedProduct = computed(() => products.value.find(item => item.id === productId.value));
 
+// 依分类过滤商品
 const visibleProducts = computed(() => {
-  if (categoryId.value === 'favorites') {
-    return products.value.filter(item => favoriteIds.value.includes(item.id));
-  }
   if (categoryId.value === 'all') return products.value;
   return products.value.filter(item => item.categoryId === categoryId.value);
 });
 
+// 下拉选单选项
 const productOptions = computed(() =>
   visibleProducts.value.map(item => ({
-    label: `${item.name} → ${item.price} 积分`,
-    value: item.id
+    label: item.name,
+    value: item.id,
+    price: item.price
   }))
 );
 
+// 渲染带价格提示的下拉选单项
+function renderSelectOptionLabel(option: SelectOption) {
+  return h('div', { class: 'flex items-center justify-between w-full py-1px' }, [
+    h('span', { class: 'text-gray-800 dark:text-gray-200' }, String(option.label || '')),
+    option.price ? h('span', { class: 'text-12px text-blue-600 dark:text-blue-400 font-mono ml-12px shrink-0 font-medium' }, `¥ ${option.price} 积分`) : null
+  ]);
+}
+
+// 分割待查询的账号行（自动识别单账号或多行批量，无需任何手动切换）
 const inputLines = computed(() =>
   userinfo.value
     .split(/\r?\n/)
@@ -66,6 +79,7 @@ const inputLines = computed(() =>
     .filter(Boolean)
 );
 
+// 总计课程门数
 const totalCourses = computed(() => results.value.reduce((total, result) => total + result.courses.length, 0));
 const allSelected = computed(() => totalCourses.value > 0 && selections.value.length === totalCourses.value);
 
@@ -76,19 +90,21 @@ const estimatedSubmitCost = computed(() => {
   return (selections.value.length * price).toFixed(2);
 });
 
-function loadFavorites() {
-  try {
-    const value = localStorage.getItem(FAVORITES_KEY);
-    return value ? (JSON.parse(value) as string[]) : [];
-  } catch {
-    return [];
+// 格式化课程名称与进度（若 upstream 已经自带进度信息则不重复拼接进行中）
+function formatCourseTitle(course: Api.OrderEntry.Course): string {
+  const name = course.name || '';
+  if (/【(?:课程)?进度[:：][^】]+】/.test(name)) {
+    return name;
   }
+  if (course.state && course.state.trim()) {
+    const rawState = course.state.trim().replace(/^[【\[]+|[】\]]+$/g, '').trim();
+    const progressText = rawState.includes('课程进度') ? rawState : `课程进度:${rawState}`;
+    return `${name}【${progressText}】`;
+  }
+  return name;
 }
 
-function saveFavorites() {
-  localStorage.setItem(FAVORITES_KEY, JSON.stringify(favoriteIds.value));
-}
-
+// 加载分类与商品目录
 async function loadCatalog() {
   catalogLoading.value = true;
   const { data, error } = await fetchOrderCatalog();
@@ -107,91 +123,12 @@ async function loadCatalog() {
   catalogLoading.value = false;
 }
 
-function toggleFavorite() {
-  if (!productId.value) {
-    window.$message?.warning('请先选择项目');
-    return;
-  }
-
-  const index = favoriteIds.value.indexOf(productId.value);
-  if (index >= 0) {
-    favoriteIds.value.splice(index, 1);
-    window.$message?.info('已取消收藏');
-  } else {
-    favoriteIds.value.push(productId.value);
-    window.$message?.success('已添加到收藏');
-  }
-  saveFavorites();
+// 切换分类
+function handleCategorySelect(targetId: string) {
+  categoryId.value = targetId;
 }
 
-function replaceFullWidthSymbols(value: string) {
-  const replacements: Record<string, string> = {
-    '！': '!',
-    '？': '?',
-    '：': ':',
-    '；': ';',
-    '，': ',',
-    '。': '.',
-    '（': '(',
-    '）': ')',
-    '＠': '@',
-    '＃': '#',
-    '％': '%',
-    '＆': '&',
-    '＊': '*',
-    '＋': '+',
-    '－': '-',
-    '＝': '=',
-    '＿': '_',
-    '｜': '|',
-    '～': '~',
-    '／': '/',
-    '　': ' '
-  };
-
-  return value.replace(/[！？？：；，。（）＠＃％＆＊＋－＝＿｜～／　]/g, char => replacements[char] || char);
-}
-
-function correctSingleLine(rawLine: string) {
-  const line = replaceFullWidthSymbols(rawLine.trim());
-  if (!line) return '';
-
-  const school = line.match(/(?:学校|school|院校)\s*[:=]?\s*([^\s,;]+)/i)?.[1] || '';
-  const account = line.match(/(?:账号|用户名|帐号|username|account|user)\s*[:=]?\s*([^\s,;]+)/i)?.[1] || '';
-  const password = line.match(/(?:密码|password|pwd|pass)\s*[:=]?\s*([^\s,;]+)/i)?.[1] || '';
-
-  if (account && password) return [school, account, password].filter(Boolean).join(' ');
-
-  const cleaned = line
-    .replace(/(?:学校|school|院校|账号|用户名|帐号|username|account|user|密码|password|pwd|pass)\s*[:=]?/gi, ' ')
-    .replace(/[,;|]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  const parts = cleaned.split(' ').filter(Boolean);
-  return parts.length >= 2 ? parts.slice(0, 3).join(' ') : line;
-}
-
-function applyAiCorrection(showMessage = true) {
-  if (!aiCorrection.value || !userinfo.value.trim()) return;
-  const corrected = userinfo.value
-    .split(/\r?\n/)
-    .map(correctSingleLine)
-    .filter(Boolean)
-    .join('\n');
-
-  if (corrected !== userinfo.value.trim()) {
-    userinfo.value = corrected;
-    if (showMessage) window.$message?.success('AI矫正：已自动提取规范格式');
-  } else if (showMessage) {
-    window.$message?.info('格式规范，无需纠偏');
-  }
-}
-
-function fillSampleData() {
-  userinfo.value = '北京大学 2024001122 123456';
-  window.$message?.info('已填入下单示例');
-}
-
+// 查询课程
 async function queryCourses() {
   if (!productId.value || inputLines.value.length === 0) {
     window.$message?.warning('请先选择项目并填写账号信息');
@@ -202,21 +139,41 @@ async function queryCourses() {
     return;
   }
 
-  if (aiCorrection.value) applyAiCorrection(false);
   queryLoading.value = true;
   selections.value = [];
   results.value = [];
+  filterKeyword.value = '';
+
   const { data, error } = await fetchCourseQuery(productId.value, inputLines.value);
   if (!error && data) {
     results.value = data.results;
+    expandedAccounts.value = new Set(data.results.map(r => r.userinfo));
     balance.value = data.balance;
     authStore.userInfo.balance = data.balance;
     const successCount = data.results.filter(item => item.courses.length > 0).length;
-    if (successCount > 0) window.$message?.success(`查询完成，共找到 ${successCount} 个账号的课程`);
+    if (successCount > 0) {
+      window.$message?.success(`查询完成，共找到 ${successCount} 个账号的课程`);
+    } else {
+      window.$message?.warning('未查询到任何课程');
+    }
   }
   queryLoading.value = false;
 }
 
+// 展开/收起账号节点
+function isExpanded(accountInfo: string): boolean {
+  return expandedAccounts.value.has(accountInfo);
+}
+
+function toggleExpand(accountInfo: string) {
+  if (expandedAccounts.value.has(accountInfo)) {
+    expandedAccounts.value.delete(accountInfo);
+  } else {
+    expandedAccounts.value.add(accountInfo);
+  }
+}
+
+// 勾选操作辅助
 function selectionKey(userinfoValue: string, course: Api.OrderEntry.Course) {
   return `${userinfoValue}\u0000${course.id || course.name}`;
 }
@@ -244,11 +201,15 @@ function isAccountAllSelected(result: Api.OrderEntry.QueryResult): boolean {
   return result.courses.every(c => isSelected(result, c));
 }
 
-function toggleAccountCourses(result: Api.OrderEntry.QueryResult) {
-  const isAll = isAccountAllSelected(result);
-  if (isAll) {
-    selections.value = selections.value.filter(s => s.userinfo !== result.userinfo);
-  } else {
+function isAccountPartiallySelected(result: Api.OrderEntry.QueryResult): boolean {
+  if (!result.courses || result.courses.length === 0) return false;
+  const count = result.courses.filter(c => isSelected(result, c)).length;
+  return count > 0 && count < result.courses.length;
+}
+
+function toggleAccountCourses(result: Api.OrderEntry.QueryResult, checked?: boolean) {
+  const shouldSelect = typeof checked === 'boolean' ? checked : !isAccountAllSelected(result);
+  if (shouldSelect) {
     result.courses.forEach(c => {
       if (!isSelected(result, c)) {
         selections.value.push({
@@ -258,10 +219,30 @@ function toggleAccountCourses(result: Api.OrderEntry.QueryResult) {
         });
       }
     });
+  } else {
+    selections.value = selections.value.filter(s => s.userinfo !== result.userinfo);
   }
 }
 
-// 1:1复刻 add1.php 的客服分享话术复制
+function toggleSelectAll() {
+  if (allSelected.value) {
+    selections.value = [];
+  } else {
+    const next: Api.OrderEntry.Selection[] = [];
+    results.value.forEach(result => {
+      result.courses.forEach(course => {
+        next.push({
+          userinfo: result.userinfo,
+          userName: result.userName,
+          course
+        });
+      });
+    });
+    selections.value = next;
+  }
+}
+
+// 复制客服微信分享话术
 function copyQueryInfo(result: Api.OrderEntry.QueryResult) {
   if (!result.courses || result.courses.length === 0) {
     window.$message?.warning('暂无可复制的课程');
@@ -271,7 +252,6 @@ function copyQueryInfo(result: Api.OrderEntry.QueryResult) {
                    "请告诉我需要代看的课程序号【数字】，我们马上为您安排哈！\n" +
                    "------------------------\n";
 
-  // 如果该账号下有选中的课程，优先列出选中的课程
   const selectedForAccount = selections.value.filter(s => s.userinfo === result.userinfo);
   const targetCourses = selectedForAccount.length > 0 ? selectedForAccount.map(s => s.course) : result.courses;
 
@@ -281,28 +261,10 @@ function copyQueryInfo(result: Api.OrderEntry.QueryResult) {
   infoToCopy += "------------------------";
 
   navigator.clipboard.writeText(infoToCopy);
-  window.$message?.success('查询话术已成功复制到剪贴板，快去发给客户吧！');
+  window.$message?.success('话术已成功复制到剪贴板，快去发给客户吧！');
 }
 
-function toggleSelectAll() {
-  if (allSelected.value) {
-    selections.value = [];
-    return;
-  }
-
-  const next: Api.OrderEntry.Selection[] = [];
-  results.value.forEach(result => {
-    result.courses.forEach(course => {
-      next.push({
-        userinfo: result.userinfo,
-        userName: result.userName,
-        course
-      });
-    });
-  });
-  selections.value = next;
-}
-
+// 提交订单
 async function submitOrders() {
   if (selections.value.length === 0) {
     window.$message?.warning('请先勾选需要下单的课程');
@@ -318,7 +280,6 @@ async function submitOrders() {
   if (!error && data) {
     balance.value = data.balance;
     authStore.userInfo.balance = data.balance;
-    // 提交后清空已选课程、查询结果列表和输入框，保持已选商品不变方便连续下单
     selections.value = [];
     results.value = [];
     userinfo.value = '';
@@ -332,15 +293,26 @@ async function submitOrders() {
   submitLoading.value = false;
 }
 
-function clearForm() {
-  userinfo.value = '';
-  results.value = [];
-  selections.value = [];
-  window.$message?.info('已重置面板');
-}
+// 多关键字空格多词过滤计算
+const filteredResults = computed(() => {
+  const kw = filterKeyword.value.trim().toLowerCase();
+  if (!kw) return results.value;
+  const keywords = kw.split(/\s+/).filter(Boolean);
+  return results.value
+    .map(res => {
+      const matchingCourses = res.courses.filter(course => {
+        const fullCourseText = `${course.name} ${course.id || ''} ${course.state || ''} ${course.teacher || ''}`.toLowerCase();
+        return keywords.every(k => fullCourseText.includes(k));
+      });
+      return {
+        ...res,
+        courses: matchingCourses
+      };
+    })
+    .filter(res => res.courses.length > 0 || !res.courses);
+});
 
 watch(categoryId, () => {
-  // 每个分类点开默认选中该分类下的第一个商品，绝不留空
   if (visibleProducts.value.length > 0) {
     productId.value = visibleProducts.value[0].id;
   } else {
@@ -359,309 +331,298 @@ onMounted(loadCatalog);
 </script>
 
 <template>
-  <div class="max-w-1140px mx-auto flex flex-col gap-16px p-12px sm:p-18px font-sans">
-    <!-- 下单特别通知 -->
-    <NAlert v-if="notice" type="warning" title="全站下单特别通知" :show-icon="true" class="rounded-8px">
+  <div class="w-full max-w-1680px mx-auto p-12px sm:p-20px font-sans">
+    <!-- 下单全站通知 -->
+    <NAlert v-if="notice" type="warning" title="全站下单通知" :show-icon="true" class="mb-16px rounded-8px">
       <div class="whitespace-pre-wrap leading-relaxed text-13px">{{ notice }}</div>
     </NAlert>
 
-    <!-- 主面板：创建订单 (对标 add1.php 经典纯净面板) -->
-    <NCard :bordered="false" class="rounded-8px shadow-sm bg-white dark:bg-dark-700">
-      <template #header>
-        <div class="flex items-center justify-between w-full">
-          <div class="flex items-center gap-8px">
-            <span class="text-16px font-bold text-gray-800 dark:text-gray-100">创建订单</span>
-          </div>
-          <div class="flex items-center gap-6px text-13px">
-            <span class="text-gray-500 dark:text-gray-400">可用余额:</span>
-            <strong class="font-mono text-16px font-bold text-emerald-600 dark:text-emerald-400">¥ {{ balance }} 积分</strong>
-          </div>
-        </div>
-      </template>
-
-      <NSpin :show="catalogLoading">
-        <div class="flex flex-col gap-16px text-14px py-4px">
-          <!-- 1. 选择项目 (add1.php 风格) -->
-          <div class="flex flex-col sm:flex-row sm:items-center gap-8px sm:gap-16px">
-            <label class="w-80px font-medium text-gray-700 dark:text-gray-200 shrink-0">选择项目</label>
-            <div class="flex-1 min-w-0">
-              <NSelect
-                v-model:value="productId"
-                filterable
-                clearable
-                :options="productOptions"
-                placeholder="请先选择分类再搜索项目下单"
-                :virtual-scroll="true"
-                class="w-full"
-              />
+    <!-- 左右分栏核心网格布局：桌面两栏等高对齐 (items-stretch)，移动端单列自适应堆叠 -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-16px items-stretch">
+      <!-- ================= 左侧卡片：项目查询 ================= -->
+      <div class="lg:col-span-6 bg-white dark:bg-dark-700 rounded-10px border border-gray-100 dark:border-dark-600 shadow-xs p-16px sm:p-24px flex flex-col justify-between h-full">
+        <!-- 上半部分表单内容 -->
+        <div class="flex-1 flex flex-col">
+          <!-- 头部：标题与账户可用余额 (已按要求彻底去除批量开关) -->
+          <div class="flex items-center justify-between pb-18px">
+            <span class="text-18px font-bold text-gray-800 dark:text-gray-100 select-none">项目查询</span>
+            <div class="text-13px text-gray-500 dark:text-gray-400">
+              余额: <strong class="text-emerald-600 dark:text-emerald-400 font-bold font-mono text-15px">¥ {{ balance }}</strong>
             </div>
           </div>
 
-          <!-- 2. 渠道分类 (add1.php 经典扁平小按钮行) -->
-          <div class="flex flex-col sm:flex-row sm:items-start gap-8px sm:gap-16px">
-            <label class="w-80px font-medium text-gray-700 dark:text-gray-200 shrink-0 pt-4px">渠道分类</label>
-            <div class="flex-1 flex flex-wrap items-center gap-6px">
-              <button
-                type="button"
-                class="px-12px py-5px rounded-4px text-13px font-medium transition-colors cursor-pointer border"
-                :class="
-                  categoryId === 'all'
-                    ? 'bg-primary text-white border-primary shadow-xs'
-                    : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-200 dark:bg-dark-600 dark:border-dark-500 dark:text-gray-200'
-                "
-                @click="categoryId = 'all'"
-              >
-                全部分类
-              </button>
-              <button
-                type="button"
-                class="px-12px py-5px rounded-4px text-13px font-medium transition-colors cursor-pointer border flex items-center gap-3px"
-                :class="
-                  categoryId === 'favorites'
-                    ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
-                    : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-200 dark:bg-dark-600 dark:border-dark-500 dark:text-gray-200'
-                "
-                @click="categoryId = 'favorites'"
-              >
-                <span>⭐</span> 我的收藏
-              </button>
-              <button
-                v-for="item in categories"
-                :key="item.id"
-                type="button"
-                class="px-12px py-5px rounded-4px text-13px font-medium transition-colors cursor-pointer border"
-                :class="
-                  categoryId === item.id
-                    ? 'bg-primary text-white border-primary shadow-xs'
-                    : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-200 dark:bg-dark-600 dark:border-dark-500 dark:text-gray-200'
-                "
-                @click="categoryId = item.id"
-              >
-                {{ item.name }}
-              </button>
-            </div>
-          </div>
+          <NSpin :show="catalogLoading" class="flex-1 flex flex-col">
+            <div class="flex-1 flex flex-col gap-18px">
+              <!-- 渠道分类 Tab 列表 (文字标签 + 选中粗体黑色下划线) -->
+              <div class="flex flex-wrap items-center gap-x-20px gap-y-12px border-b border-gray-100 dark:border-dark-600 pb-12px">
+                <button
+                  type="button"
+                  class="relative pb-6px text-14px transition-colors cursor-pointer bg-transparent border-0 select-none whitespace-nowrap"
+                  :class="
+                    categoryId === 'all'
+                      ? 'text-gray-900 font-bold dark:text-white'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 font-normal'
+                  "
+                  @click="handleCategorySelect('all')"
+                >
+                  全部
+                  <span
+                    v-if="categoryId === 'all'"
+                    class="absolute bottom-0 left-0 right-0 h-2px bg-gray-900 dark:bg-white rounded-full transition-all"
+                  ></span>
+                </button>
 
-          <!-- 3. 项目介绍 / 说明 (add1.php 经典蓝色说明文字) -->
-          <div v-if="selectedProduct" class="flex flex-col sm:flex-row sm:items-start gap-8px sm:gap-16px">
-            <label class="w-80px font-medium text-gray-700 dark:text-gray-200 shrink-0">项目介绍</label>
-            <div class="flex-1 flex flex-col gap-3px text-13px">
-              <div class="text-blue-600 dark:text-blue-400 font-medium">
-                下单单价：<strong class="font-mono text-14px font-bold">¥ {{ selectedProduct.price }}</strong> 积分 / 门
-                <span class="mx-6px text-gray-300">|</span>
-                查课扣费：<strong class="font-mono text-14px font-bold">¥ {{ selectedProduct.queryFee }}</strong> 积分 / 账号
+                <button
+                  v-for="item in categories"
+                  :key="item.id"
+                  type="button"
+                  class="relative pb-6px text-14px transition-colors cursor-pointer bg-transparent border-0 select-none whitespace-nowrap"
+                  :class="
+                    categoryId === item.id
+                      ? 'text-gray-900 font-bold dark:text-white'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 font-normal'
+                  "
+                  @click="handleCategorySelect(item.id)"
+                >
+                  {{ item.name }}
+                  <span
+                    v-if="categoryId === item.id"
+                    class="absolute bottom-0 left-0 right-0 h-2px bg-gray-900 dark:bg-white rounded-full transition-all"
+                  ></span>
+                </button>
               </div>
-              <div v-if="selectedProduct.content" class="text-gray-500 dark:text-gray-400 text-12px leading-relaxed">
-                平台考核要求与说明：{{ selectedProduct.content }}
-              </div>
-            </div>
-          </div>
 
-          <!-- 4. 信息填写 (add1.php 经典文本域与顶部微操作) -->
-          <div class="flex flex-col sm:flex-row sm:items-start gap-8px sm:gap-16px">
-            <label class="w-80px font-medium text-gray-700 dark:text-gray-200 shrink-0 pt-4px">信息填写</label>
-            <div class="flex-1 flex flex-col gap-8px">
-              <!-- 操作小按钮行 -->
-              <div class="flex flex-wrap items-center justify-between gap-8px">
-                <div class="flex items-center gap-6px">
-                  <NButton
-                    size="tiny"
-                    :type="favoriteIds.includes(productId) ? 'warning' : 'default'"
-                    secondary
-                    :disabled="!productId"
-                    @click="toggleFavorite"
-                  >
-                    {{ favoriteIds.includes(productId) ? '★ 移除收藏' : '⭐ 收藏项目' }}
-                  </NButton>
-                  <NButton size="tiny" secondary type="info" @click="fillSampleData">
-                    填入示例
-                  </NButton>
-                  <NButton size="tiny" secondary @click="userinfo = ''">
-                    清空输入
-                  </NButton>
-                </div>
-                <!-- AI纠偏紧凑开关 -->
-                <div class="flex items-center gap-4px text-12px text-gray-500 select-none">
-                  <NSwitch v-model:value="aiCorrection" size="small" />
-                  <span>AI 格式纠偏</span>
+              <!-- 项目下拉框 -->
+              <div>
+                <NSelect
+                  v-model:value="productId"
+                  filterable
+                  :options="productOptions"
+                  placeholder="请选择下单项目"
+                  :render-label="renderSelectOptionLabel"
+                  class="w-full text-14px"
+                />
+                <!-- 单价与说明信息轻提示 -->
+                <div v-if="selectedProduct" class="mt-8px text-12px text-blue-600 dark:text-blue-400 flex flex-wrap items-center gap-10px">
+                  <span>单价: <strong class="font-bold">¥{{ selectedProduct.price }}</strong> 积分/门</span>
+                  <span v-if="selectedProduct.queryFee && selectedProduct.queryFee !== '0.00'">查课扣费: <strong class="font-bold">¥{{ selectedProduct.queryFee }}</strong> 积分/账号</span>
+                  <span v-if="selectedProduct.content" class="text-gray-400 dark:text-gray-500 truncate max-w-320px" :title="selectedProduct.content">
+                    {{ selectedProduct.content }}
+                  </span>
                 </div>
               </div>
 
-              <!-- 大文本域 (1:1 对标 add1.php 占位提示与样式) -->
-              <NInput
-                v-model:value="userinfo"
-                type="textarea"
-                :rows="5"
-                placeholder="信息填写方式：&#10;账号 密码（中间用空格分隔）&#10;学校 账号 密码（中间用空格分隔）&#10;多账号下单必须换行，务必一行一条信息"
-                class="font-mono text-13px rounded-6px"
-                @blur="applyAiCorrection(false)"
-              />
+              <!-- 输入框区域 (放大文本框，无预设测试账号，单行/多行自动批量) -->
+              <div class="flex-1 flex flex-col min-h-160px">
+                <NInput
+                  v-model:value="userinfo"
+                  type="textarea"
+                  :rows="7"
+                  placeholder="请输入账号密码信息（多账号换行即可自动批量）&#10;支持格式：&#10;学校 账号 密码&#10;账号 密码"
+                  class="w-full font-mono text-13px rounded-6px flex-1 min-h-150px"
+                  clearable
+                />
+                <div class="mt-6px flex items-center justify-between text-12px text-gray-400 dark:text-gray-500 select-none">
+                  <span>多账号换行即可批量查课</span>
+                  <span v-if="inputLines.length > 0">当前输入：<strong class="text-blue-600 dark:text-blue-400 font-bold">{{ inputLines.length }}</strong> 个账号</span>
+                </div>
+              </div>
             </div>
-          </div>
-
-          <!-- 5. 动作操作栏 (add1.php 经典三个按钮排布) -->
-          <div class="flex flex-col sm:flex-row sm:items-center gap-12px pt-10px border-t border-gray-100 dark:border-dark-600">
-            <div class="w-80px shrink-0 hidden sm:block"></div>
-            <div class="flex flex-wrap items-center gap-10px">
-              <NButton
-                type="primary"
-                size="medium"
-                :loading="queryLoading"
-                class="px-22px font-bold rounded-6px shadow-xs"
-                @click="queryCourses"
-              >
-                🔍 经典查询
-              </NButton>
-
-              <NButton
-                type="info"
-                size="medium"
-                :loading="submitLoading"
-                :disabled="selections.length === 0"
-                class="px-22px font-bold rounded-6px shadow-xs"
-                @click="submitOrders"
-              >
-                🚀 提交课程 {{ selections.length > 0 ? `(${selections.length}门)` : '' }}
-              </NButton>
-
-              <NButton
-                size="medium"
-                secondary
-                class="px-16px rounded-6px"
-                @click="clearForm"
-              >
-                重置面板
-              </NButton>
-            </div>
-
-            <!-- 选课金额轻提示 -->
-            <div v-if="selections.length > 0" class="sm:ml-auto text-13px text-gray-600 dark:text-gray-300 font-mono">
-              已选 <strong class="text-primary font-bold">{{ selections.length }}</strong> 门 | 预计扣费：<strong class="text-rose-500 font-bold text-16px">¥ {{ estimatedSubmitCost }}</strong> 积分
-            </div>
-          </div>
+          </NSpin>
         </div>
-      </NSpin>
-    </NCard>
 
-    <!-- 结果面板：查询结果 (1:1 还原 add1.php 手风琴 + 微信话术一键复制) -->
-    <NCard v-if="results.length" :bordered="false" class="rounded-8px shadow-sm bg-white dark:bg-dark-700">
-      <template #header>
-        <div class="flex items-center justify-between w-full">
-          <div class="flex items-center gap-8px">
-            <span class="text-16px font-bold text-gray-800 dark:text-gray-100">查询结果</span>
-            <NTag size="tiny" type="primary" round>
-              已勾选 {{ selections.length }} / {{ totalCourses }} 门
-            </NTag>
-          </div>
-          <NButton size="tiny" secondary @click="toggleSelectAll">
-            {{ allSelected ? '取消全选' : '全选所有' }}
+        <!-- 底部操作按钮栏：与右侧卡片底部完美等高对齐 -->
+        <div class="mt-18px pt-16px border-t border-gray-100 dark:border-dark-600 flex items-center justify-between">
+          <NButton
+            type="primary"
+            size="medium"
+            :loading="queryLoading"
+            class="px-22px font-medium rounded-4px shadow-xs bg-blue-600 hover:bg-blue-700"
+            @click="queryCourses"
+          >
+            <template #icon>
+              <span class="text-14px">🔍</span>
+            </template>
+            查询课程
           </NButton>
-        </div>
-      </template>
 
-      <!-- 账号列表手风琴流 (对标 add1.php) -->
-      <NCollapse :default-expanded-names="results.map(item => item.userinfo)" class="flex flex-col gap-12px">
-        <NCollapseItem
-          v-for="result in results"
-          :key="result.userinfo"
-          :name="result.userinfo"
-          class="rounded-8px border border-gray-100 bg-slate-50/60 p-4px dark:border-dark-600 dark:bg-dark-600/30 overflow-hidden"
-        >
-          <!-- 手风琴头部 (包含 add1.php 同款【课程全选】和【复制课程】) -->
-          <template #header>
-            <div class="flex flex-wrap items-center justify-between w-full gap-8px pr-8px">
-              <div class="flex items-center gap-8px text-13px">
-                <strong class="text-gray-900 dark:text-gray-100">{{ result.userName || '学员' }}</strong>
-                <span class="font-mono text-gray-500">{{ result.userinfo }}</span>
-                <span v-if="result.courses.length > 0" class="text-emerald-600 font-bold text-12px">
-                  查询成功 ({{ result.courses.length }} 门)
-                </span>
-                <span v-else class="text-rose-600 font-bold text-12px">
-                  {{ result.msg || '查询失败' }}
-                </span>
-              </div>
-              <!-- 头部操作按钮 (add1.php 核心精髓：全选 + 微信客服话术复制) -->
-              <div class="flex items-center gap-8px" @click.stop>
-                <NButton
-                  size="tiny"
-                  type="warning"
-                  secondary
-                  :disabled="result.courses.length === 0"
-                  class="rounded-4px text-12px"
-                  @click="toggleAccountCourses(result)"
-                >
-                  {{ isAccountAllSelected(result) ? '取消本号' : '课程全选' }}
-                </NButton>
-
-                <NButton
-                  size="tiny"
-                  type="error"
-                  secondary
-                  :disabled="result.courses.length === 0"
-                  class="rounded-4px text-12px"
-                  title="生成并复制微信客服话术"
-                  @click="copyQueryInfo(result)"
-                >
-                  📋 复制课程
-                </NButton>
-              </div>
-            </div>
-          </template>
-
-          <div v-if="result.courses.length === 0" class="py-16px text-center">
-            <NEmpty :description="result.msg || '未查询到任何开课记录'" size="small" />
-          </div>
-
-          <!-- 课程列表流 (1:1 对标 add1.php resource-item 列表风格) -->
-          <div v-else class="flex flex-col gap-8px mt-6px px-4px pb-4px">
-            <div
-              v-for="course in result.courses"
-              :key="`${result.userinfo}-${course.id || course.name}`"
-              class="flex items-center gap-10px p-10px rounded-6px border transition-all cursor-pointer select-none bg-white dark:bg-dark-600"
-              :class="
-                isSelected(result, course)
-                  ? 'border-blue-400 bg-blue-50/50 dark:border-blue-700'
-                  : 'border-gray-200 hover:border-gray-300 dark:border-dark-500'
-              "
-              @click="toggleCourse(!isSelected(result, course), result, course)"
-            >
-              <NCheckbox
-                :checked="isSelected(result, course)"
-                @click.stop
-                @update:checked="checked => toggleCourse(checked, result, course)"
-              />
-              <div class="flex-1 min-w-0 flex flex-col gap-2px">
-                <div class="text-14px font-medium text-gray-900 dark:text-gray-100 truncate" :title="course.name">
-                  {{ course.name }}
-                </div>
-                <div class="text-12px text-gray-400 font-mono truncate">
-                  {{ course.id || '课程ID未知' }} · {{ course.teacher || '教师未知' }} · {{ course.state || '开课中' }}
-                </div>
-              </div>
-              <div v-if="selectedProduct" class="text-right shrink-0">
-                <strong class="font-mono text-14px font-bold text-primary">
-                  {{ selectedProduct.price }} 积分
-                </strong>
-              </div>
-            </div>
-          </div>
-        </NCollapseItem>
-      </NCollapse>
-
-      <!-- 底部吸底结算栏 -->
-      <div v-if="selections.length > 0" class="mt-16px flex flex-wrap items-center justify-between gap-12px rounded-6px bg-slate-50 dark:bg-dark-600 p-12px border border-gray-200 dark:border-dark-500">
-        <div class="text-14px text-gray-700 dark:text-gray-200 font-mono">
-          已勾选 <strong class="text-primary font-bold text-16px">{{ selections.length }}</strong> 门课程
-          <span class="mx-8px text-gray-300">|</span>
-          预计结算总计：<strong class="text-rose-500 font-bold text-18px">¥ {{ estimatedSubmitCost }}</strong> 积分
-        </div>
-        <div class="flex items-center gap-8px">
-          <NButton size="small" secondary @click="selections = []">清空勾选</NButton>
-          <NButton type="primary" size="medium" :loading="submitLoading" class="px-20px font-bold rounded-6px" @click="submitOrders">
-            立即提交并扣费
+          <NButton
+            v-if="userinfo"
+            size="small"
+            secondary
+            class="text-gray-500 hover:text-gray-700"
+            @click="userinfo = ''"
+          >
+            清空输入
           </NButton>
         </div>
       </div>
-    </NCard>
+
+      <!-- ================= 右侧卡片：查询结果 ================= -->
+      <div class="lg:col-span-6 bg-white dark:bg-dark-700 rounded-10px border border-gray-100 dark:border-dark-600 shadow-xs p-16px sm:p-24px flex flex-col justify-between h-full">
+        <!-- 上半部分内容 -->
+        <div class="flex-1 flex flex-col">
+          <!-- 头部：标题与展示ID开关 -->
+          <div class="flex items-center justify-between pb-16px">
+            <span class="text-18px font-bold text-gray-800 dark:text-gray-100 select-none">查询结果</span>
+            <div class="flex items-center gap-6px select-none">
+              <NSwitch v-model:value="showId" size="medium" />
+              <span class="text-14px text-gray-700 dark:text-gray-300">展示ID</span>
+            </div>
+          </div>
+
+          <!-- 关键字过滤输入框 -->
+          <div class="mb-14px">
+            <NInput
+              v-model:value="filterKeyword"
+              clearable
+              placeholder="输入关键字过滤，空格分隔可多词匹配"
+              class="w-full text-13px rounded-6px"
+            />
+          </div>
+
+          <!-- 课程结果树状勾选流 -->
+          <div class="flex-1 min-h-200px max-h-520px overflow-y-auto pr-4px">
+            <!-- 空状态 -->
+            <div v-if="!results.length" class="h-full flex items-center justify-center py-48px text-center text-gray-400 dark:text-gray-500 text-13px">
+              <NEmpty description="暂无查询结果，请在左侧选择项目并输入账号后点击“查询课程”" size="small" />
+            </div>
+
+            <!-- 树状流 -->
+            <div v-else class="flex flex-col gap-6px">
+              <div
+                v-for="result in filteredResults"
+                :key="result.userinfo"
+                class="flex flex-col"
+              >
+                <!-- 顶级：账号节点行 -->
+                <div
+                  class="flex items-center gap-8px py-7px px-4px rounded-4px hover:bg-gray-50 dark:hover:bg-dark-600/50 cursor-pointer select-none group transition-colors"
+                  @click="toggleExpand(result.userinfo)"
+                >
+                  <!-- 展开/折叠三角箭头 -->
+                  <span
+                    class="text-12px text-gray-500 dark:text-gray-400 w-14px text-center shrink-0"
+                  >
+                    {{ isExpanded(result.userinfo) ? '▼' : '▶' }}
+                  </span>
+
+                  <!-- 账号全选复选框 -->
+                  <NCheckbox
+                    :checked="isAccountAllSelected(result)"
+                    :indeterminate="isAccountPartiallySelected(result)"
+                    :disabled="result.courses.length === 0"
+                    @click.stop
+                    @update:checked="checked => toggleAccountCourses(result, checked)"
+                  />
+
+                  <!-- 账号与学生信息文字 -->
+                  <span class="text-14px text-gray-800 dark:text-gray-200 truncate flex-1">
+                    {{ result.userinfo }}
+                    <template v-if="result.userName"> - 学生姓名: {{ result.userName }}</template>
+                    <span v-if="result.courses.length === 0" class="text-rose-500 text-12px ml-6px">
+                      ({{ result.msg || '未查询到课程' }})
+                    </span>
+                  </span>
+
+                  <!-- 客服话术一键复制按钮 -->
+                  <button
+                    v-if="result.courses.length > 0"
+                    type="button"
+                    class="opacity-0 group-hover:opacity-100 text-12px text-blue-600 dark:text-blue-400 hover:underline px-6px py-2px bg-transparent border-0 cursor-pointer transition-opacity shrink-0"
+                    title="生成并复制微信客服话术"
+                    @click.stop="copyQueryInfo(result)"
+                  >
+                    📋 复制话术
+                  </button>
+                </div>
+
+                <!-- 子级：课程行 -->
+                <div
+                  v-show="isExpanded(result.userinfo)"
+                  class="pl-32px flex flex-col gap-3px my-2px"
+                >
+                  <div
+                    v-for="course in result.courses"
+                    :key="`${result.userinfo}-${course.id || course.name}`"
+                    class="flex items-center gap-8px py-5px px-4px rounded-4px hover:bg-gray-50 dark:hover:bg-dark-600/50 cursor-pointer select-none transition-colors"
+                    @click="toggleCourse(!isSelected(result, course), result, course)"
+                  >
+                    <NCheckbox
+                      :checked="isSelected(result, course)"
+                      @click.stop
+                      @update:checked="checked => toggleCourse(checked, result, course)"
+                    />
+                    <span class="text-14px text-gray-800 dark:text-gray-200">
+                      {{ formatCourseTitle(course) }}<template v-if="showId && course.id">【ID: {{ course.id }}】</template>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 底部提交与结算操作条：与左侧卡片底部等高对齐 -->
+        <div
+          class="mt-18px pt-16px border-t border-gray-100 dark:border-dark-600 flex flex-wrap items-center justify-between gap-12px"
+        >
+          <div class="flex items-center gap-8px text-13px text-gray-600 dark:text-gray-300">
+            <span>
+              已选 <strong class="text-blue-600 dark:text-blue-400 font-bold text-15px">{{ selections.length }}</strong> 门课程
+            </span>
+            <span v-if="selectedProduct && selections.length > 0">
+              | 预计扣费: <strong class="text-rose-500 font-bold font-mono text-16px">¥ {{ estimatedSubmitCost }}</strong> 积分
+            </span>
+          </div>
+
+          <div class="flex items-center gap-10px">
+            <NButton size="small" secondary :disabled="results.length === 0" @click="toggleSelectAll">
+              {{ allSelected ? '取消全选' : '全选所有' }}
+            </NButton>
+            <NButton
+              type="primary"
+              size="medium"
+              :loading="submitLoading"
+              :disabled="selections.length === 0"
+              class="px-20px font-bold rounded-4px shadow-xs bg-blue-600 hover:bg-blue-700"
+              @click="submitOrders"
+            >
+              🚀 提交订单 {{ selections.length > 0 ? `(${selections.length}门)` : '' }}
+            </NButton>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 移动端吸底便捷结算栏 (屏幕较小已勾选课程时在屏幕底部常驻展示，方便手机操作) -->
+    <div
+      v-if="selections.length > 0"
+      class="fixed bottom-0 left-0 right-0 z-50 p-12px bg-white/95 dark:bg-dark-700/95 backdrop-blur border-t border-gray-200 dark:border-dark-500 shadow-2xl flex items-center justify-between lg:hidden"
+    >
+      <div class="text-13px text-gray-700 dark:text-gray-200">
+        已选 <strong class="text-blue-600 dark:text-blue-400 font-bold">{{ selections.length }}</strong> 门
+        <span class="text-rose-500 font-bold ml-6px font-mono">¥ {{ estimatedSubmitCost }} 积分</span>
+      </div>
+      <NButton
+        type="primary"
+        size="medium"
+        :loading="submitLoading"
+        class="px-18px font-bold rounded-4px bg-blue-600"
+        @click="submitOrders"
+      >
+        立即提交订单
+      </NButton>
+    </div>
   </div>
 </template>
+
+<style scoped>
+/* 优雅平滑过渡 */
+button,
+div {
+  transition-property: color, background-color, border-color, transform, opacity;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+</style>

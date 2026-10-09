@@ -1,0 +1,1 @@
+import{O as e,W as t,b as n}from"./vendor-icons-B7yid5VR.js";import{t as r}from"./exception-base-IIVPQ-e0.js";var i=e({name:`404`,__name:`index`,setup(e){return(e,i)=>{let a=r;return t(),n(a,{type:`404`})}}});export{i as default};

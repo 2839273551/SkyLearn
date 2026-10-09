@@ -44,7 +44,7 @@ export const generatedRoutes: GeneratedRoute[] = [
     path: '/add',
     component: 'layout.base$view.add',
     meta: {
-      title: '马上学习',
+      title: '提交订单',
       icon: 'ph:shopping-cart-simple',
       order: 3
     }

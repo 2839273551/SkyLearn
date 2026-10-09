@@ -227,7 +227,7 @@ const local: App.I18n.Schema = {
     'iframe-page': '外链页面',
     main: '个人综合',
     home: '系统公告',
-    add: '马上学习',
+    add: '提交订单',
     list: '订单汇总',
     userinfo: '我的资料',
     userlist: '代理管理',

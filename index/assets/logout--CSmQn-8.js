@@ -1,1 +1,0 @@
-import{H as e,O as t,W as n,b as r}from"./vendor-icons-B7yid5VR.js";import{m as i}from"./vendor-naive-CA3wMCJz.js";import{sn as a}from"./index-DLL7H2hw.js";var o=t({name:`logout`,__name:`index`,setup(t){return e(()=>a().logout()),(e,t)=>{let a=i;return n(),r(a,{status:`success`,title:`正在退出`,description:`登录状态即将结束`})}}});export{o as default};
