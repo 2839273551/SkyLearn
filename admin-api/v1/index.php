@@ -3962,14 +3962,39 @@ if ($action === 'order-dock') {
     if (isset($result['code']) && strval($result['code']) === '1') {
         $hid = $cls ? $cls['docking'] : $order['hid'];
         $yid = daddslashes(isset($result['yid']) ? $result['yid'] : '');
+        $statusNote = !empty($result['already_exists']) ? '上游已存在订单(自动纳管)' : '管理员手动重新提交货源成功';
         $DB->query("UPDATE qingka_wangke_order SET 
             `hid`='$hid',
             `status`='进行中',
             `dockstatus`=1,
             `yid`='$yid',
-            `remarks`='管理员手动重新提交货源成功' 
+            `remarks`='$statusNote' 
             WHERE oid='$oid'");
-        api_respond(0, "订单 #{$oid} 向上游提交成功！状态已变更为进行中", array('dockstatus' => '1', 'status' => '进行中'));
+
+        if (function_exists('processCx')) {
+            $resSync = processCx($oid);
+            if (!empty($resSync) && is_array($resSync)) {
+                $cleanOrderKc = trim(preg_replace('/[【\(（]课程进度.*?[】\)）]/u', '', $order['kcname']));
+                foreach ($resSync as $item) {
+                    if (!is_array($item) || !isset($item['kcname'])) continue;
+                    $cleanItemKc = trim(preg_replace('/[【\(（]课程进度.*?[】\)）]/u', '', $item['kcname']));
+                    if ($item['kcname'] === $order['kcname'] || $cleanItemKc === $cleanOrderKc) {
+                        $newStatus = isset($item['status_text']) ? daddslashes($item['status_text']) : '进行中';
+                        $newProcess = isset($item['process']) ? daddslashes($item['process']) : $order['process'];
+                        $newRemarks = isset($item['remarks']) ? daddslashes($item['remarks']) : $order['remarks'];
+                        $uYid = isset($item['yid']) ? daddslashes(strval($item['yid'])) : $yid;
+                        $numVal = floatval(preg_replace('/[^\d.]/', '', (string)$newProcess));
+                        if ($newStatus === '已完成' || $newStatus === '已结课' || $newStatus === '已学完' || ($numVal >= 100 && $newStatus !== '异常' && $newStatus !== '待重刷' && $newStatus !== '补刷中')) {
+                            $newStatus = '已完成';
+                        }
+                        $DB->query("UPDATE qingka_wangke_order SET `status`='$newStatus', `process`='$newProcess', `remarks`='$newRemarks', `yid`='$uYid', `finalupdate`=NOW() WHERE oid='$oid'");
+                        break;
+                    }
+                }
+            }
+        }
+        $msgOk = !empty($result['already_exists']) ? "上游已存在该订单，系统已自动接管并同步最新进度！" : "订单 #{$oid} 向上游提交成功！状态已变更为进行中";
+        api_respond(0, $msgOk, array('dockstatus' => '1', 'status' => '进行中'));
     } else {
         $failMsg = isset($result['msg']) ? $result['msg'] : '货源接口返回失败';
         $DB->query("UPDATE qingka_wangke_order SET `dockstatus`=2 WHERE oid='$oid'");
@@ -4281,13 +4306,37 @@ if ($action === 'order-batch-dock') {
         if (isset($result['code']) && strval($result['code']) === '1') {
             $hid = $cls ? $cls['docking'] : $order['hid'];
             $yid = daddslashes(isset($result['yid']) ? $result['yid'] : '');
+            $statusNote = !empty($result['already_exists']) ? '上游已存在订单(自动纳管)' : '批量重新提交货源成功';
             $DB->query("UPDATE qingka_wangke_order SET 
                 `hid`='$hid',
                 `status`='进行中',
                 `dockstatus`=1,
                 `yid`='$yid',
-                `remarks`='批量重新提交货源成功' 
+                `remarks`='$statusNote' 
                 WHERE oid='$oid'");
+
+            if (!empty($result['already_exists']) && function_exists('processCx')) {
+                $resSync = processCx($oid);
+                if (!empty($resSync) && is_array($resSync)) {
+                    $cleanOrderKc = trim(preg_replace('/[【\(（]课程进度.*?[】\)）]/u', '', $order['kcname']));
+                    foreach ($resSync as $item) {
+                        if (!is_array($item) || !isset($item['kcname'])) continue;
+                        $cleanItemKc = trim(preg_replace('/[【\(（]课程进度.*?[】\)）]/u', '', $item['kcname']));
+                        if ($item['kcname'] === $order['kcname'] || $cleanItemKc === $cleanOrderKc) {
+                            $newStatus = isset($item['status_text']) ? daddslashes($item['status_text']) : '进行中';
+                            $newProcess = isset($item['process']) ? daddslashes($item['process']) : $order['process'];
+                            $newRemarks = isset($item['remarks']) ? daddslashes($item['remarks']) : $order['remarks'];
+                            $uYid = isset($item['yid']) ? daddslashes(strval($item['yid'])) : $yid;
+                            $numVal = floatval(preg_replace('/[^\d.]/', '', (string)$newProcess));
+                            if ($newStatus === '已完成' || $newStatus === '已结课' || $newStatus === '已学完' || ($numVal >= 100 && $newStatus !== '异常' && $newStatus !== '待重刷' && $newStatus !== '补刷中')) {
+                                $newStatus = '已完成';
+                            }
+                            $DB->query("UPDATE qingka_wangke_order SET `status`='$newStatus', `process`='$newProcess', `remarks`='$newRemarks', `yid`='$uYid', `finalupdate`=NOW() WHERE oid='$oid'");
+                            break;
+                        }
+                    }
+                }
+            }
             $successCount++;
         } else {
             $failMsg = isset($result['msg']) ? $result['msg'] : '货源接口返回失败';

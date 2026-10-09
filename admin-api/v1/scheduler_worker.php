@@ -139,8 +139,9 @@ function scheduler_execute_task($taskId) {
                 if (isset($result['code']) && $result['code'] == 1) {
                     $yid = isset($result['yid']) ? daddslashes($result['yid']) : '';
                     $hid = isset($d['docking']) ? daddslashes($d['docking']) : '0';
-                    $DB->query("UPDATE `qingka_wangke_order` SET hid='$hid', status='进行中', dockstatus=1, yid='$yid' WHERE oid='$oid'");
-                    $logs[] = "  [+] 订单 #$oid [{$b['kcname']}] 提交货源成功，上游订单ID: " . ($yid ?: 'OK');
+                    $statusNote = !empty($result['already_exists']) ? '上游已存在订单(自动纳管)' : '提交货源成功';
+                    $DB->query("UPDATE `qingka_wangke_order` SET hid='$hid', status='进行中', dockstatus=1, yid='$yid', remarks='$statusNote' WHERE oid='$oid'");
+                    $logs[] = "  [+] 订单 #$oid [{$b['kcname']}] " . (!empty($result['already_exists']) ? "上游已存在该单，已自动纳管接管" : "提交货源成功，上游订单ID: " . ($yid ?: 'OK'));
                     $successCount++;
                 } else {
                     $msg = isset($result['msg']) ? $result['msg'] : '货源返回异常';

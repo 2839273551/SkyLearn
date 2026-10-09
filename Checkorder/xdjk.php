@@ -18,6 +18,21 @@ function wkname()//对接代码对应标识
 	return $data;
 }
 
+function checkAddWkResult($b) {
+  if (isset($b['code']) && strval($b['code']) === '-1' && !empty($b['msg'])) {
+    $checkMsg = (string)$b['msg'];
+    if (strpos($checkMsg, "已存在") !== false || 
+        strpos($checkMsg, "重复下单") !== false || 
+        strpos($checkMsg, "已有订单") !== false || 
+        strpos($checkMsg, "已有此课程") !== false || 
+        strpos($checkMsg, "重复") !== false || 
+        strpos($checkMsg, "存在相同") !== false || 
+        strpos($checkMsg, "已下单") !== false) {
+      return array("code" => 1, "msg" => "上游已存在该订单(自动纳管)", "already_exists" => true);
+    }
+  }
+  return checkAddWkResult($b);
+}
 
 function addWk($oid){//下单接口代码
 	global $DB;
@@ -55,7 +70,7 @@ function addWk($oid){//下单接口代码
 	} else {
 		$b = array("code" => -1, "msg" => $result["msg"]);
 	}
-	return $b;
+	return checkAddWkResult($b);
     }
 	
 	
@@ -82,7 +97,7 @@ function addWk($oid){//下单接口代码
     } else {
       $b = array("code" => -1, "msg" => $result["msg"]);
     }
-    return $b;
+    return checkAddWkResult($b);
   }
 	 
 	 //29系统下单接口
@@ -97,7 +112,7 @@ function addWk($oid){//下单接口代码
     } else {
       $b = array("code" => -1, "msg" => $result["msg"]);
     }
-    return $b;
+    return checkAddWkResult($b);
   }
   //爱学习
 	 else if ($type == "2xx") {
@@ -110,7 +125,7 @@ function addWk($oid){//下单接口代码
     } else {
       $b = array("code" => -1, "msg" => $result["msg"]);
     }
-    return $b;
+    return checkAddWkResult($b);
   }
 	 //benz下单接口
   else if ($type == "benz") {
@@ -124,7 +139,7 @@ function addWk($oid){//下单接口代码
     } else {
       $b = array("code" => -1, "msg" => $result["msg"]);
     }
-    return $b;
+    return checkAddWkResult($b);
   }
 	 // hzw下单接口
   else if ($type == "hzw") {
@@ -138,7 +153,7 @@ function addWk($oid){//下单接口代码
     } else {
       $b = array("code" => -1, "msg" => $result["msg"]);
     }
-    return $b;
+    return checkAddWkResult($b);
   }
 	 
 	 // SkyLearn
@@ -153,7 +168,7 @@ function addWk($oid){//下单接口代码
     } else {
       $b = array("code" => -1, "msg" => $result["msg"]);
     }
-    return $b;
+    return checkAddWkResult($b);
   }
 	   // longlong下单接口
   else if ($type == "longlong") {
@@ -167,7 +182,7 @@ function addWk($oid){//下单接口代码
     } else {
       $b = array("code" => -1, "msg" => $result["msg"]);
     }
-    return $b;
+    return checkAddWkResult($b);
   }
   else if ($type == "liunian") {
     $data = array("uid" => $a["user"], "key" => $a["pass"], "platform" => $noun, "school" => $school, "user" => $user, "pass" => $pass, "kcname" => $kcname, "kcid" => $kcid);
@@ -180,12 +195,26 @@ function addWk($oid){//下单接口代码
     } else {
       $b = array("code" => -1, "msg" => $result["msg"]);
     }
-    return $b;
+    return checkAddWkResult($b);
   }
   
   else {
     $b = array("code" => -1, "msg" => "未匹配到下单接口");
-    return $b;
   }
-	
+
+  // 智能识别“上游已存在/重复下单”场景：上游已接单且在跑，视为交单成功并自动纳管
+  if (isset($b['code']) && $b['code'] == -1 && !empty($b['msg'])) {
+    $checkMsg = (string)$b['msg'];
+    if (strpos($checkMsg, '已存在') !== false || 
+        strpos($checkMsg, '重复下单') !== false || 
+        strpos($checkMsg, '已有订单') !== false || 
+        strpos($checkMsg, '已有此课程') !== false || 
+        strpos($checkMsg, '重复') !== false || 
+        strpos($checkMsg, '存在相同') !== false ||
+        strpos($checkMsg, '已下单') !== false) {
+      $b = array('code' => 1, 'msg' => '上游已存在该订单(自动纳管)', 'already_exists' => true);
+    }
+  }
+
+  return checkAddWkResult($b);
 }
