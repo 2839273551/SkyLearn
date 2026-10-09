@@ -92,7 +92,7 @@ function scheduler_execute_task($taskId) {
 
     $successCount = 0;
     $failedCount = 0;
-    $limit = 30;
+    $limit = 50;
 
     // 自动加载货源驱动
     if (!function_exists('addWk') && file_exists(ROOT . '../Checkorder/xdjk.php')) {
@@ -163,7 +163,7 @@ function scheduler_execute_task($taskId) {
         // 覆盖所有已对接上游、但尚未结课归档的订单（包括待处理、待上号、进行中、上号中、重刷中、待刷新等）
         $where = "dockstatus=1 AND status NOT IN ('已完成','已取消','已退款','待考试','平时分','平时分中') AND $completedFilter";
 
-        $res = $DB->query("SELECT * FROM `qingka_wangke_order` WHERE $where ORDER BY oid ASC LIMIT $limit");
+        $res = $DB->query("SELECT * FROM `qingka_wangke_order` WHERE $where ORDER BY (finalupdate IS NULL OR finalupdate='' OR finalupdate='0000-00-00 00:00:00') DESC, finalupdate ASC, oid ASC LIMIT $limit");
         $orders = array();
         while ($r = $DB->fetch($res)) { $orders[] = $r; }
         $logs[] = "[$timeStr] 扫描到看课中活跃订单: " . count($orders) . " 笔";
@@ -265,9 +265,11 @@ function scheduler_execute_task($taskId) {
                     }
 
                     if (!$updated) {
+                        $DB->query("UPDATE `qingka_wangke_order` SET `finalupdate`=NOW() WHERE oid='$oid'");
                         $logs[] = "  [?] 订单 #$oid 上游未返回对应课程进度";
                     }
                 } else {
+                    $DB->query("UPDATE `qingka_wangke_order` SET `finalupdate`=NOW() WHERE oid='$oid'");
                     $logs[] = "  [-] 订单 #$oid 上游无进度响应数据";
                     $failedCount++;
                 }
@@ -284,7 +286,7 @@ function scheduler_execute_task($taskId) {
     elseif ($taskId === 'progress_exam' || in_array($taskId, array('dd', 'ee'), true)) {
         $where = "dockstatus=1 AND status IN ('待考试','平时分','平时分中','已暂停') AND status NOT IN ('已完成','已取消','已退款') AND process NOT LIKE '100%'";
 
-        $res = $DB->query("SELECT * FROM `qingka_wangke_order` WHERE $where ORDER BY oid ASC LIMIT $limit");
+        $res = $DB->query("SELECT * FROM `qingka_wangke_order` WHERE $where ORDER BY (finalupdate IS NULL OR finalupdate='' OR finalupdate='0000-00-00 00:00:00') DESC, finalupdate ASC, oid ASC LIMIT $limit");
         $orders = array();
         while ($r = $DB->fetch($res)) { $orders[] = $r; }
         $logs[] = "[$timeStr] 扫描到待考试/平时分收尾慢速订单: " . count($orders) . " 笔";
@@ -377,9 +379,11 @@ function scheduler_execute_task($taskId) {
                         $successCount++;
                     }
                     if (!$updated) {
+                        $DB->query("UPDATE `qingka_wangke_order` SET `finalupdate`=NOW() WHERE oid='$oid'");
                         $logs[] = "  [?] 订单 #$oid 上游未返回对应课程进度";
                     }
                 } else {
+                    $DB->query("UPDATE `qingka_wangke_order` SET `finalupdate`=NOW() WHERE oid='$oid'");
                     $logs[] = "  [-] 订单 #$oid 上游无进度响应数据";
                     $failedCount++;
                 }
