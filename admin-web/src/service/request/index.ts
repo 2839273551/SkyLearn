@@ -11,6 +11,7 @@ const { baseURL } = getServiceBaseURL(import.meta.env, isHttpProxy);
 export const request = createFlatRequest(
   {
     baseURL,
+    timeout: 60 * 1000,
     withCredentials: true,
     headers: { Accept: 'application/json' }
   },

@@ -12,7 +12,8 @@ export function fetchCourseQuery(productId: string, accounts: string[]) {
   return request<Api.OrderEntry.QueryResponse>({
     url: 'admin-api/v1/index.php?action=course-query',
     method: 'post',
-    data: { productId, accounts }
+    data: { productId, accounts },
+    timeout: 120 * 1000
   });
 }
 
@@ -20,6 +21,7 @@ export function fetchOrderSubmit(productId: string, selections: Api.OrderEntry.S
   return request<Api.OrderEntry.SubmitResponse>({
     url: 'admin-api/v1/index.php?action=order-submit',
     method: 'post',
-    data: { productId, selections }
+    data: { productId, selections },
+    timeout: 120 * 1000
   });
 }

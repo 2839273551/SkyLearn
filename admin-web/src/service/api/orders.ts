@@ -60,7 +60,8 @@ export function batchSyncOrders(oids: (string | number)[]) {
   return request<null>({
     url: 'admin-api/v1/index.php?action=order-batch-sync',
     method: 'post',
-    data: { oids: oids.map(Number) }
+    data: { oids: oids.map(Number) },
+    timeout: 120 * 1000
   });
 }
 
@@ -68,7 +69,8 @@ export function batchRebrushOrders(oids: (string | number)[]) {
   return request<null>({
     url: 'admin-api/v1/index.php?action=order-batch-rebrush',
     method: 'post',
-    data: { oids: oids.map(Number) }
+    data: { oids: oids.map(Number) },
+    timeout: 120 * 1000
   });
 }
 
@@ -76,6 +78,7 @@ export function batchDockOrders(oids: (string | number)[]) {
   return request<{ total: number; success: number; failed: number; message?: string }>({
     url: 'admin-api/v1/index.php?action=order-batch-dock',
     method: 'post',
-    data: { oids: oids.map(Number) }
+    data: { oids: oids.map(Number) },
+    timeout: 120 * 1000
   });
 }
