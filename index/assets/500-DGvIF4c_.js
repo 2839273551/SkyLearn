@@ -1,1 +1,0 @@
-import{O as e,W as t,b as n}from"./vendor-icons-B7yid5VR.js";import{t as r}from"./exception-base-B9AhWzWP.js";var i=e({name:`500`,__name:`index`,setup(e){return(e,i)=>{let a=r;return t(),n(a,{type:`500`})}}});export{i as default};

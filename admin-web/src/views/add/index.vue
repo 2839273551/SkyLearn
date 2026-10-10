@@ -32,7 +32,23 @@ const productId = ref('');
 // 页面交互控制
 const showId = ref(false); // 展示ID开关
 const filterKeyword = ref(''); // 查询结果关键字过滤
-const userinfo = ref(''); // 用户输入的账号信息（支持单账号或多账号直接换行输入）
+const USERINFO_STORAGE_KEY = 'SK_ADD_ORDER_USERINFO';
+const userinfo = ref(localStorage.getItem(USERINFO_STORAGE_KEY) || ''); // 用户输入的账号信息（支持本地持久化记忆）
+
+// 实时持久化输入内容，防止刷新或换项目丢失
+watch(userinfo, val => {
+  if (val) {
+    localStorage.setItem(USERINFO_STORAGE_KEY, val);
+  } else {
+    localStorage.removeItem(USERINFO_STORAGE_KEY);
+  }
+});
+
+function clearUserinfo() {
+  userinfo.value = '';
+  localStorage.removeItem(USERINFO_STORAGE_KEY);
+  window.$message?.info('已清空输入的账号信息');
+}
 
 // 查课结果与勾选
 const results = ref<Api.OrderEntry.QueryResult[]>([]);
@@ -282,11 +298,11 @@ async function submitOrders() {
     authStore.userInfo.balance = data.balance;
     selections.value = [];
     results.value = [];
-    userinfo.value = '';
+    // 保留 userinfo 输入栏内容，方便用户切换项目后继续使用该账号查课下单
 
     window.$notification?.success({
       title: '下单提交完成',
-      content: `已成功提交 ${data.submitted} 笔订单，扣费 ¥${data.charged} 积分`,
+      content: `已成功提交 ${data.submitted} 笔订单，扣费 ¥${data.charged} 积分。账号信息已保留，您可直接切换项目继续查课下单！`,
       duration: 5000
     });
   }
@@ -423,7 +439,7 @@ onMounted(loadCatalog);
                   clearable
                 />
                 <div class="mt-6px flex items-center justify-between text-12px text-gray-400 dark:text-gray-500 select-none">
-                  <span>多账号换行即可批量查课</span>
+                  <span>多账号换行即可批量查课（账号自动记忆）</span>
                   <span v-if="inputLines.length > 0">当前输入：<strong class="text-blue-600 dark:text-blue-400 font-bold">{{ inputLines.length }}</strong> 个账号</span>
                 </div>
               </div>
@@ -451,7 +467,7 @@ onMounted(loadCatalog);
             size="small"
             secondary
             class="text-gray-500 hover:text-gray-700"
-            @click="userinfo = ''"
+            @click="clearUserinfo"
           >
             清空输入
           </NButton>
