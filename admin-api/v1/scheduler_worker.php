@@ -140,14 +140,44 @@ function scheduler_execute_task($taskId) {
                     $yid = isset($result['yid']) ? daddslashes($result['yid']) : '';
                     $hid = isset($d['docking']) ? daddslashes($d['docking']) : '0';
                     $statusNote = !empty($result['already_exists']) ? '上游已存在订单(自动纳管)' : '提交货源成功';
-                    $DB->query("UPDATE `qingka_wangke_order` SET hid='$hid', status='进行中', dockstatus=1, yid='$yid', remarks='$statusNote' WHERE oid='$oid'");
+                    $DB->query("UPDATE `qingka_wangke_order` SET hid='$hid', status='进行中', dockstatus=1, yid='$yid', remarks='$statusNote', finalupdate=NOW() WHERE oid='$oid'");
+
+                    // 【出单后即时拉取初始进度】出单成功后，立即调用 processCx 拉取一次实时初始进度，避免订单长时间空停在“待处理”
+                    if (function_exists('processCx')) {
+                        $initCx = processCx($oid);
+                        if (is_array($initCx) && !empty($initCx)) {
+                            $initItem = function_exists('matchOrderProgressItem') ? matchOrderProgressItem($b, $initCx) : null;
+                            if (!$initItem && count($initCx) === 1 && isset($initCx[0]['status_text'])) {
+                                $initItem = $initCx[0];
+                            }
+                            if ($initItem) {
+                                $newProcess = isset($initItem['process']) ? daddslashes($initItem['process']) : '0.0%';
+                                $newStatus = isset($initItem['status_text']) ? daddslashes($initItem['status_text']) : '进行中';
+                                $newRemarks = isset($initItem['remarks']) ? daddslashes($initItem['remarks']) : $statusNote;
+                                $numVal = floatval(preg_replace('/[^\d.]/', '', (string)$newProcess));
+                                if ($newStatus === '已完成' || $newStatus === '已结课' || $newStatus === '已学完' || ($numVal >= 100 && $newStatus !== '异常' && $newStatus !== '待重刷' && $newStatus !== '补刷中')) {
+                                    $newStatus = '已完成';
+                                }
+                                $DB->query("UPDATE `qingka_wangke_order` SET `status`='$newStatus', `process`='$newProcess', `remarks`='$newRemarks', `finalupdate`=NOW() WHERE oid='$oid'");
+                            }
+                        }
+                    }
+
                     $logs[] = "  [+] 订单 #$oid [{$b['kcname']}] " . (!empty($result['already_exists']) ? "上游已存在该单，已自动纳管接管" : "提交货源成功，上游订单ID: " . ($yid ?: 'OK'));
                     $successCount++;
                 } else {
                     $msg = isset($result['msg']) ? $result['msg'] : '货源返回异常';
-                    $DB->query("UPDATE `qingka_wangke_order` SET dockstatus=2, status='提交失败' WHERE oid='$oid'");
-                    $logs[] = "  [x] 订单 #$oid [{$b['kcname']}] 提交失败: $msg";
-                    $failedCount++;
+                    
+                    // 【瞬态频控重试保护】：若上游提示“稍后重试”或瞬时网络繁忙，允许在下一轮调度中重提（最多重试2次），避免一次偶发波动就直接判死刑“提交失败”
+                    $curDocknum = intval($b['docknum']);
+                    if ((strpos($msg, '稍后') !== false || strpos($msg, '重试') !== false || strpos($msg, '频繁') !== false || strpos($msg, '网络') !== false) && $curDocknum < 2) {
+                        $DB->query("UPDATE `qingka_wangke_order` SET `docknum`=docknum+1, `remarks`='上游暂时繁忙，待自动重提: $msg' WHERE oid='$oid'");
+                        $logs[] = "  [~] 订单 #$oid [{$b['kcname']}] 上游提示需稍后重试 (第 " . ($curDocknum + 1) . " 次)，保留在队列待下轮自动出单";
+                    } else {
+                        $DB->query("UPDATE `qingka_wangke_order` SET dockstatus=2, status='提交失败', remarks='$msg' WHERE oid='$oid'");
+                        $logs[] = "  [x] 订单 #$oid [{$b['kcname']}] 提交失败: $msg";
+                        $failedCount++;
+                    }
                 }
             } else {
                 $logs[] = "  [x] 货源出单驱动 addWk 未加载";
@@ -262,7 +292,7 @@ function scheduler_execute_task($taskId) {
         // 覆盖学习通、实训、知到等所有网课项目：凡是已完成但备注残留过程态快照（正在/当前执行/处理中等）
         // 或刚完结待终验确认的订单，自动在缓冲后抓取上游最终汇总报告并彻底永久封板归档！
         // =========================================================================
-        $finalSyncWhere = "dockstatus=1 AND status='已完成' AND (docknum < 2 OR remarks LIKE '%当前执行%' OR remarks LIKE '%正在%' OR remarks LIKE '%[处理中]%' OR remarks LIKE '%【进行中】%' OR remarks LIKE '%status:【进行中】%' OR remarks LIKE '%【待上号】%' OR remarks LIKE '%待上号%') AND (finalupdate IS NULL OR finalupdate='' OR finalupdate < DATE_SUB(NOW(), INTERVAL 25 SECOND))";
+        $finalSyncWhere = "dockstatus=1 AND status='已完成' AND docknum < 2 AND (finalupdate IS NULL OR finalupdate='' OR finalupdate < DATE_SUB(NOW(), INTERVAL 25 SECOND))";
         $finalSyncRes = $DB->query("SELECT * FROM `qingka_wangke_order` WHERE $finalSyncWhere ORDER BY finalupdate ASC, oid ASC LIMIT 20");
         $finalOrders = array();
         while ($r = $DB->fetch($finalSyncRes)) { $finalOrders[] = $r; }
