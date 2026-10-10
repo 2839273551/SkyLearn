@@ -534,11 +534,21 @@ if ($action === 'order-catalog') {
         );
     }
 
-    usort($products, function ($left, $right) {
-        if ($left['sort'] === $right['sort']) {
-            return intval($right['id']) - intval($left['id']);
+    $catRankMap = array();
+    foreach ($categories as $idx => $catItem) {
+        $catRankMap[(string)$catItem['id']] = $idx;
+    }
+
+    usort($products, function ($left, $right) use ($catRankMap) {
+        $rankL = isset($catRankMap[(string)$left['categoryId']]) ? $catRankMap[(string)$left['categoryId']] : 9999;
+        $rankR = isset($catRankMap[(string)$right['categoryId']]) ? $catRankMap[(string)$right['categoryId']] : 9999;
+        if ($rankL !== $rankR) {
+            return $rankL - $rankR;
         }
-        return $left['sort'] - $right['sort'];
+        if ($left['sort'] !== $right['sort']) {
+            return $left['sort'] - $right['sort'];
+        }
+        return intval($left['id']) - intval($right['id']);
     });
 
     api_respond(0, 'ok', array(
@@ -2911,7 +2921,7 @@ if ($action === 'log-list') {
 
 if ($action === 'help-list') {
     api_require_login(isset($islogin) ? $islogin : 0);
-    $res = $DB->query("SELECT c.cid, c.name, c.content, c.fenlei, f.name AS fenlei_name FROM qingka_wangke_class c LEFT JOIN qingka_wangke_fenlei f ON c.fenlei=f.id WHERE c.status=1 ORDER BY CAST(c.sort AS UNSIGNED) ASC, c.cid DESC");
+    $res = $DB->query("SELECT c.cid, c.name, c.content, c.fenlei, f.name AS fenlei_name FROM qingka_wangke_class c LEFT JOIN qingka_wangke_fenlei f ON c.fenlei=f.id WHERE c.status=1 ORDER BY CAST(COALESCE(f.sort, 999) AS UNSIGNED) ASC, f.id ASC, CAST(c.sort AS UNSIGNED) ASC, c.cid ASC");
     $list = array();
     while ($r = $DB->fetch($res)) {
         $list[] = array(
@@ -2932,7 +2942,7 @@ if ($action === 'myprice-list') {
     $totalProducts = $DB->count("SELECT COUNT(*) FROM qingka_wangke_class WHERE status=1");
     $totalCategories = $DB->count("SELECT COUNT(*) FROM qingka_wangke_fenlei WHERE status=1");
 
-    $res = $DB->query("SELECT c.*, f.name AS fenlei_name, m.mode AS mijia_mode, m.price AS mijia_price FROM qingka_wangke_class c LEFT JOIN qingka_wangke_fenlei f ON c.fenlei=f.id LEFT JOIN qingka_wangke_mijia m ON c.cid=m.cid AND m.uid='$uid' WHERE c.status=1 ORDER BY CAST(c.sort AS UNSIGNED) ASC, c.cid DESC");
+    $res = $DB->query("SELECT c.*, f.name AS fenlei_name, m.mode AS mijia_mode, m.price AS mijia_price FROM qingka_wangke_class c LEFT JOIN qingka_wangke_fenlei f ON c.fenlei=f.id LEFT JOIN qingka_wangke_mijia m ON c.cid=m.cid AND m.uid='$uid' WHERE c.status=1 ORDER BY CAST(COALESCE(f.sort, 999) AS UNSIGNED) ASC, f.id ASC, CAST(c.sort AS UNSIGNED) ASC, c.cid ASC");
     $list = array();
     while ($r = $DB->fetch($res)) {
         $basePrice = floatval($r['price']);

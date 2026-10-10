@@ -64,25 +64,52 @@ const notice = ref('');
 // 当前选中的商品对象
 const selectedProduct = computed(() => products.value.find(item => item.id === productId.value));
 
-// 依分类过滤商品
+// 依分类过滤商品（严格按照「分类排序优先 + 分类内序号从0递增」排布）
 const visibleProducts = computed(() => {
-  if (categoryId.value === 'all') return products.value;
-  return products.value.filter(item => item.categoryId === categoryId.value);
+  const catRankMap: Record<string, number> = {};
+  categories.value.forEach((c, idx) => {
+    catRankMap[c.id] = idx;
+  });
+
+  const filtered = categoryId.value === 'all'
+    ? [...products.value]
+    : products.value.filter(item => item.categoryId === categoryId.value);
+
+  return filtered.sort((a, b) => {
+    const rankA = catRankMap[a.categoryId] ?? 9999;
+    const rankB = catRankMap[b.categoryId] ?? 9999;
+    if (rankA !== rankB) return rankA - rankB;
+    const sortA = Number(a.sort) || 0;
+    const sortB = Number(b.sort) || 0;
+    if (sortA !== sortB) return sortA - sortB;
+    return Number(a.id) - Number(b.id);
+  });
 });
 
 // 下拉选单选项
-const productOptions = computed(() =>
-  visibleProducts.value.map(item => ({
+const productOptions = computed(() => {
+  const catNameMap: Record<string, string> = {};
+  categories.value.forEach(c => {
+    catNameMap[c.id] = c.name;
+  });
+
+  return visibleProducts.value.map(item => ({
     label: item.name,
     value: item.id,
-    price: item.price
-  }))
-);
+    price: item.price,
+    categoryName: catNameMap[item.categoryId] || ''
+  }));
+});
 
-// 渲染带价格提示的下拉选单项
+// 渲染带价格提示与分类标识的下拉选单项
 function renderSelectOptionLabel(option: SelectOption) {
   return h('div', { class: 'flex items-center justify-between w-full py-1px' }, [
-    h('span', { class: 'text-gray-800 dark:text-gray-200' }, String(option.label || '')),
+    h('div', { class: 'flex items-center gap-6px truncate' }, [
+      option.categoryName && categoryId.value === 'all'
+        ? h('span', { class: 'px-5px py-0.5px rounded text-11px bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 shrink-0 font-medium' }, String(option.categoryName))
+        : null,
+      h('span', { class: 'text-gray-800 dark:text-gray-200 truncate' }, String(option.label || ''))
+    ]),
     option.price ? h('span', { class: 'text-12px text-blue-600 dark:text-blue-400 font-mono ml-12px shrink-0 font-medium' }, `¥ ${option.price} 积分`) : null
   ]);
 }
@@ -132,8 +159,8 @@ async function loadCatalog() {
     orderEnabled.value = data.orderEnabled;
     notice.value = data.notice;
     authStore.userInfo.balance = data.balance;
-    if (!productId.value && data.products.length > 0) {
-      productId.value = data.products[0].id;
+    if (!productId.value && visibleProducts.value.length > 0) {
+      productId.value = visibleProducts.value[0].id;
     }
   }
   catalogLoading.value = false;

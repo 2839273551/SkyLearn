@@ -8,7 +8,7 @@ if ($action === 'order-nocheck-options') {
     api_require_login(isset($islogin) ? $islogin : 0);
     $userRate = floatval($userrow['addprice']);
 
-    $res = $DB->query("SELECT c.cid, c.name, c.price, c.yunsuan, c.content, c.fenlei, f.name AS fenlei_name FROM qingka_wangke_class c LEFT JOIN qingka_wangke_fenlei f ON c.fenlei=f.id WHERE c.status=1 ORDER BY CAST(c.sort AS UNSIGNED) ASC, c.cid DESC");
+    $res = $DB->query("SELECT c.cid, c.name, c.price, c.yunsuan, c.content, c.fenlei, f.name AS fenlei_name FROM qingka_wangke_class c LEFT JOIN qingka_wangke_fenlei f ON c.fenlei=f.id WHERE c.status=1 ORDER BY CAST(COALESCE(f.sort, 999) AS UNSIGNED) ASC, f.id ASC, CAST(c.sort AS UNSIGNED) ASC, c.cid ASC");
     $list = array();
     while ($row = $DB->fetch($res)) {
         $basePrice = floatval($row['price']);
