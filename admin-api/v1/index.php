@@ -1310,7 +1310,7 @@ if ($action === 'class-list') {
     api_require_super($userrow, $islogin);
 
     $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
-    $pageSize = isset($_GET['pageSize']) ? max(10, min(200, intval($_GET['pageSize']))) : 50;
+    $pageSize = isset($_GET['pageSize']) ? max(10, min(500, intval($_GET['pageSize']))) : 50;
     $offset = ($page - 1) * $pageSize;
     $keyword = isset($_GET['keyword']) ? trim(strip_tags($_GET['keyword'])) : '';
     $fenlei = isset($_GET['fenlei']) ? trim(strip_tags($_GET['fenlei'])) : '';
@@ -1339,7 +1339,7 @@ if ($action === 'class-list') {
         . "LEFT JOIN qingka_wangke_fenlei f ON c.fenlei = f.id "
         . "LEFT JOIN qingka_wangke_huoyuan h1 ON c.queryplat = h1.hid "
         . "LEFT JOIN qingka_wangke_huoyuan h2 ON c.docking = h2.hid "
-        . "$where ORDER BY CAST(c.sort AS UNSIGNED) ASC, c.cid DESC LIMIT $offset, $pageSize";
+        . "$where ORDER BY CAST(COALESCE(f.sort, 999) AS UNSIGNED) ASC, f.id ASC, CAST(c.sort AS UNSIGNED) ASC, c.cid ASC LIMIT $offset, $pageSize";
 
     $result = $DB->query($sql);
     $records = array();
@@ -4037,6 +4037,45 @@ if ($action === 'class-quick-sort') {
 
     $DB->query("UPDATE qingka_wangke_class SET sort='$sort' WHERE cid='$cid' LIMIT 1");
     api_respond(0, "排序已更新为: {$sort}");
+}
+
+// ==========================================
+// 网课设置：分类内序号一键规整 (从0开始顺序递增)
+// ==========================================
+if ($action === 'class-normalize-sort') {
+    api_require_post();
+    api_require_super($userrow, $islogin);
+    api_require_csrf();
+
+    $input = api_read_input();
+    $fenlei = isset($input['fenlei']) ? trim(strval($input['fenlei'])) : '';
+
+    $where = '';
+    if ($fenlei !== '' && $fenlei !== 'all') {
+        $safeFenlei = daddslashes($fenlei);
+        $where = "WHERE fenlei='$safeFenlei'";
+    }
+
+    $sql = "SELECT cid, fenlei FROM qingka_wangke_class $where ORDER BY fenlei ASC, CAST(sort AS UNSIGNED) ASC, cid ASC";
+    $res = $DB->query($sql);
+    $groups = array();
+    while ($r = $DB->fetch($res)) {
+        $fl = strval($r['fenlei']);
+        if (!isset($groups[$fl])) $groups[$fl] = array();
+        $groups[$fl][] = intval($r['cid']);
+    }
+
+    $updated = 0;
+    foreach ($groups as $fl => $cids) {
+        $seq = 0;
+        foreach ($cids as $cid) {
+            $DB->query("UPDATE qingka_wangke_class SET sort='$seq' WHERE cid='$cid' LIMIT 1");
+            $seq++;
+            $updated++;
+        }
+    }
+
+    api_respond(0, "分类内网课序号已成功规整为从 0 开始递增", array('updated' => $updated));
 }
 
 // ==========================================

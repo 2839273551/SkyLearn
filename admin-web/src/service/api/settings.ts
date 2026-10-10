@@ -761,3 +761,11 @@ export function quickSortClass(cid: string | number, sort: number) {
     data: { cid: Number(cid), sort }
   });
 }
+
+export function normalizeClassSort(fenlei?: string) {
+  return request<{ updated: number }>({
+    url: 'admin-api/v1/index.php?action=class-normalize-sort',
+    method: 'post',
+    data: { fenlei: fenlei || '' }
+  });
+}
