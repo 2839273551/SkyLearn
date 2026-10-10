@@ -315,6 +315,20 @@ function isOrderRemarksIntermediate($remarks) {
 }
 
 /**
+ * 规范化课程名称用于高容错匹配（消除【课程进度:...】以及平台附加的 ---课程id---省份---城市 干扰）
+ */
+function normalizeCourseNameForMatch($name) {
+    if (empty($name)) return '';
+    $s = trim($name);
+    // 1. 去除 【课程进度:...】 或 (课程进度:...)
+    $s = preg_replace('/[【\(\（]课程进度.*?[】\)\）]/u', '', $s);
+    // 2. 去除流年/平台附加的 ---课程id---省份---城市 后缀，例如 ---266911586---湖北省---武汉市
+    $s = preg_replace('/---[\s\S]*$/u', '', $s);
+    // 3. 去除首尾空白与特殊标点
+    return trim($s);
+}
+
+/**
  * 智能匹配上游进度条目与本地订单（解决同账号同课程下单课件与单答题进度混淆、yid覆盖等系统性缺陷）
  *
  * @param array $order 本地订单信息数组（包含 oid, yid, kcname, ptname, user 等）
@@ -328,35 +342,63 @@ function matchOrderProgressItem($order, $results) {
 
     $orderYid = isset($order['yid']) ? trim(strval($order['yid'])) : '';
     $orderOid = isset($order['oid']) ? intval($order['oid']) : 0;
+    $orderKc = isset($order['kcname']) ? $order['kcname'] : '';
+    $cleanOrderKc = trim(preg_replace('/[【\(（]课程进度.*?[】\)）]/u', '', $orderKc));
+    $normOrderKc = normalizeCourseNameForMatch($orderKc);
 
-    // 1. 最高优先级：若订单已有明确的上游 yid，优先精准按 yid 匹配
+    // 1. 最高优先级：若订单已有明确的上游 yid，且课程名能对得上，优先精准按 yid 匹配
     if ($orderYid !== '' && $orderYid !== '0') {
         foreach ($results as $item) {
             if (!is_array($item)) continue;
             $itemYid = isset($item['yid']) ? trim(strval($item['yid'])) : (isset($item['id']) ? trim(strval($item['id'])) : '');
             if ($itemYid === $orderYid) {
-                return $item;
+                $itemKc = isset($item['kcname']) ? $item['kcname'] : '';
+                $cleanItemKc = trim(preg_replace('/[【\(（]课程进度.*?[】\)）]/u', '', $itemKc));
+                $normItemKc = normalizeCourseNameForMatch($itemKc);
+                // 安全校验：确认上游该 yid 的课程与本地订单一致（防止历史串单误绑）
+                if (empty($normOrderKc) || empty($normItemKc) || $normOrderKc === $normItemKc || 
+                    $cleanItemKc === $cleanOrderKc ||
+                    mb_strpos($normOrderKc, $normItemKc) !== false || mb_strpos($normItemKc, $normOrderKc) !== false) {
+                    return $item;
+                }
             }
         }
     }
 
     // 2. 筛选出所有与当前课程名匹配的候选集
-    $orderKc = isset($order['kcname']) ? $order['kcname'] : '';
-    $cleanOrderKc = trim(preg_replace('/[【\(（]课程进度.*?[】\)）]/u', '', $orderKc));
     $candidates = array();
     foreach ($results as $item) {
         if (!is_array($item)) continue;
         $itemKc = isset($item['kcname']) ? $item['kcname'] : '';
         $cleanItemKc = trim(preg_replace('/[【\(（]课程进度.*?[】\)）]/u', '', $itemKc));
-        if (($itemKc !== '' && $itemKc === $orderKc) || ($cleanItemKc !== '' && $cleanItemKc === $cleanOrderKc)) {
+        $normItemKc = normalizeCourseNameForMatch($itemKc);
+
+        $isMatched = false;
+        if ($itemKc !== '' && $itemKc === $orderKc) {
+            $isMatched = true;
+        } elseif ($cleanItemKc !== '' && $cleanItemKc === $cleanOrderKc) {
+            $isMatched = true;
+        } elseif ($normItemKc !== '' && $normItemKc === $normOrderKc) {
+            $isMatched = true;
+        } elseif ($normItemKc !== '' && $normOrderKc !== '' && 
+                 (mb_strpos($normOrderKc, $normItemKc) !== false || mb_strpos($normItemKc, $normOrderKc) !== false)) {
+            $isMatched = true;
+        }
+
+        if ($isMatched) {
             $candidates[] = $item;
         }
     }
 
-    // 兜底：若没有任何课程名匹配，但上游仅返回了1条记录且包含状态，返回它
+    // 兜底校验：严禁在课程名完全不相符时，仅仅因为上游返回 1 条其他课程记录就指鹿为马！
     if (empty($candidates)) {
         if (count($results) === 1 && isset($results[0]['status_text'])) {
-            return $results[0];
+            $singleKc = isset($results[0]['kcname']) ? $results[0]['kcname'] : '';
+            $singleNorm = normalizeCourseNameForMatch($singleKc);
+            if (empty($normOrderKc) || empty($singleNorm) || $singleNorm === $normOrderKc || 
+                mb_strpos($normOrderKc, $singleNorm) !== false || mb_strpos($singleNorm, $normOrderKc) !== false) {
+                return $results[0];
+            }
         }
         return null;
     }

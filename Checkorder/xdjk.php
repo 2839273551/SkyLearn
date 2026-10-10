@@ -36,14 +36,16 @@ function checkAddWkResult($b) {
 
 function extractUpstreamOrderId($result) {
   if (!is_array($result)) return '';
-  if (isset($result['id']) && is_numeric($result['id']) && intval($result['id']) > 0) {
-    return strval($result['id']);
-  }
-  if (isset($result['yid']) && is_numeric($result['yid']) && intval($result['yid']) > 0) {
-    return strval($result['yid']);
-  }
-  if (isset($result['oid']) && is_numeric($result['oid']) && intval($result['oid']) > 0) {
-    return strval($result['oid']);
+  $keys = array('id', 'yid', 'oid', 'order_id', 'orderid');
+  foreach ($keys as $k) {
+    if (isset($result[$k])) {
+      $val = trim(strval($result[$k]));
+      if ($val !== '' && $val !== '0' && strlen($val) >= 1 && strlen($val) <= 64) {
+        if (!in_array(strtolower($val), array('ok', 'success', 'true', 'null', 'undefined', 'false'), true)) {
+          return $val;
+        }
+      }
+    }
   }
   return '';
 }

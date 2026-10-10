@@ -8,7 +8,7 @@
  * 3. 任务名称：网课全自动调度引擎
  * 4. 执行周期：N分钟 -> 1 分钟
  * 5. 脚本内容填写：
- *    /www/server/php/74/bin/php /www/wwwroot/sk.yunxnet.cn/admin-api/v1/cron.php
+ *    /www/server/php/74/bin/php /www/wwwroot/wk.yunxnet.cn/admin-api/v1/cron.php
  * 
  * 效果：
  * - 只要宝塔这个任务开着，每分钟自动巡检所有已开启的调度任务，按各自周期自动出单、自动同步进度；
@@ -83,7 +83,9 @@ foreach ($tasks as $task) {
     $lastTime = !empty($task['last_run_time']) ? strtotime($task['last_run_time']) : 0;
     $elapsed = $now - $lastTime;
 
-    $shouldRun = $isForce || ($elapsed >= ($intervalSec - 5));
+    // 容差设计：宝塔以 1 分钟为颗粒度巡检，只要达到 (周期 - 25秒) 即视为到期准时触发，彻底避免任务耗时导致跳空
+    $toleranceSec = ($intervalMins === 1) ? 5 : 25;
+    $shouldRun = $isForce || ($elapsed >= ($intervalSec - $toleranceSec));
 
     if (!$shouldRun) {
         $remainingSec = max(0, $intervalSec - $elapsed);

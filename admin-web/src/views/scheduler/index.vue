@@ -152,7 +152,7 @@ async function handleClearLogs(taskId?: string) {
 
 // 复制宝塔定时任务指令
 function copyBtCommand() {
-  const cmd = `/www/server/php/74/bin/php /www/wwwroot/sk.yunxnet.cn/admin-api/v1/cron.php`;
+  const cmd = `/www/server/php/74/bin/php /www/wwwroot/wk.yunxnet.cn/admin-api/v1/cron.php`;
   navigator.clipboard.writeText(cmd);
   window.$message?.success('宝塔计划任务指令已复制到剪贴板');
 }
@@ -175,6 +175,12 @@ onMounted(() => {
     fetchSchedulerTasksList().then(({ data }) => {
       if (data?.bt_cron) {
         btCron.value = data.bt_cron;
+      }
+      if (data?.tasks) {
+        tasks.value = data.tasks;
+      }
+      if (data?.summary) {
+        summary.value = data.summary;
       }
     });
   }, 10000);
