@@ -2,12 +2,14 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { fetchCourseQuery, fetchOrderCatalog, fetchOrderSubmit } from '@/service/api';
+import { useAppStore } from '@/store/modules/app';
 import { useAuthStore } from '@/store/modules/auth';
 
 defineOptions({ name: 'Addpl' });
 
 const FAVORITES_KEY = 'COURSE_ADMIN_order_favorites';
 const router = useRouter();
+const appStore = useAppStore();
 const authStore = useAuthStore();
 
 const catalogLoading = ref(false);
@@ -383,8 +385,8 @@ onMounted(() => {
               <NSelect
                 v-model:value="productId"
                 :options="productOptions"
-                placeholder="输入关键字快速搜索课程平台..."
-                filterable
+                placeholder="选择或搜索课程平台..."
+                :filterable="!appStore.isMobile"
                 clearable
                 :loading="catalogLoading"
               />

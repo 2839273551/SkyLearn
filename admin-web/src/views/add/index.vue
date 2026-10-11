@@ -13,10 +13,12 @@ import {
   NTag
 } from 'naive-ui';
 import { fetchCourseQuery, fetchOrderCatalog, fetchOrderSubmit } from '@/service/api';
+import { useAppStore } from '@/store/modules/app';
 import { useAuthStore } from '@/store/modules/auth';
 
 defineOptions({ name: 'Add' });
 
+const appStore = useAppStore();
 const authStore = useAuthStore();
 
 // 加载状态
@@ -684,7 +686,7 @@ onMounted(loadCatalog);
                 </div>
                 <NSelect
                   v-model:value="productId"
-                  filterable
+                  :filterable="!appStore.isMobile"
                   :options="productOptions"
                   placeholder="可在此搜索或选择下单项目平台"
                   :render-label="renderSelectOptionLabel"
