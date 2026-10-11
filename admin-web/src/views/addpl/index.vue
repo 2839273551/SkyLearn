@@ -341,11 +341,12 @@ onMounted(() => {
               <label class="mb-6px block text-13px font-medium text-gray-600 dark:text-gray-300">
                 选择分类类目：
               </label>
-              <div class="flex flex-wrap gap-8px">
+              <div class="flex items-center gap-8px overflow-x-auto pb-4px scrollbar-none select-none">
                 <NButton
                   size="small"
                   :type="categoryId === 'all' ? 'primary' : 'default'"
                   :secondary="categoryId !== 'all'"
+                  class="shrink-0"
                   @click="categoryId = 'all'"
                 >
                   全部项目
@@ -355,6 +356,7 @@ onMounted(() => {
                   size="small"
                   :type="categoryId === 'favorites' ? 'warning' : 'default'"
                   :secondary="categoryId !== 'favorites'"
+                  class="shrink-0"
                   @click="categoryId = 'favorites'"
                 >
                   我的收藏 ({{ favoriteIds.length }})
@@ -365,6 +367,7 @@ onMounted(() => {
                   size="small"
                   :type="categoryId === cat.id ? 'primary' : 'default'"
                   :secondary="categoryId !== cat.id"
+                  class="shrink-0"
                   @click="categoryId = cat.id"
                 >
                   {{ cat.name }}
@@ -552,7 +555,7 @@ onMounted(() => {
             </NCollapse>
 
             <!-- 底部提交下单栏 -->
-            <div class="mt-12px flex items-center justify-between rounded-8px border border-primary/20 bg-primary/6 p-12px dark:bg-dark-600">
+            <div class="mt-12px flex flex-wrap items-center justify-between gap-10px rounded-8px border border-primary/20 bg-primary/6 p-12px dark:bg-dark-600">
               <div class="flex flex-col">
                 <span class="text-13px">已勾选：<strong class="text-primary">{{ selections.length }}</strong> 门课程</span>
                 <span class="text-12px text-gray-500">预估结算费用：<strong class="text-error">¥ {{ estimatedCost }}</strong></span>
@@ -560,7 +563,7 @@ onMounted(() => {
               <NButton
                 type="primary"
                 size="large"
-                class="px-24px"
+                class="w-full sm:w-auto px-24px"
                 :loading="submitLoading"
                 :disabled="!orderEnabled || selections.length === 0"
                 @click="submitOrders"
@@ -575,4 +578,12 @@ onMounted(() => {
   </div>
 </template>
 
-<style scoped></style>
+<style scoped>
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+</style>
