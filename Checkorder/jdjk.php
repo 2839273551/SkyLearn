@@ -311,7 +311,39 @@ function processCx($oid)//进度代码
 function isOrderRemarksIntermediate($remarks) {
     if (empty($remarks)) return true;
     $rem = trim($remarks);
-    return (bool)preg_match('/(当前执行:|正在阅读|正在播放|正在做|正在处理|正在答题|正在学习|正在观看|正在考试|正在提交|正在|\[处理中\]|【进行中】|status:【进行中】|【待上号】|待上号|排队中|队列中|上号中)/u', $rem);
+    return (bool)preg_match('/(当前执行:|正在阅读|正在播放|正在做|正在处理|正在答题|正在学习|正在观看|正在考试|正在提交|正在|\[处理中\]|【进行中】|status:【进行中】|【待上号】|待上号|排队中|队列中|上号中|详情:\d{2}:\d{2}:\d{2}\/)/u', $rem);
+}
+
+/**
+ * 严谨裁决订单是否真正完结（彻底消除最后一节视频刚播放时进度显示100%导致过早误判结课早产的严重缺陷）
+ *
+ * @param string $status 上游返回或当前状态文本
+ * @param string $process 进度文本 (例如 100.0%, 98.5%)
+ * @param string $remarks 详细备注信息
+ * @return bool true=真正已结课终态, false=仍在在刷进行中
+ */
+function isOrderTrulyFinished($status, $process, $remarks = '') {
+    $status = trim((string)$status);
+    $process = trim((string)$process);
+    $remarks = trim((string)$remarks);
+
+    if (in_array($status, array('异常', '待重刷', '待补刷', '补刷中', '重刷中', '已退款', '已取消'), true)) {
+        return false;
+    }
+
+    if (in_array($status, array('已完成', '已结课', '已学完'), true)) {
+        return true;
+    }
+
+    $numVal = floatval(preg_replace('/[^\d.]/', '', $process));
+    if ($numVal >= 100) {
+        if (function_exists('isOrderRemarksIntermediate') && isOrderRemarksIntermediate($remarks)) {
+            return false;
+        }
+        return true;
+    }
+
+    return false;
 }
 
 /**

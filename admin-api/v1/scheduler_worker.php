@@ -48,7 +48,6 @@ function scheduler_get_distinct_order_count($taskId) {
 
 function scheduler_count_pending($taskId) {
     global $DB;
-    $completedFilter = "status NOT IN ('已完成','已取消','已退款') AND (status IN ('补刷中','重刷中','待补刷') OR process NOT LIKE '100%')";
 
     switch ($taskId) {
         case 'order_dispatch':
@@ -62,7 +61,7 @@ function scheduler_count_pending($taskId) {
         case 'aa':
         case 'plsx':
             // 引擎 2：正在刷课活跃订单 (包含进行中、待处理、待上号、上号中、重刷中、待刷新等所有未归档订单)
-            return intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_order` WHERE dockstatus=1 AND status NOT IN ('已完成','已取消','已退款','待考试','平时分','平时分中') AND $completedFilter"));
+            return intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_order` WHERE dockstatus=1 AND status NOT IN ('已完成','已取消','已退款','待考试','平时分','平时分中')"));
 
         case 'progress_exam':
         case 'dd':
@@ -433,11 +432,17 @@ function scheduler_execute_task($taskId) {
                                 $newRemarks = isset($initItem['remarks']) ? daddslashes($initItem['remarks']) : $statusNote;
                                 $initItemYid = isset($initItem['yid']) ? daddslashes(strval($initItem['yid'])) : $yid;
                                 $setInitYid = (!empty($initItemYid) && $initItemYid !== '0') ? ", `yid`='$initItemYid'" : "";
-                                $numVal = floatval(preg_replace('/[^\d.]/', '', (string)$newProcess));
-                                if ($newStatus === '已完成' || $newStatus === '已结课' || $newStatus === '已学完' || ($numVal >= 100 && $newStatus !== '异常' && $newStatus !== '待重刷' && $newStatus !== '补刷中')) {
+                                $isTrulyDone = function_exists('isOrderTrulyFinished')
+                                    ? isOrderTrulyFinished($newStatus, $newProcess, $newRemarks)
+                                    : ($newStatus === '已完成' || $newStatus === '已结课' || $newStatus === '已学完');
+                                $setInitDocknum = '';
+                                if ($isTrulyDone) {
                                     $newStatus = '已完成';
+                                    $isInter = function_exists('isOrderRemarksIntermediate') ? isOrderRemarksIntermediate($newRemarks) : false;
+                                    $docknumVal = $isInter ? 0 : 20;
+                                    $setInitDocknum = ", `docknum`='$docknumVal'";
                                 }
-                                $DB->query("UPDATE `qingka_wangke_order` SET `status`='$newStatus', `process`='$newProcess', `remarks`='$newRemarks', `finalupdate`=NOW() $setInitYid WHERE oid='$oid'");
+                                $DB->query("UPDATE `qingka_wangke_order` SET `status`='$newStatus', `process`='$newProcess', `remarks`='$newRemarks', `finalupdate`=NOW() $setInitYid $setInitDocknum WHERE oid='$oid'");
                             }
                         }
                     }
@@ -469,9 +474,8 @@ function scheduler_execute_task($taskId) {
     // 引擎 2：活跃看课·高频同步引擎 (progress_active / cc / bb / aa / plsx)
     // =========================================================================
     elseif ($taskId === 'progress_active' || in_array($taskId, array('cc', 'bb', 'aa', 'plsx'), true)) {
-        $completedFilter = "status NOT IN ('已完成','已取消','已退款') AND (status IN ('补刷中','重刷中','待补刷') OR process NOT LIKE '100%')";
         // 覆盖所有已对接上游、但尚未结课归档的订单（包括待处理、待上号、进行中、上号中、重刷中、待刷新等）
-        $where = "dockstatus=1 AND status NOT IN ('已完成','已取消','已退款','待考试','平时分','平时分中') AND $completedFilter";
+        $where = "dockstatus=1 AND status NOT IN ('已完成','已取消','已退款','待考试','平时分','平时分中')";
 
         // 单次全量扫 160 笔，全网在刷订单一网打尽！
         $res = $DB->query("SELECT * FROM `qingka_wangke_order` WHERE $where ORDER BY 
@@ -503,15 +507,16 @@ function scheduler_execute_task($taskId) {
                     $newKcjs = isset($item['kcjs']) ? daddslashes($item['kcjs']) : $a['courseEndTime'];
                     $itemYid = isset($item['yid']) ? daddslashes(strval($item['yid'])) : '';
 
-                    $numVal = floatval(preg_replace('/[^\d.]/', '', (string)$newProcess));
-                    $isFinished = ($newStatus === '已完成' || $newStatus === '已结课' || $newStatus === '已学完' || ($numVal >= 100 && $newStatus !== '异常' && $newStatus !== '待重刷' && $newStatus !== '补刷中'));
+                    $isFinished = function_exists('isOrderTrulyFinished')
+                        ? isOrderTrulyFinished($newStatus, $newProcess, $newRemarks)
+                        : ($newStatus === '已完成' || $newStatus === '已结课' || $newStatus === '已学完');
                     $isExamStage = in_array($newStatus, array('待考试', '平时分', '平时分中', '已暂停'), true);
 
                     $setDocknum = '';
                     if ($isFinished) {
                         $newStatus = '已完成';
                         $isInter = function_exists('isOrderRemarksIntermediate') ? isOrderRemarksIntermediate($newRemarks) : false;
-                        $docknumVal = $isInter ? 0 : 2;
+                        $docknumVal = $isInter ? 0 : 20;
                         $setDocknum = ", `docknum`='$docknumVal'";
                     }
 
@@ -534,7 +539,7 @@ function scheduler_execute_task($taskId) {
                         WHERE oid='$oid'");
 
                     if ($isFinished) {
-                        $logs[] = "  [✔] 订单 #$oid [{$a['kcname']}] 进度达 100% 并结课，已自动标记【已完成】归档！";
+                        $logs[] = "  [✔] 订单 #$oid [{$a['kcname']}] 课程已完结并获取结算详情，已自动标记【已完成】归档！";
                     } elseif ($isExamStage) {
                         $logs[] = "  [🐢] 订单 #$oid [{$a['kcname']}] 看课完毕转入【{$newStatus}】，已自动移交慢速巡检池！";
                     } else {
@@ -553,9 +558,10 @@ function scheduler_execute_task($taskId) {
 
         // =========================================================================
         // 引擎 2 扩展：完结订单·全网课多项目末次收尾二次核验池 (Universal Final-Sync Queue)
+        // 针对已标记【已完成】但 remarks 仍处于中间过程态（或 docknum < 15 尚未封板）的订单持续拉取终态汇总
         // =========================================================================
-        $finalSyncWhere = "dockstatus=1 AND status='已完成' AND docknum < 2 AND (finalupdate IS NULL OR finalupdate='' OR finalupdate < DATE_SUB(NOW(), INTERVAL 25 SECOND))";
-        $finalSyncRes = $DB->query("SELECT * FROM `qingka_wangke_order` WHERE $finalSyncWhere ORDER BY finalupdate ASC, oid ASC LIMIT 20");
+        $finalSyncWhere = "dockstatus=1 AND status='已完成' AND (docknum < 15 OR (docknum < 20 AND (remarks LIKE '%当前执行:%' OR remarks LIKE '%status:【进行中】%' OR remarks LIKE '%【进行中】%' OR remarks LIKE '%正在%'))) AND (finalupdate IS NULL OR finalupdate='' OR finalupdate < DATE_SUB(NOW(), INTERVAL 25 SECOND))";
+        $finalSyncRes = $DB->query("SELECT * FROM `qingka_wangke_order` WHERE $finalSyncWhere ORDER BY finalupdate ASC, oid ASC LIMIT 30");
         $finalOrders = array();
         while ($r = $DB->fetch($finalSyncRes)) { $finalOrders[] = $r; }
 
@@ -568,25 +574,33 @@ function scheduler_execute_task($taskId) {
                 $item = isset($finalItemMap[$fOid]) ? $finalItemMap[$fOid] : null;
                 if ($item && !empty($item['remarks'])) {
                     $upRemarks = trim($item['remarks']);
+                    $upStatus = isset($item['status_text']) ? trim($item['status_text']) : '';
+                    $upProcess = isset($item['process']) ? daddslashes(trim($item['process'])) : $fOrder['process'];
                     $isStillIntermediate = function_exists('isOrderRemarksIntermediate') ? isOrderRemarksIntermediate($upRemarks) : false;
 
                     if (!$isStillIntermediate) {
                         $safeRemarks = daddslashes($upRemarks);
-                        $DB->query("UPDATE `qingka_wangke_order` SET `remarks`='$safeRemarks', `docknum`=2, `finalupdate`=NOW() WHERE oid='$fOid'");
+                        $DB->query("UPDATE `qingka_wangke_order` SET `process`='$upProcess', `remarks`='$safeRemarks', `docknum`=20, `finalupdate`=NOW() WHERE oid='$fOid'");
                         $logs[] = "    [★] 订单 #$fOid [{$fOrder['kcname']}] 已成功捕获终态结算信息: [{$upRemarks}]，已永久封板归档！";
+                        $successCount++;
+                    } elseif ($upStatus === '进行中' && $isStillIntermediate) {
+                        // 上游实际仍在播放最后一节视频（此前因进度显示100%被过早标记完成），自动纠偏恢复为【进行中】回到主池继续追踪至真正结课
+                        $safeRemarks = daddslashes($upRemarks);
+                        $DB->query("UPDATE `qingka_wangke_order` SET `status`='进行中', `process`='$upProcess', `remarks`='$safeRemarks', `docknum`=0, `finalupdate`=NOW() WHERE oid='$fOid'");
+                        $logs[] = "    [↺] 订单 #$fOid [{$fOrder['kcname']}] 上游最后一节仍在播放中，已自动纠偏恢复为【进行中】继续追踪！";
                         $successCount++;
                     } else {
                         $curDocknum = intval($fOrder['docknum']) + 1;
                         $lastUpTime = !empty($fOrder['finalupdate']) ? strtotime($fOrder['finalupdate']) : 0;
 
-                        if ($curDocknum >= 3 || ($lastUpTime > 0 && (time() - $lastUpTime) > 600)) {
+                        if ($curDocknum >= 15 || ($lastUpTime > 0 && (time() - $lastUpTime) > 2700)) {
                             $cleanRemarks = str_replace(array('status:【进行中】', 'status:【待上号】', '【进行中】'), 'status:【已结课】', $upRemarks);
                             if (strpos($cleanRemarks, '【已结课】') === false && strpos($cleanRemarks, '已完成') === false) {
                                 $cleanRemarks .= ' || status:【已结课】';
                             }
                             $cleanRemarks = preg_replace('/正在(阅读|播放|做|处理|答题|学习|观看|考试|提交)/u', '已完成$1', $cleanRemarks);
                             $safeClean = daddslashes($cleanRemarks);
-                            $DB->query("UPDATE `qingka_wangke_order` SET `remarks`='$safeClean', `docknum`=2, `finalupdate`=NOW() WHERE oid='$fOid'");
+                            $DB->query("UPDATE `qingka_wangke_order` SET `remarks`='$safeClean', `docknum`=20, `finalupdate`=NOW() WHERE oid='$fOid'");
                             $logs[] = "    [✔] 订单 #$fOid [{$fOrder['kcname']}] 超时仍无新结算，已智能规整中间态为【已结课】封板归档！";
                         } else {
                             $safeRemarks = daddslashes($upRemarks);
@@ -594,7 +608,8 @@ function scheduler_execute_task($taskId) {
                         }
                     }
                 } else {
-                    $DB->query("UPDATE `qingka_wangke_order` SET `docknum`=docknum+1, `finalupdate`=NOW() WHERE oid='$fOid'");
+                    $curDocknum = intval($fOrder['docknum']) + 1;
+                    $DB->query("UPDATE `qingka_wangke_order` SET `docknum`='$curDocknum', `finalupdate`=NOW() WHERE oid='$fOid'");
                 }
             }
             $DB->query("COMMIT");
@@ -646,14 +661,15 @@ function scheduler_execute_task($taskId) {
                         $newKcjs = isset($item['kcjs']) ? daddslashes($item['kcjs']) : $a['courseEndTime'];
                         $itemYid = isset($item['yid']) ? daddslashes(strval($item['yid'])) : '';
 
-                        $numVal = floatval(preg_replace('/[^\d.]/', '', (string)$newProcess));
-                        $isFinished = ($newStatus === '已完成' || $newStatus === '已结课' || $newStatus === '已学完' || ($numVal >= 100 && $newStatus !== '异常' && $newStatus !== '待重刷' && $newStatus !== '补刷中'));
+                        $isFinished = function_exists('isOrderTrulyFinished')
+                            ? isOrderTrulyFinished($newStatus, $newProcess, $newRemarks)
+                            : ($newStatus === '已完成' || $newStatus === '已结课' || $newStatus === '已学完');
 
                         $setDocknum = '';
                         if ($isFinished) {
                             $newStatus = '已完成';
                             $isInter = function_exists('isOrderRemarksIntermediate') ? isOrderRemarksIntermediate($newRemarks) : false;
-                            $docknumVal = $isInter ? 0 : 2;
+                            $docknumVal = $isInter ? 0 : 20;
                             $setDocknum = ", `docknum`='$docknumVal'";
                         }
 

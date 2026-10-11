@@ -3869,9 +3869,11 @@ if ($action === 'order-sync') {
             $uZhgx = daddslashes(isset($matched['zhgx']) ? $matched['zhgx'] : date('Y-m-d H:i:s'));
             $matchedYid = daddslashes(isset($matched['yid']) ? $matched['yid'] : (isset($matched['id']) ? $matched['id'] : ''));
 
-            // 智能完成判定：若进度满100%或标记学完/结课，自动转为[已完成]归档
-            $numVal = floatval(preg_replace('/[^\d.]/', '', (string)$uProcess));
-            if ($uStatus === '已完成' || $uStatus === '已结课' || $uStatus === '已学完' || ($numVal >= 100 && $uStatus !== '异常' && $uStatus !== '待重刷' && $uStatus !== '补刷中')) {
+            // 智能完成判定：采用严谨裁决，拒绝中间态过早判定完成
+            $isTrulyDone = function_exists('isOrderTrulyFinished')
+                ? isOrderTrulyFinished($uStatus, $uProcess, $uRemarks)
+                : ($uStatus === '已完成' || $uStatus === '已结课' || $uStatus === '已学完');
+            if ($isTrulyDone) {
                 $uStatus = '已完成';
                 if (strpos($uRemarks, '当前执行:') !== false) {
                     $uRemarks = str_replace(array('status:【进行中】', 'status:【待上号】'), 'status:【已结课】', $uRemarks);
@@ -3888,7 +3890,7 @@ if ($action === 'order-sync') {
             $setDocknum = '';
             if ($uStatus === '已完成') {
                 $isInter = function_exists('isOrderRemarksIntermediate') ? isOrderRemarksIntermediate($uRemarks) : false;
-                $docknumVal = $isInter ? 0 : 2;
+                $docknumVal = $isInter ? 0 : 20;
                 $setDocknum = ", `docknum`='$docknumVal'";
             }
 
@@ -4021,12 +4023,18 @@ if ($action === 'order-dock') {
                     $newRemarks = isset($item['remarks']) ? daddslashes($item['remarks']) : $order['remarks'];
                     $itemYid = isset($item['yid']) ? daddslashes(strval($item['yid'])) : '';
                     $finalYid = !empty($yid) ? $yid : ((empty($order['yid']) || strval($order['yid']) === '0') ? $itemYid : $order['yid']);
-                    $numVal = floatval(preg_replace('/[^\d.]/', '', (string)$newProcess));
-                    if ($newStatus === '已完成' || $newStatus === '已结课' || $newStatus === '已学完' || ($numVal >= 100 && $newStatus !== '异常' && $newStatus !== '待重刷' && $newStatus !== '补刷中')) {
+                    $isTrulyDone = function_exists('isOrderTrulyFinished')
+                        ? isOrderTrulyFinished($newStatus, $newProcess, $newRemarks)
+                        : ($newStatus === '已完成' || $newStatus === '已结课' || $newStatus === '已学完');
+                    $setDocknum = '';
+                    if ($isTrulyDone) {
                         $newStatus = '已完成';
+                        $isInter = function_exists('isOrderRemarksIntermediate') ? isOrderRemarksIntermediate($newRemarks) : false;
+                        $docknumVal = $isInter ? 0 : 20;
+                        $setDocknum = ", `docknum`='$docknumVal'";
                     }
                     $setYidSql = !empty($finalYid) ? ", `yid`='$finalYid'" : '';
-                    $DB->query("UPDATE qingka_wangke_order SET `status`='$newStatus', `process`='$newProcess', `remarks`='$newRemarks' $setYidSql, `finalupdate`=NOW() WHERE oid='$oid'");
+                    $DB->query("UPDATE qingka_wangke_order SET `status`='$newStatus', `process`='$newProcess', `remarks`='$newRemarks' $setYidSql $setDocknum, `finalupdate`=NOW() WHERE oid='$oid'");
                 }
             }
         }
@@ -4246,7 +4254,8 @@ if ($action === 'order-batch-sync') {
         if (!$order) continue;
         if (!$isSuper && intval($order['uid']) !== $currentUid) continue;
         if (strval($order['dockstatus']) === '4' || strval($order['hid']) === '0') continue;
-        if (in_array($order['status'], array('已完成', '已取消', '已退款'), true)) continue;
+        if (in_array($order['status'], array('已取消', '已退款'), true)) continue;
+        if ($order['status'] === '已完成' && function_exists('isOrderRemarksIntermediate') && !isOrderRemarksIntermediate($order['remarks'])) continue;
 
         if (function_exists('processCx')) {
             $result = processCx($oid);
@@ -4275,9 +4284,11 @@ if ($action === 'order-batch-sync') {
                     $uZhgx = daddslashes(isset($matched['zhgx']) ? $matched['zhgx'] : date('Y-m-d H:i:s'));
                     $matchedYid = daddslashes(isset($matched['yid']) ? $matched['yid'] : (isset($matched['id']) ? $matched['id'] : ''));
 
-                    // 智能完成判定：若进度满100%或标记学完/结课，自动转为[已完成]归档
-                    $numVal = floatval(preg_replace('/[^\d.]/', '', (string)$uProcess));
-                    if ($uStatus === '已完成' || $uStatus === '已结课' || $uStatus === '已学完' || ($numVal >= 100 && $uStatus !== '异常' && $uStatus !== '待重刷' && $uStatus !== '补刷中')) {
+                    // 智能完成判定：采用严谨裁决，拒绝中间态过早判定完成
+                    $isTrulyDone = function_exists('isOrderTrulyFinished')
+                        ? isOrderTrulyFinished($uStatus, $uProcess, $uRemarks)
+                        : ($uStatus === '已完成' || $uStatus === '已结课' || $uStatus === '已学完');
+                    if ($isTrulyDone) {
                         $uStatus = '已完成';
                     }
 
@@ -4296,7 +4307,7 @@ if ($action === 'order-batch-sync') {
                     }
                     if ($uStatus === '已完成') {
                         $isInter = function_exists('isOrderRemarksIntermediate') ? isOrderRemarksIntermediate($uRemarks) : false;
-                        $docknumVal = $isInter ? 0 : 2;
+                        $docknumVal = $isInter ? 0 : 20;
                         $setFields[] = "`docknum`='$docknumVal'";
                     }
 
@@ -4423,12 +4434,18 @@ if ($action === 'order-batch-dock') {
                         $newRemarks = isset($item['remarks']) ? daddslashes($item['remarks']) : $order['remarks'];
                         $itemYid = isset($item['yid']) ? daddslashes(strval($item['yid'])) : '';
                         $finalYid = !empty($yid) ? $yid : ((empty($order['yid']) || strval($order['yid']) === '0') ? $itemYid : $order['yid']);
-                        $numVal = floatval(preg_replace('/[^\d.]/', '', (string)$newProcess));
-                        if ($newStatus === '已完成' || $newStatus === '已结课' || $newStatus === '已学完' || ($numVal >= 100 && $newStatus !== '异常' && $newStatus !== '待重刷' && $newStatus !== '补刷中')) {
+                        $isTrulyDone = function_exists('isOrderTrulyFinished')
+                            ? isOrderTrulyFinished($newStatus, $newProcess, $newRemarks)
+                            : ($newStatus === '已完成' || $newStatus === '已结课' || $newStatus === '已学完');
+                        $setDocknum = '';
+                        if ($isTrulyDone) {
                             $newStatus = '已完成';
+                            $isInter = function_exists('isOrderRemarksIntermediate') ? isOrderRemarksIntermediate($newRemarks) : false;
+                            $docknumVal = $isInter ? 0 : 20;
+                            $setDocknum = ", `docknum`='$docknumVal'";
                         }
                         $setYidSql = !empty($finalYid) ? ", `yid`='$finalYid'" : '';
-                        $DB->query("UPDATE qingka_wangke_order SET `status`='$newStatus', `process`='$newProcess', `remarks`='$newRemarks' $setYidSql, `finalupdate`=NOW() WHERE oid='$oid'");
+                        $DB->query("UPDATE qingka_wangke_order SET `status`='$newStatus', `process`='$newProcess', `remarks`='$newRemarks' $setYidSql $setDocknum, `finalupdate`=NOW() WHERE oid='$oid'");
                     }
                 }
             }
