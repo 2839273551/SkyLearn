@@ -201,7 +201,7 @@ function renderSelectOptionLabel(option: SelectOption) {
             'span',
             {
               class:
-                'px-5px py-1px rounded text-10px sm:text-11px bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 shrink-0 font-medium'
+                'px-5px py-1px rounded text-12px bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 shrink-0 font-medium'
             },
             String(option.categoryName)
           )
@@ -760,7 +760,7 @@ onMounted(loadCatalog);
                   clearable
                 />
 
-                <div class="mt-6px flex items-center justify-between text-11px text-gray-400 dark:text-gray-500 select-none">
+                <div class="mt-6px flex items-center justify-between text-12px text-gray-600 dark:text-gray-300 dark:text-gray-500 select-none">
                   <span>多账号换行即批量，切换项目账号自动保留</span>
                   <span v-if="inputLines.length > 0">
                     已录入: <strong class="text-blue-600 dark:text-blue-400 font-bold font-mono">{{ inputLines.length }}</strong> 单
@@ -816,7 +816,7 @@ onMounted(loadCatalog);
             >
               <span>← 返回修改账号/切换项目</span>
             </button>
-            <span v-if="selectedProduct" class="text-11px text-gray-500 font-mono truncate max-w-160px">
+            <span v-if="selectedProduct" class="text-12px font-bold text-gray-700 dark:text-gray-300 font-mono truncate max-w-160px">
               {{ selectedProduct.name }} (¥{{ selectedProduct.price }})
             </span>
           </div>
@@ -873,7 +873,7 @@ onMounted(loadCatalog);
               </button>
             </div>
 
-            <span class="text-11px text-gray-400 shrink-0 font-mono">
+            <span class="text-12px text-gray-600 dark:text-gray-300 shrink-0 font-mono">
               已选 <strong class="text-blue-600 dark:text-blue-400 font-bold">{{ selections.length }}</strong> 门
             </span>
           </div>
@@ -887,7 +887,7 @@ onMounted(loadCatalog);
               class="w-full text-12px sm:text-13px rounded-8px"
             >
               <template #prefix>
-                <span class="text-gray-400 text-12px mr-4px">🔎</span>
+                <span class="text-gray-500 text-13px mr-4px">🔎</span>
               </template>
             </NInput>
           </div>
@@ -921,7 +921,7 @@ onMounted(loadCatalog);
                   class="flex items-center gap-6px sm:gap-8px py-7px px-6px rounded-8px hover:bg-gray-100 dark:hover:bg-dark-600/60 cursor-pointer select-none transition-colors active:bg-gray-100"
                   @click="toggleExpand(result.userinfo)"
                 >
-                  <span class="text-11px text-gray-400 w-14px text-center shrink-0">
+                  <span class="text-12px text-gray-600 dark:text-gray-300 w-14px text-center shrink-0">
                     {{ isExpanded(result.userinfo) ? '▼' : '▶' }}
                   </span>
 
@@ -936,7 +936,7 @@ onMounted(loadCatalog);
                   />
 
                   <!-- 账号名及姓名 -->
-                  <div class="text-13px sm:text-14px text-gray-800 dark:text-gray-100 font-bold truncate flex-1 min-w-0">
+                  <div class="text-14px sm:text-15px text-gray-950 dark:text-white font-black truncate flex-1 min-w-0">
                     <span>{{ result.userinfo }}</span>
                     <span v-if="result.userName" class="text-gray-500 dark:text-gray-400 text-12px font-normal ml-6px">
                       ({{ result.userName }})
@@ -981,14 +981,14 @@ onMounted(loadCatalog);
                     <!-- 课程核心信息区 (将进度和名称区分排布，移动端极易辨识) -->
                     <div class="flex-1 min-w-0">
                       <div class="flex flex-wrap items-center gap-6px">
-                        <span class="text-13px sm:text-14px font-medium text-gray-800 dark:text-gray-100 leading-snug break-words">
+                        <span class="text-15px sm:text-16px font-black text-gray-950 dark:text-white leading-snug break-words">
                           {{ parseCourseDisplay(course).cleanTitle }}
                         </span>
 
                         <!-- 进度 Badge -->
                         <span
                           v-if="parseCourseDisplay(course).progressTag"
-                          class="px-5px py-0.5px rounded text-10px sm:text-11px font-mono font-medium shrink-0"
+                          class="px-5px py-0.5px rounded text-12px font-mono font-medium shrink-0"
                           :class="
                             parseCourseDisplay(course).isCompleted
                               ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400 border border-emerald-200/50'
@@ -998,7 +998,7 @@ onMounted(loadCatalog);
                           {{ parseCourseDisplay(course).progressTag }}
                         </span>
 
-                        <span v-if="showId && course.id" class="text-10px sm:text-11px text-gray-400 font-mono">
+                        <span v-if="showId && course.id" class="text-12px text-gray-400 font-mono">
                           #{{ course.id }}
                         </span>
                       </div>
@@ -1057,17 +1057,17 @@ onMounted(loadCatalog);
           <span>已选 <strong class="text-blue-600 dark:text-blue-400 font-bold font-mono text-15px">{{ selections.length }}</strong>/{{ totalCourses }} 门</span>
           <button
             type="button"
-            class="text-11px text-gray-500 hover:text-blue-600 underline bg-transparent border-0 cursor-pointer p-0 ml-4px active:scale-95"
+            class="text-12px font-bold text-gray-700 dark:text-gray-300 hover:text-blue-600 underline bg-transparent border-0 cursor-pointer p-0 ml-4px active:scale-95"
             @click="toggleSelectAll"
           >
             {{ allSelected ? '反选' : '全选' }}
           </button>
         </div>
 
-        <div v-if="selectedProduct && selections.length > 0" class="text-rose-500 font-bold font-mono text-13px truncate">
+        <div v-if="selectedProduct && selections.length > 0" class="text-rose-600 dark:text-rose-400 font-black font-mono text-14px truncate">
           预计扣费 ¥{{ estimatedSubmitCost }} 积分
         </div>
-        <div v-else class="text-11px text-gray-400">
+        <div v-else class="text-12px text-gray-600 dark:text-gray-300">
           勾选课程后即可下单
         </div>
       </div>
