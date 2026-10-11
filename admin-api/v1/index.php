@@ -2366,7 +2366,7 @@ if ($action === 'webmsg-info') {
     $systemInfo = array(
         'appName' => isset($conf['sitename']) && $conf['sitename'] ? (string) $conf['sitename'] : '网课管理中心',
         'author' => 'SkyLearn',
-        'version' => '8.6.0',
+        'version' => '8.7.0',
         'domain' => $domain,
         'serverIp' => $serverIp,
         'phpVersion' => PHP_VERSION,
@@ -2374,6 +2374,11 @@ if ($action === 'webmsg-info') {
     );
 
     $timeline = array(
+        array(
+            'version' => 'v8.7.0',
+            'time' => '2026-10-11',
+            'desc' => '【结课防早产与全网课终态智能收尾引擎】新增完结严谨裁决机制（isOrderTrulyFinished），彻底消除最后一节视频刚播放显示100%导致过早误判结课早产问题；升级多项目末次收尾二次核验池（Universal Final-Sync Queue）生命周期至20轮，支持在刷中视频自动纠偏回池追踪，终态详情捕获即刻封板归档。'
+        ),
         array(
             'version' => 'v8.6.0',
             'time' => '2026-10-11',
