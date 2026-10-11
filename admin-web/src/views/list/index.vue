@@ -6,8 +6,10 @@ import {
   NAlert,
   NButton,
   NCard,
+  NCheckbox,
   NDataTable,
   NDropdown,
+  NEmpty,
   NInput,
   NModal,
   NPagination,
@@ -16,6 +18,7 @@ import {
   NProgress,
   NSelect,
   NSpace,
+  NSpin,
   NTag
 } from 'naive-ui';
 import {
@@ -48,6 +51,58 @@ const query = reactive<Api.Orders.Query>({ page: 1, pageSize: 20, keyword: '', s
 const checkedRowKeys = ref<DataTableRowKey[]>([]);
 
 const actionLoadingMap = reactive<Record<string, boolean>>({});
+
+// 移动端专属交互状态
+const mobileViewMode = ref<'card' | 'table'>('card');
+const mobileActiveFilter = ref('all');
+
+function handleMobileFilter(key: string) {
+  mobileActiveFilter.value = key;
+  if (key === 'all') {
+    query.status = '';
+    query.dockStatus = '';
+  } else if (key === 'dock_fail') {
+    query.status = '';
+    query.dockStatus = '2';
+  } else if (key === 'dock_success') {
+    query.status = '';
+    query.dockStatus = '1';
+  } else {
+    query.status = key;
+    query.dockStatus = '';
+  }
+  search();
+}
+
+function isRowChecked(orderId: number | string): boolean {
+  return checkedRowKeys.value.includes(orderId);
+}
+
+function toggleRowCheck(orderId: number | string, checked: boolean) {
+  if (checked) {
+    if (!checkedRowKeys.value.includes(orderId)) {
+      checkedRowKeys.value.push(orderId);
+    }
+  } else {
+    checkedRowKeys.value = checkedRowKeys.value.filter(k => k !== orderId);
+  }
+}
+
+const isAllPageSelected = computed(() => {
+  if (!records.value.length) return false;
+  return records.value.every(r => checkedRowKeys.value.includes(r.orderId));
+});
+
+function toggleSelectAllPage() {
+  if (isAllPageSelected.value) {
+    const pageIds = new Set(records.value.map(r => r.orderId));
+    checkedRowKeys.value = checkedRowKeys.value.filter(k => !pageIds.has(k as number));
+  } else {
+    const set = new Set(checkedRowKeys.value);
+    records.value.forEach(r => set.add(r.orderId));
+    checkedRowKeys.value = Array.from(set);
+  }
+}
 
 // 详情弹窗相关 (保留11项完整参数规范)
 const detailModalVisible = ref(false);
@@ -953,13 +1008,108 @@ onMounted(loadOrders);
       {{ authStore.userInfo.ddgg }}
     </NAlert>
 
-    <NCard title="订单列表" :bordered="false" class="rounded-8px shadow-sm">
-      <!-- 顶部查询栏 -->
-      <div class="mb-14px flex flex-wrap items-center gap-12px">
+    <NCard title="订单列表" :bordered="false" class="rounded-10px sm:rounded-12px shadow-xs pb-60px lg:pb-0">
+      <template #header-extra>
+        <!-- 移动端视图切换按钮 (卡片流 / 原始表格) -->
+        <div v-if="appStore.isMobile" class="flex items-center gap-6px">
+          <button
+            type="button"
+            class="px-8px py-4px text-11px font-medium rounded-6px border border-gray-200 dark:border-dark-500 bg-gray-50 dark:bg-dark-600 text-gray-700 dark:text-gray-200 cursor-pointer flex items-center gap-4px active:scale-95"
+            @click="mobileViewMode = mobileViewMode === 'card' ? 'table' : 'card'"
+          >
+            <span>{{ mobileViewMode === 'card' ? '📊 表格视图' : '🗂️ 卡片视图' }}</span>
+          </button>
+        </div>
+      </template>
+
+      <!-- 移动端专属顶部搜索与状态胶囊筛选栏 -->
+      <div v-if="appStore.isMobile" class="flex flex-col gap-8px mb-12px">
+        <!-- 搜索输入框与动作组 -->
+        <div class="flex items-center gap-6px w-full">
+          <NInput
+            v-model:value="query.keyword"
+            clearable
+            class="flex-1 text-13px rounded-8px"
+            placeholder="搜订单号/账号/课程/学校"
+            @keyup.enter="search"
+          >
+            <template #prefix><SvgIcon icon="ph:magnifying-glass" /></template>
+          </NInput>
+          <NButton type="primary" size="small" class="rounded-6px font-bold px-12px shrink-0" @click="search">
+            查询
+          </NButton>
+          <NButton size="small" quaternary class="rounded-6px shrink-0 px-8px text-gray-500" :loading="loading" @click="loadOrders">
+            <template #icon><SvgIcon icon="ph:arrow-clockwise" /></template>
+          </NButton>
+        </div>
+
+        <!-- 状态快选滑动胶囊 -->
+        <div class="flex items-center gap-6px overflow-x-auto pb-4px pt-1px scrollbar-none select-none -mx-4px px-4px text-12px">
+          <button
+            type="button"
+            class="px-10px py-4px rounded-6px shrink-0 border-0 cursor-pointer font-medium whitespace-nowrap active:scale-95"
+            :class="mobileActiveFilter === 'all' ? 'bg-blue-600 text-white font-bold shadow-xs' : 'bg-gray-100 dark:bg-dark-600 text-gray-600 dark:text-gray-300'"
+            @click="handleMobileFilter('all')"
+          >
+            全部 ({{ total }})
+          </button>
+          <button
+            type="button"
+            class="px-10px py-4px rounded-6px shrink-0 border-0 cursor-pointer font-medium whitespace-nowrap active:scale-95"
+            :class="mobileActiveFilter === '进行中' ? 'bg-blue-600 text-white font-bold shadow-xs' : 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border border-amber-200/50'"
+            @click="handleMobileFilter('进行中')"
+          >
+            ⚡ 进行中
+          </button>
+          <button
+            type="button"
+            class="px-10px py-4px rounded-6px shrink-0 border-0 cursor-pointer font-medium whitespace-nowrap active:scale-95"
+            :class="mobileActiveFilter === '已完成' ? 'bg-blue-600 text-white font-bold shadow-xs' : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200/50'"
+            @click="handleMobileFilter('已完成')"
+          >
+            ✔ 已完成
+          </button>
+          <button
+            type="button"
+            class="px-10px py-4px rounded-6px shrink-0 border-0 cursor-pointer font-medium whitespace-nowrap active:scale-95"
+            :class="mobileActiveFilter === '补刷中' ? 'bg-blue-600 text-white font-bold shadow-xs' : 'bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400 border border-purple-200/50'"
+            @click="handleMobileFilter('补刷中')"
+          >
+            🔄 补刷中
+          </button>
+          <button
+            type="button"
+            class="px-10px py-4px rounded-6px shrink-0 border-0 cursor-pointer font-medium whitespace-nowrap active:scale-95"
+            :class="mobileActiveFilter === 'dock_fail' ? 'bg-rose-600 text-white font-bold shadow-xs' : 'bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border border-rose-200/50'"
+            @click="handleMobileFilter('dock_fail')"
+          >
+            ❌ 提交失败
+          </button>
+          <button
+            type="button"
+            class="px-10px py-4px rounded-6px shrink-0 border-0 cursor-pointer font-medium whitespace-nowrap active:scale-95"
+            :class="mobileActiveFilter === '待处理' ? 'bg-blue-600 text-white font-bold shadow-xs' : 'bg-gray-100 dark:bg-dark-600 text-gray-600 dark:text-gray-300'"
+            @click="handleMobileFilter('待处理')"
+          >
+            🕒 队列中
+          </button>
+          <button
+            type="button"
+            class="px-10px py-4px rounded-6px shrink-0 border-0 cursor-pointer font-medium whitespace-nowrap active:scale-95"
+            :class="mobileActiveFilter === '异常' ? 'bg-blue-600 text-white font-bold shadow-xs' : 'bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border border-rose-200/50'"
+            @click="handleMobileFilter('异常')"
+          >
+            ✖ 异常单
+          </button>
+        </div>
+      </div>
+
+      <!-- 桌面端顶部完整查询栏 -->
+      <div v-else class="mb-14px flex flex-wrap items-center gap-12px">
         <NInput
           v-model:value="query.keyword"
           clearable
-          class="w-320px lt-sm:w-full"
+          class="w-320px"
           placeholder="订单号、账号、课程、学校或备注"
           @keyup.enter="search"
         >
@@ -975,8 +1125,8 @@ onMounted(loadOrders);
         </NButton>
       </div>
 
-      <!-- 快捷批量动作与提示栏 (一体化下拉操作) -->
-      <div class="mb-14px flex flex-wrap items-center justify-between gap-12px rounded-8px bg-blue-50/60 dark:bg-dark-600 p-10px border border-blue-100 dark:border-dark-500">
+      <!-- 桌面端快捷批量动作与提示栏 -->
+      <div v-if="!appStore.isMobile" class="mb-14px flex flex-wrap items-center justify-between gap-12px rounded-8px bg-blue-50/60 dark:bg-dark-600 p-10px border border-blue-100 dark:border-dark-500">
         <div class="flex flex-wrap items-center gap-8px">
           <span class="text-13px text-gray-700 dark:text-gray-200">
             已勾选 <strong class="text-primary font-mono text-14px font-bold">{{ checkedRowKeys.length }}</strong> 项
@@ -1014,19 +1164,192 @@ onMounted(loadOrders);
         </div>
       </div>
 
-      <!-- 数据表格 (1:1 复刻目标版精细排版) -->
-      <NDataTable
-        v-model:checked-row-keys="checkedRowKeys"
-        :loading="loading"
-        :columns="columns"
-        :data="records"
-        :row-key="(row: Api.Orders.Record) => row.orderId"
-        :pagination="false"
-        :scroll-x="1360"
-        striped
-      />
+      <!-- ================= 移动端专属高颜值订单卡片流 ================= -->
+      <div v-if="appStore.isMobile && mobileViewMode === 'card'" class="flex flex-col gap-10px">
+        <div v-if="loading" class="py-40px flex justify-center">
+          <NSpin size="large" />
+        </div>
 
-      <div class="mt-16px flex w-full items-center justify-center sm:justify-end overflow-x-auto py-4px">
+        <div v-else-if="!records.length" class="py-40px text-center">
+          <NEmpty description="未查询到符合条件的订单" />
+        </div>
+
+        <div v-else class="flex flex-col gap-10px">
+          <div
+            v-for="row in records"
+            :key="row.orderId"
+            class="bg-white dark:bg-dark-700 rounded-10px p-10px sm:p-12px border transition-all shadow-xs flex flex-col gap-8px"
+            :class="isRowChecked(row.orderId) ? 'border-blue-400 dark:border-blue-700 bg-blue-50/20' : 'border-gray-100 dark:border-dark-500'"
+          >
+            <!-- 卡片第1行：复选框 + 订单号 + 平台 + 任务状态胶囊 -->
+            <div class="flex items-center justify-between gap-6px pb-6px border-b border-gray-100 dark:border-dark-600">
+              <div class="flex items-center gap-6px min-w-0 flex-1">
+                <NCheckbox
+                  :checked="isRowChecked(row.orderId)"
+                  @update:checked="checked => toggleRowCheck(row.orderId, checked)"
+                />
+                <button
+                  type="button"
+                  class="font-mono text-13px font-bold text-gray-700 dark:text-gray-200 bg-transparent border-0 cursor-pointer p-0 hover:text-blue-600 flex items-center gap-2px select-none shrink-0"
+                  title="点击复制订单号"
+                  @click="copyText(String(row.orderId), '订单ID')"
+                >
+                  <span>#{{ row.orderId }}</span>
+                  <span class="text-10px text-gray-400">📋</span>
+                </button>
+                <span class="text-11px text-gray-500 dark:text-gray-400 truncate max-w-140px bg-gray-100 dark:bg-dark-600 px-5px py-1px rounded">
+                  {{ row.platform || '通用' }}
+                </span>
+              </div>
+
+              <!-- 右侧任务状态 Tag -->
+              <NTag
+                size="small"
+                round
+                :type="row.status === '已完成' ? 'success' : (row.status === '进行中' ? 'info' : (row.status === '补刷中' ? 'warning' : (row.status === '异常' ? 'error' : 'default')))"
+                class="font-bold text-11px shrink-0"
+              >
+                {{ row.status === '补刷中' ? '🔄 补刷中' : (row.status === '已完成' ? '✔ 已完成' : (row.status === '进行中' ? '⚡ 进行中' : (row.status === '异常' ? '✖ 异常' : (row.status || '队列中')))) }}
+              </NTag>
+            </div>
+
+            <!-- 卡片第2行：课程名称 + 金额 -->
+            <div class="flex items-start justify-between gap-8px">
+              <span class="text-14px font-bold text-gray-900 dark:text-gray-100 leading-snug break-words flex-1">
+                {{ row.courseName }}
+              </span>
+              <span class="font-mono text-13px font-bold text-blue-600 dark:text-blue-400 shrink-0">
+                ¥{{ row.fees !== undefined && row.fees !== null ? Number(row.fees).toFixed(2) : '0.00' }}
+              </span>
+            </div>
+
+            <!-- 卡片第3行：学生账号信息 (紧凑单行 + 一键复制) -->
+            <div class="flex items-center justify-between gap-6px p-6px bg-gray-50/80 dark:bg-dark-600/50 rounded-6px text-12px">
+              <div class="flex items-center gap-6px font-mono truncate text-gray-800 dark:text-gray-200">
+                <span v-if="row.school" class="text-gray-500 font-sans truncate max-w-90px">{{ row.school }}</span>
+                <strong class="font-bold text-gray-900 dark:text-gray-100">{{ row.account }}</strong>
+                <span v-if="row.password" class="text-gray-400 truncate max-w-80px">({{ row.password }})</span>
+              </div>
+              <button
+                type="button"
+                class="text-11px text-blue-600 dark:text-blue-400 bg-white dark:bg-dark-500 px-6px py-2px rounded border border-gray-200 dark:border-dark-400 cursor-pointer shrink-0 active:scale-95 font-medium"
+                @click="copyAll(row)"
+              >
+                复制账号
+              </button>
+            </div>
+
+            <!-- 卡片第4行：进度条与实时进度 -->
+            <div class="flex items-center gap-8px">
+              <div class="flex-1 h-6px rounded-full bg-gray-100 dark:bg-dark-600 overflow-hidden">
+                <div
+                  class="h-full rounded-full transition-all duration-300"
+                  :style="{
+                    width: row.status === '已完成' ? '100%' : (parseProgress(row) + '%'),
+                    backgroundColor: row.status === '已完成' ? '#10b981' : (row.status === '补刷中' ? '#a855f7' : '#3b82f6')
+                  }"
+                />
+              </div>
+              <span
+                class="font-mono text-12px font-bold shrink-0"
+                :class="row.status === '已完成' ? 'text-emerald-600' : (row.status === '补刷中' ? 'text-purple-600' : 'text-blue-600')"
+              >
+                {{ row.status === '补刷中' ? '补刷中' : (row.status === '已完成' ? '100.00%' : (parseProgress(row).toFixed(1) + '%')) }}
+              </span>
+            </div>
+
+            <!-- 卡片第5行：最新进度备注框 (免横向滚动直接完整看清) -->
+            <div
+              v-if="row.remarks && row.remarks !== '-'"
+              class="p-6px bg-slate-50 dark:bg-dark-600/40 rounded-6px text-11px text-gray-700 dark:text-gray-300 leading-relaxed break-words font-sans border border-slate-100 dark:border-dark-500"
+            >
+              <span class="text-gray-400 mr-2px">最新进展:</span>
+              {{ row.remarks }}
+            </div>
+
+            <!-- 卡片第6行：底栏时间与高频操作按钮组 -->
+            <div class="flex items-center justify-between pt-6px border-t border-gray-100 dark:border-dark-600">
+              <span class="text-11px font-mono text-gray-400 truncate max-w-120px">
+                {{ row.createdAt ? row.createdAt.substring(5) : '-' }}
+              </span>
+
+              <!-- 操作按钮小药丸 -->
+              <div class="flex items-center gap-4px">
+                <!-- 失败快捷重提 -->
+                <button
+                  v-if="String(row.dockStatus) === '2'"
+                  type="button"
+                  class="px-7px py-3px rounded-4px text-11px font-bold bg-rose-50 text-rose-600 border border-rose-200 cursor-pointer active:scale-95"
+                  :disabled="Boolean(actionLoadingMap['dock_' + row.orderId])"
+                  @click="handleDock(row)"
+                >
+                  {{ actionLoadingMap['dock_' + row.orderId] ? '重提中...' : '❌ 重提' }}
+                </button>
+
+                <!-- 更新 -->
+                <button
+                  type="button"
+                  class="px-8px py-3px rounded-4px text-11px font-medium bg-gray-100 dark:bg-dark-600 text-gray-700 dark:text-gray-200 hover:text-blue-600 border-0 cursor-pointer active:scale-95"
+                  :disabled="Boolean(actionLoadingMap['sync_' + row.orderId])"
+                  @click="handleSync(row)"
+                >
+                  {{ actionLoadingMap['sync_' + row.orderId] ? '同步中...' : '🔄 更新' }}
+                </button>
+
+                <!-- 补刷 -->
+                <NPopconfirm @positive-click="handleRebrush(row)">
+                  <template #trigger>
+                    <button
+                      type="button"
+                      class="px-8px py-3px rounded-4px text-11px font-bold bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-0 cursor-pointer active:scale-95"
+                    >
+                      补刷
+                    </button>
+                  </template>
+                  确定申请补刷吗？
+                </NPopconfirm>
+
+                <!-- 详情 -->
+                <button
+                  type="button"
+                  class="px-7px py-3px rounded-4px text-11px text-gray-500 hover:text-blue-600 bg-transparent border-0 cursor-pointer active:scale-95 font-medium"
+                  @click="openDetail(row)"
+                >
+                  详情
+                </button>
+
+                <!-- 更多 -->
+                <NDropdown trigger="click" :options="getMoreOptions(row)" @select="(k) => handleMoreSelect(k, row)">
+                  <button
+                    type="button"
+                    class="px-4px py-3px text-11px text-gray-400 hover:text-blue-600 bg-transparent border-0 cursor-pointer active:scale-95"
+                  >
+                    ⋯
+                  </button>
+                </NDropdown>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= 桌面端 1360px 原生数据大表格 (移动端可随时切换回来看) ================= -->
+      <div v-else class="overflow-x-auto">
+        <NDataTable
+          v-model:checked-row-keys="checkedRowKeys"
+          :loading="loading"
+          :columns="columns"
+          :data="records"
+          :row-key="(row: Api.Orders.Record) => row.orderId"
+          :pagination="false"
+          :scroll-x="1360"
+          striped
+        />
+      </div>
+
+      <!-- 底部分页控制条 -->
+      <div class="mt-14px sm:mt-16px flex w-full items-center justify-between sm:justify-end overflow-x-auto py-4px">
+        <span v-if="appStore.isMobile" class="text-12px text-gray-400 font-mono">共 {{ total }} 单</span>
         <NPagination
           v-model:page="query.page"
           v-model:page-size="query.pageSize"
@@ -1041,6 +1364,53 @@ onMounted(loadOrders);
         />
       </div>
     </NCard>
+
+    <!-- ================= 移动端专属吸底批量操作栏 (带安全区，勾选订单即刻平滑浮出) ================= -->
+    <div
+      v-if="appStore.isMobile && checkedRowKeys.length > 0"
+      class="fixed bottom-0 left-0 right-0 z-50 p-8px sm:p-12px bg-white/95 dark:bg-dark-700/95 backdrop-blur-md border-t border-gray-200 dark:border-dark-500 shadow-2xl flex items-center justify-between gap-8px"
+      style="padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));"
+    >
+      <div class="flex items-center gap-6px text-12px text-gray-700 dark:text-gray-200">
+        <button
+          type="button"
+          class="text-11px text-blue-600 dark:text-blue-400 font-bold bg-transparent border-0 cursor-pointer p-0 underline active:scale-95"
+          @click="toggleSelectAllPage"
+        >
+          {{ isAllPageSelected ? '反选本页' : '全选本页' }}
+        </button>
+        <span>已选 <strong class="text-blue-600 dark:text-blue-400 font-mono font-bold text-14px">{{ checkedRowKeys.length }}</strong> 项</span>
+      </div>
+
+      <div class="flex items-center gap-6px">
+        <NButton size="small" type="primary" :loading="batchLoading" class="font-bold text-12px" @click="handleBatchSync">
+          ⬇️ 更新
+        </NButton>
+        <NButton size="small" type="warning" :loading="batchLoading" class="font-bold text-12px" @click="handleBatchRebrush">
+          补单
+        </NButton>
+        <NPopconfirm @positive-click="handleBatchDock">
+          <template #trigger>
+            <NButton size="small" type="error" :loading="batchLoading" class="font-bold text-12px">
+              重提
+            </NButton>
+          </template>
+          确定批量重提勾选的 {{ checkedRowKeys.length }} 笔订单吗？
+        </NPopconfirm>
+        <NDropdown trigger="click" :options="taskStatusDropdownOptions" @select="handleSelectTaskStatus">
+          <NButton size="small" secondary type="info" class="text-12px">
+            状态▾
+          </NButton>
+        </NDropdown>
+        <button
+          type="button"
+          class="text-11px text-gray-400 hover:text-gray-600 bg-transparent border-0 cursor-pointer p-0 ml-2px"
+          @click="checkedRowKeys = []"
+        >
+          取消
+        </button>
+      </div>
+    </div>
 
     <!-- 订单详细参数弹窗（完全吻合小沐11项参数规范） -->
     <NModal
