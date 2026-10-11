@@ -214,7 +214,7 @@ onMounted(() => {
               <NSelect
                 v-model:value="selectedCid"
                 :options="selectOptions"
-                :filterable="!appStore.isMobile"
+                filterable
                 placeholder="搜索或选择网课平台"
                 class="w-full"
               />
