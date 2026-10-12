@@ -772,30 +772,29 @@ onMounted(loadCatalog);
         </div>
 
         <!-- 底部查课操作按钮栏 -->
-        <div class="mt-12px sm:mt-18px pt-12px sm:pt-16px border-t border-gray-100 dark:border-dark-600 flex items-center justify-between gap-8px">
+        <div class="mt-14px sm:mt-18px pt-14px sm:pt-16px border-t border-gray-100 dark:border-dark-600 flex items-center justify-between gap-10px">
           <NButton
             type="primary"
-            size="large"
-            block
+            size="medium"
             :loading="queryLoading"
             :disabled="!productId || inputLines.length === 0"
-            class="font-bold rounded-8px shadow-md bg-blue-600 hover:bg-blue-700 active:scale-98 transition-all text-14px sm:text-15px"
+            class="flex-1 lg:flex-initial px-22px font-bold rounded-8px shadow-xs bg-blue-600 hover:bg-blue-700 active:scale-98 transition-all"
             @click="queryCourses"
           >
             <template #icon>
-              <span class="text-15px">🔍</span>
+              <span class="text-14px">🔍</span>
             </template>
             开始查询课程 {{ inputLines.length > 0 ? `(${inputLines.length}单)` : '' }}
           </NButton>
 
           <NButton
             v-if="userinfo"
-            size="large"
+            size="small"
             secondary
-            class="text-gray-500 hover:text-gray-700 dark:text-gray-400 rounded-8px shrink-0 px-14px"
+            class="text-gray-500 hover:text-gray-700 dark:text-gray-400 rounded-6px px-12px shrink-0"
             @click="clearUserinfo"
           >
-            清空
+            清空输入
           </NButton>
         </div>
       </div>
