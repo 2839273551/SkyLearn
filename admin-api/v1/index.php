@@ -2366,7 +2366,7 @@ if ($action === 'webmsg-info') {
     $systemInfo = array(
         'appName' => isset($conf['sitename']) && $conf['sitename'] ? (string) $conf['sitename'] : '网课管理中心',
         'author' => 'SkyLearn',
-        'version' => '8.7.0',
+        'version' => '8.8.0',
         'domain' => $domain,
         'serverIp' => $serverIp,
         'phpVersion' => PHP_VERSION,
@@ -2374,6 +2374,11 @@ if ($action === 'webmsg-info') {
     );
 
     $timeline = array(
+        array(
+            'version' => 'v8.8.0',
+            'time' => '2026-10-12',
+            'desc' => '【移动端沉浸式下单页重构与防缩放触控优化】上线手机端专属分步沉浸流转视图（查课与选课一键无缝切换）、分类胶囊滑选与项目快选磁贴；内置微信账号一键粘贴与智能格式清洗、未完成课程一键筛选与高对比大字号进度胶囊；全面锁定移动端 Viewport 缩放并强制输入框 16px 字号基准，彻底根治手机端点击输入框自动放大晃动问题，配备全面屏安全区吸底结算栏。'
+        ),
         array(
             'version' => 'v8.7.0',
             'time' => '2026-10-11',
