@@ -1,4 +1,4 @@
-import type { AxiosResponse } from 'axios';
+import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { BACKEND_ERROR_CODE, createFlatRequest } from '@sa/axios';
 import { useAuthStore } from '@/store/modules/auth';
 import { getServiceBaseURL } from '@/utils/service';
@@ -38,6 +38,51 @@ export const request = createFlatRequest(
 
       if (logoutCodes.includes(responseCode)) {
         await useAuthStore().resetStore();
+      }
+
+      return null;
+    },
+    async onHttpError(error, instance) {
+      const status = error.response?.status;
+      const config = error.config as (InternalAxiosRequestConfig & { _isCsrfRetry?: boolean }) | undefined;
+
+      // 419 CSRF 页面验证失效容错：静默拉取当前会话最新 CSRF Token 并自动重试请求
+      if (status === 419 && config && !config._isCsrfRetry) {
+        config._isCsrfRetry = true;
+
+        if (!request.state.refreshCsrfPromise) {
+          request.state.refreshCsrfPromise = (async () => {
+            try {
+              const res = await instance.get<App.Service.Response<Api.Auth.UserInfo>>(
+                'admin-api/v1/index.php?action=session',
+                { headers: { 'X-Requested-With': 'XMLHttpRequest' } }
+              );
+              const info = res?.data?.data;
+              if (info?.csrfToken) {
+                const authStore = useAuthStore();
+                Object.assign(authStore.userInfo, info);
+                return true;
+              }
+              return false;
+            } catch (err: any) {
+              if (err?.response?.status === 401) {
+                await useAuthStore().resetStore();
+              }
+              return false;
+            } finally {
+              request.state.refreshCsrfPromise = null;
+            }
+          })();
+        }
+
+        const success = await request.state.refreshCsrfPromise;
+        if (success) {
+          const newCsrf = useAuthStore().userInfo.csrfToken;
+          if (newCsrf && config.headers) {
+            config.headers.set('X-CSRF-Token', newCsrf);
+          }
+          return instance(config);
+        }
       }
 
       return null;

@@ -154,6 +154,10 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
   }
 
   async function loginByToken(loginToken: Api.Auth.LoginToken) {
+    if (loginToken.csrfToken) {
+      userInfo.csrfToken = loginToken.csrfToken;
+    }
+
     // 1. stored in the localStorage, the later requests need it in headers
     localStg.set('token', loginToken.token);
     localStg.set('refreshToken', loginToken.refreshToken);

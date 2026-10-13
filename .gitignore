@@ -20,6 +20,10 @@ push_complete.log
 build_report.ps1
 report_data.json
 问题复盘与解决方案汇总.txt
+fix_doc.js
+make_comparisons.ps1
+render_*.ps1
+preview/
 .DS_Store
 Thumbs.db
 *.local

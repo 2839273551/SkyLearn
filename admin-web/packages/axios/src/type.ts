@@ -59,6 +59,16 @@ export interface RequestOption<
     instance: AxiosInstance
   ) => Promise<AxiosResponse | null> | Promise<void>;
   /**
+   * The hook to handle http error (like 419 csrf expired or 401 token expired) and optionally recover/retry
+   *
+   * @param error Axios error
+   * @param instance Axios instance
+   */
+  onHttpError?: (
+    error: AxiosError<ResponseData>,
+    instance: AxiosInstance
+  ) => Promise<AxiosResponse | null> | Promise<void>;
+  /**
    * The hook to handle error
    *
    * For example: You can show error message in this hook

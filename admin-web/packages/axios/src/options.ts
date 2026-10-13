@@ -16,6 +16,7 @@ export function createDefaultOptions<
     onRequest: async config => config,
     isBackendSuccess: _response => true,
     onBackendFail: async () => {},
+    onHttpError: async () => null,
     onError: async () => {}
   };
 

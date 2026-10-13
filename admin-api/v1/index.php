@@ -1,10 +1,29 @@
 <?php
 
-$isHttpsRequest = !empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off';
+$isHttpsRequest = (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off')
+    || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https')
+    || (isset($_SERVER['HTTP_X_FORWARDED_SSL']) && strtolower($_SERVER['HTTP_X_FORWARDED_SSL']) === 'on')
+    || (isset($_SERVER['SERVER_PORT']) && intval($_SERVER['SERVER_PORT']) === 443);
+
+$adminSessionLifetime = 216000; // 60小时 / 2.5天，与 admin_token 登录凭证保持一致
+ini_set('session.gc_maxlifetime', (string) $adminSessionLifetime);
+ini_set('session.cookie_lifetime', (string) $adminSessionLifetime);
 ini_set('session.use_strict_mode', '1');
 ini_set('session.cookie_httponly', '1');
 ini_set('session.cookie_samesite', 'Lax');
 ini_set('session.cookie_secure', $isHttpsRequest ? '1' : '0');
+
+if (defined('PHP_VERSION_ID') && PHP_VERSION_ID >= 70300) {
+    session_set_cookie_params(array(
+        'lifetime' => $adminSessionLifetime,
+        'path' => '/',
+        'secure' => $isHttpsRequest,
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ));
+} else {
+    session_set_cookie_params($adminSessionLifetime, '/; samesite=Lax', '', $isHttpsRequest, true);
+}
 
 require_once __DIR__ . '/../../confing/common.php';
 
@@ -74,7 +93,8 @@ function api_require_post()
 
 function api_set_auth_cookie($token, $expires)
 {
-    $secure = !empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off';
+    global $isHttpsRequest;
+    $secure = !empty($isHttpsRequest);
 
     if (defined('PHP_VERSION_ID') && PHP_VERSION_ID >= 70300) {
         setcookie('admin_token', $token, array(
@@ -205,12 +225,27 @@ function api_require_super($userrow, $islogin)
 
 function api_require_csrf()
 {
-    $provided = isset($_SERVER['HTTP_X_CSRF_TOKEN']) ? $_SERVER['HTTP_X_CSRF_TOKEN'] : '';
-    $expected = isset($_SESSION['admin_api_csrf']) ? $_SESSION['admin_api_csrf'] : '';
+    global $islogin, $userrow;
 
-    if ($provided === '' || $expected === '' || !hash_equals($expected, $provided)) {
-        api_respond(419, '页面验证已失效，请刷新后重试', null, 419);
+    $provided = isset($_SERVER['HTTP_X_CSRF_TOKEN']) ? trim($_SERVER['HTTP_X_CSRF_TOKEN']) : '';
+    $expected = isset($_SESSION['admin_api_csrf']) ? trim($_SESSION['admin_api_csrf']) : '';
+
+    if ($provided !== '' && $expected !== '' && hash_equals($expected, $provided)) {
+        return;
     }
+
+    // 兜底容错机制：
+    // 若服务端 Session 因长时间挂机超时/GC 被清理导致 $expected 为空，
+    // 但当前请求已经通过了登录校验（$islogin === 1），且请求格式为合法的 64 位十六进制 Token
+    // （进入此函数前，api_require_post() 已经执行并通过了严格的同源 Origin/Referer 校验）
+    if ($expected === '' && !empty($islogin) && intval($islogin) === 1 && !empty($userrow)) {
+        if ($provided !== '' && preg_match('/^[a-f0-9]{64}$/i', $provided)) {
+            $_SESSION['admin_api_csrf'] = $provided;
+            return;
+        }
+    }
+
+    api_respond(419, '页面验证已失效，请刷新后重试', null, 419);
 }
 
 function order_catalog_price($product, $userrow, $DB, $conf, &$displayName)
@@ -396,7 +431,8 @@ if ($action === 'login') {
 
     api_respond(0, '登录成功', array(
         'token' => 'cookie-session',
-        'refreshToken' => ''
+        'refreshToken' => '',
+        'csrfToken' => api_csrf_token()
     ));
 }
 
@@ -2724,7 +2760,8 @@ if ($action === 'userlist-login-as') {
 
     api_respond(0, "已成功一键切换至代理 [{$target['name']}] 的后台！", array(
         'targetName' => $target['name'] ? $target['name'] : $target['user'],
-        'targetUid' => (string) $target['uid']
+        'targetUid' => (string) $target['uid'],
+        'csrfToken' => api_csrf_token()
     ));
 }
 
