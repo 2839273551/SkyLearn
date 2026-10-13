@@ -71,8 +71,10 @@ function scheduler_count_pending($taskId) {
 
         case 'auto_prune':
         case 'log_clean':
-            // 引擎 4：待清理的过期历史日志数 (超过3天的日志)
-            return intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_cron_log` WHERE `created_at` < DATE_SUB(NOW(), INTERVAL 3 DAY)"));
+            // 引擎 4：待清理的过期历史日志数 (超过3天的日志与对接流水)
+            $c1 = intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_cron_log` WHERE `created_at` < DATE_SUB(NOW(), INTERVAL 3 DAY)"));
+            $c2 = intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_docking_log` WHERE `created_at` < DATE_SUB(NOW(), INTERVAL 3 DAY)"));
+            return $c1 + $c2;
 
         default:
             return 0;
@@ -761,7 +763,14 @@ function scheduler_execute_task($taskId) {
             $logs[] = "  [+] 各任务超量历史记录自动截断: {$prunedOverflow} 条";
         }
 
-        $totalCleaned = $prunedDays + $prunedAbandoned + $prunedOverflow;
+        // 4. 清理 3 天前的接口对接与巡检流水 (docking_log)
+        $DB->query("DELETE FROM `qingka_wangke_docking_log` WHERE `created_at` < DATE_SUB(NOW(), INTERVAL 3 DAY)");
+        $prunedDocking = $DB->affected();
+        if ($prunedDocking > 0) {
+            $logs[] = "  [+] 已自动清理 3 天前的接口对接与巡检流水: {$prunedDocking} 条";
+        }
+
+        $totalCleaned = $prunedDays + $prunedAbandoned + $prunedOverflow + $prunedDocking;
         $successCount = $totalCleaned;
 
         $curTotalLogs = intval($DB->count("SELECT COUNT(*) FROM `qingka_wangke_cron_log`"));
@@ -818,7 +827,10 @@ function scheduler_auto_prune_logs($taskId = '') {
     $DB->query("DELETE FROM `qingka_wangke_cron_log` WHERE `created_at` < DATE_SUB(NOW(), INTERVAL 3 DAY)");
 
     // 2. 清除废弃旧任务残留日志
-    $DB->query("DELETE FROM `qingka_wangke_cron_log` WHERE `task_id` NOT IN ('order_dispatch', 'progress_active', 'progress_exam')");
+    $DB->query("DELETE FROM `qingka_wangke_cron_log` WHERE `task_id` NOT IN ('order_dispatch', 'progress_active', 'progress_exam', 'auto_prune')");
+
+    // 3. 自动清理 3 天前的接口对接与巡检流水 (防止 docking_log 无限膨胀)
+    $DB->query("DELETE FROM `qingka_wangke_docking_log` WHERE `created_at` < DATE_SUB(NOW(), INTERVAL 3 DAY)");
 
     // 3. 单任务超过 200 条时自动截断多余记录
     if (!empty($taskId)) {

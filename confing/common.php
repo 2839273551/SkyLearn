@@ -20,19 +20,13 @@ $jtdate=date("Y-m-d");
 $ztdate=date("Y-m-d",strtotime("-1 day"));
 
 session_start();
-if(is_file(ROOT.'360safe/360webscan.php')){//360网站卫士
-    require_once(ROOT.'360safe/360webscan.php');
-}
-// if(phpversion() != 7.3){exit('要求PHP版本7.3');}
 require ROOT.'sqlite.php';
 $scriptpath=str_replace('\\','/',$_SERVER['SCRIPT_NAME']);
 $sitepath = substr($scriptpath, 0, strrpos($scriptpath, '/'));
 $siteurl = ($_SERVER['SERVER_PORT'] == '443' ? 'https://' : 'http://').$_SERVER['HTTP_HOST'].$sitepath.'/';
 if(!isset($port))$port='3306';
 //连接数据库
-include_once(ROOT."sqlite.php");
 $DB=new DB($host,$user,$pwd,$dbname,$port);
-include ROOT."epay/epay.config.php"; 
 $sql1=$DB->query("SELECT * FROM `qingka_wangke_config`");
 while($row=$DB->fetch($sql1)){
 	$conf[$row['v']]=$row['k'];

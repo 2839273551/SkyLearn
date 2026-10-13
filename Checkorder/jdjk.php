@@ -4,14 +4,13 @@ function processCx($oid)//进度代码
 {
 	global $DB;
 	$d = $DB->get_row("select * from qingka_wangke_order where oid='{$oid}' ");
-	$orderInfo = $DB->get_row("select hid,user,pass from qingka_wangke_order where oid='{$oid}' ");
-	$a = $DB->get_row("select * from qingka_wangke_huoyuan where hid='{$orderInfo["hid"]}' ");
+	$a = $DB->get_row("select * from qingka_wangke_huoyuan where hid='{$d["hid"]}' ");
 	$type = $a["pt"];
 	$cookie = $a["cookie"];
 	$token = $a["token"];
 	$ip = $a["ip"];
-	$user = $orderInfo["user"];
-	$pass = $orderInfo["pass"];
+	$user = $d["user"];
+	$pass = $d["pass"];
 	$kcname = $d["kcname"];
 	$school = $d["school"];
 	$pt = $d["noun"];

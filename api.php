@@ -245,7 +245,7 @@ switch($act){
         	    		$danjia1=$danjia;
         	    	}
                 } else {
-                    $danjia = round($rs['price'] * $userrow['addprice'], 2);
+                    $danjia = round($rs['price'] * $row['addprice'], 2);
                     $danjia1=$danjia;
                 }
             }
@@ -466,18 +466,10 @@ switch($act){
 //   break;
 
   case 'chadan':
-           $username=trim(strip_tags(daddslashes($_POST['username'])));
-      
-      $id=trim(strip_tags(daddslashes($_REQUEST['oid'])));
-      if($username==""){
-            if($id == ""){
-                $data=array('code'=>-1,'msg'=>"账号不能为空");
-                exit(json_encode($data)); 
-            }else if($id == ""){
-                $data=array('code'=>-1,'msg'=>"订单ID不能为空");
-                exit(json_encode($data)); 
-            }
-              
+      $username = trim(strip_tags(daddslashes($_POST['username'] ?? '')));
+      $id = trim(strip_tags(daddslashes($_REQUEST['oid'] ?? '')));
+      if ($username === '' && $id === '') {
+          exit(json_encode(array('code' => -1, 'msg' => "账号或订单ID不能为空")));
       }
   
       

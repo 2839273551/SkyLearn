@@ -3,10 +3,9 @@ function msWk($oid){//秒刷代码
 	global $DB;
 	global $wk;
 	$d = $DB->get_row("select * from qingka_wangke_order where oid='{$oid}' ");
-	$b = $DB->get_row("select hid,yid,user from qingka_wangke_order where oid='{$oid}' ");
-	$hid = $b["hid"];
-	$yid = $b["yid"];
-	$user = $b["user"];
+	$hid = $d["hid"];
+	$yid = $d["yid"];
+	$user = $d["user"];
 	$a = $DB->get_row("select * from qingka_wangke_huoyuan where hid='{$hid}' ");
 	$type = $a["pt"];
 	$cookie = $a["cookie"];
@@ -29,6 +28,6 @@ $result = get_url($xm_url, $data);
 $result = json_decode($result, true);
 return $result;}
 	else {
-				$b = array("code" => -1, "msg" => "接口异常，请联系管理员");
+				return array("code" => -1, "msg" => "接口异常，请联系管理员");
 		}
 }

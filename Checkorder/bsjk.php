@@ -3,10 +3,9 @@ function budanWk($oid){//补刷代码
 	global $DB;
 	global $wk;
 	$d = $DB->get_row("select * from qingka_wangke_order where oid='{$oid}' ");
-	$b = $DB->get_row("select hid,yid,user from qingka_wangke_order where oid='{$oid}' ");
-	$hid = $b["hid"];
-	$yid = $b["yid"];
-	$user = $b["user"];
+	$hid = $d["hid"];
+	$yid = $d["yid"];
+	$user = $d["user"];
 	$a = $DB->get_row("select * from qingka_wangke_huoyuan where hid='{$hid}' ");
 	$type = $a["pt"];
 	$cookie = $a["cookie"];

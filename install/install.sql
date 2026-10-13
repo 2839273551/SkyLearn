@@ -77,36 +77,6 @@ INSERT INTO `qingka_wangke_config` VALUES ('akcookie','7321sPn6n+Yt9tGs1wy7f2ULO
 UNLOCK TABLES;
 
 --
--- Table structure for table `qingka_wangke_czk`
---
-
-DROP TABLE IF EXISTS `qingka_wangke_czk`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `qingka_wangke_czk` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `card` varchar(255) COLLATE utf8_unicode_ci NOT NULL,
-  `money` decimal(10,2) NOT NULL,
-  `addtime` varchar(255) COLLATE utf8_unicode_ci NOT NULL,
-  `endtime` varchar(255) COLLATE utf8_unicode_ci NOT NULL,
-  `status` varchar(255) COLLATE utf8_unicode_ci NOT NULL,
-  `usetime` varchar(255) COLLATE utf8_unicode_ci NOT NULL,
-  `uid` varchar(11) COLLATE utf8_unicode_ci NOT NULL,
-  `batch_id` int(255) NOT NULL COMMENT '卡密批次',
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=126 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `qingka_wangke_czk`
---
-
-LOCK TABLES `qingka_wangke_czk` WRITE;
-/*!40000 ALTER TABLE `qingka_wangke_czk` DISABLE KEYS */;
-/*!40000 ALTER TABLE `qingka_wangke_czk` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
 -- Table structure for table `qingka_wangke_dengji`
 --
 
@@ -222,37 +192,6 @@ LOCK TABLES `qingka_wangke_gonggao` WRITE;
 /*!40000 ALTER TABLE `qingka_wangke_gonggao` DISABLE KEYS */;
 INSERT INTO `qingka_wangke_gonggao` VALUES (16,'公告','<div class=\"layui-timeline\">\n  <div class=\"layui-timeline-item\">\n    <i class=\"layui-icon layui-timeline-axis layui-icon-fire\"></i>\n    <div class=\"layui-timeline-content layui-text\">\n      <div class=\"layui-timeline-title\">微信扫码进入通知频道<a href=\"/index//smgz\" target=\"_blank\">点我直达</a></div>\n    </div>\n  </div>\n  <div class=\"layui-timeline-item\">\n    <i class=\"layui-icon layui-timeline-axis layui-icon-fire\"></i>\n    <div class=\"layui-timeline-content layui-text\">\n      <div class=\"layui-timeline-title\">电报客服【需要翻墙】<a href=\"https://t.me/fw8689\" target=\"_blank\">点我直达</a></div>\n    </div>\n  </div>\n  <div class=\"layui-timeline-item\">\n    <i class=\"layui-icon layui-timeline-axis layui-icon-face-smile\"></i>\n    <div class=\"layui-timeline-content layui-text\">\n      <div class=\"layui-timeline-title\">平台状态永远只是辅助工具。具体课刷没刷完，自行计算好时间后，再亲自上号查询后核实。并不是无状态更新，或者状态不动，就是不走单！</div>\n    </div>\n  </div>\n  <div class=\"layui-timeline-item\">\n    <i class=\"layui-icon layui-timeline-axis layui-icon-fire\"></i>\n    <div class=\"layui-timeline-content layui-text\">\n      <div class=\"layui-timeline-title\">平台全对接无自营，非本站问题，不退不换，谨慎充值，下单前请先测试</div>\n    </div>\n  </div>\n  <div class=\"layui-timeline-item\">\n    <i class=\"layui-icon layui-timeline-axis layui-icon-circle\"></i>\n    <div class=\"layui-timeline-content layui-text\">\n      <div class=\"layui-timeline-title\">上架更多渠道，方便各位下单！</div>\n    </div>\n  </div>\n  <div class=\"layui-timeline-item\">\n    <i class=\"layui-icon layui-anim layui-anim-rotate layui-anim-loop layui-timeline-axis\"></i>\n    <div class=\"layui-timeline-content layui-text\">\n      <div class=\"layui-timeline-title\">支持一键对接，联系客服索要快速对接地址</div>\n    </div>\n  </div>\n</div>\n','2024-04-25 13:15:38',1,'1','0'),(19,'关于订单','欢迎使用本系统-本平台利润微薄不提供零售的售后服务=0售后（平台能提供的是把您的问题反馈给供应商 能否成功处理不保证谢谢 不支持废话拉扯）','2024-05-23 02:48:27',1,'1','1');
 /*!40000 ALTER TABLE `qingka_wangke_gonggao` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `qingka_wangke_huodong`
---
-
-DROP TABLE IF EXISTS `qingka_wangke_huodong`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `qingka_wangke_huodong` (
-  `hid` int(11) NOT NULL AUTO_INCREMENT,
-  `name` varchar(255) COLLATE utf8_unicode_ci NOT NULL COMMENT '活动名字',
-  `yaoqiu` varchar(255) COLLATE utf8_unicode_ci NOT NULL COMMENT '要求',
-  `type` varchar(255) COLLATE utf8_unicode_ci NOT NULL COMMENT '1为邀人活动 2为订单活动',
-  `num` varchar(255) COLLATE utf8_unicode_ci NOT NULL COMMENT '要求数量',
-  `money` varchar(255) COLLATE utf8_unicode_ci NOT NULL COMMENT '奖励',
-  `addtime` varchar(255) COLLATE utf8_unicode_ci NOT NULL COMMENT '活动开始时间',
-  `endtime` varchar(255) COLLATE utf8_unicode_ci NOT NULL COMMENT '活动结束时间',
-  `status_ok` varchar(255) COLLATE utf8_unicode_ci NOT NULL DEFAULT '1' COMMENT '1为正常 2为结束',
-  `status` varchar(255) COLLATE utf8_unicode_ci NOT NULL DEFAULT '1' COMMENT '1为进行中  2为待领取 3为已完成',
-  PRIMARY KEY (`hid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `qingka_wangke_huodong`
---
-
-LOCK TABLES `qingka_wangke_huodong` WRITE;
-/*!40000 ALTER TABLE `qingka_wangke_huodong` DISABLE KEYS */;
-/*!40000 ALTER TABLE `qingka_wangke_huodong` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --

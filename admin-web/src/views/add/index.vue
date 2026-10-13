@@ -46,6 +46,10 @@ const resultsCardRef = ref<HTMLElement | null>(null);
 function switchMobileStep(step: 'form' | 'results') {
   mobileStep.value = step;
   nextTick(() => {
+    const scrollEl = document.getElementById('__SCROLL_EL_ID__');
+    if (scrollEl) {
+      scrollEl.scrollTo({ top: 0, behavior: 'smooth' });
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
 }
@@ -527,7 +531,7 @@ onMounted(loadCatalog);
 </script>
 
 <template>
-  <div class="w-full max-w-1680px mx-auto p-8px sm:p-20px font-sans pb-95px lg:pb-20px">
+  <div class="w-full max-w-1680px mx-auto p-8px sm:p-20px font-sans pb-115px lg:pb-20px">
     <!-- 下单全站通知 -->
     <NAlert v-if="notice" type="warning" title="全站下单通知" :show-icon="true" class="mb-10px sm:mb-16px rounded-8px text-12px sm:text-13px">
       <div class="whitespace-pre-wrap leading-relaxed">{{ notice }}</div>
@@ -597,8 +601,8 @@ onMounted(loadCatalog);
       <!-- ================= 左侧卡片：项目查询表单 ================= -->
       <div
         ref="formCardRef"
-        class="lg:col-span-6 bg-white dark:bg-dark-700 rounded-10px sm:rounded-12px border border-gray-100 dark:border-dark-600 shadow-xs p-12px sm:p-24px flex flex-col justify-between h-full"
-        :class="{ 'hidden lg:flex': mobileStep !== 'form' }"
+        class="lg:col-span-6 bg-white dark:bg-dark-700 rounded-10px sm:rounded-12px border border-gray-100 dark:border-dark-600 shadow-xs p-12px sm:p-24px flex-col justify-between h-full"
+        :class="mobileStep === 'form' ? 'flex' : 'hidden lg:flex'"
       >
         <div class="flex-1 flex flex-col">
           <!-- 头部：标题与账户可用余额 -->
@@ -802,8 +806,8 @@ onMounted(loadCatalog);
       <!-- ================= 右侧卡片：查询结果与选课下单 ================= -->
       <div
         ref="resultsCardRef"
-        class="lg:col-span-6 bg-white dark:bg-dark-700 rounded-10px sm:rounded-12px border border-gray-100 dark:border-dark-600 shadow-xs p-12px sm:p-24px flex flex-col justify-between h-full"
-        :class="{ 'hidden lg:flex': mobileStep !== 'results' }"
+        class="lg:col-span-6 bg-white dark:bg-dark-700 rounded-10px sm:rounded-12px border border-gray-100 dark:border-dark-600 shadow-xs p-12px sm:p-24px flex-col justify-between h-full"
+        :class="mobileStep === 'results' ? 'flex' : 'hidden lg:flex'"
       >
         <div class="flex-1 flex flex-col">
           <!-- 移动端专属返回顶部工具条 -->
@@ -1009,9 +1013,9 @@ onMounted(loadCatalog);
           </div>
         </div>
 
-        <!-- 桌面端常驻底部结算操作栏 (移动端由吸底栏承载，桌面端保留于此) -->
+        <!-- 卡片内常驻底部结算操作栏 -->
         <div
-          class="hidden lg:flex mt-14px sm:mt-18px pt-14px sm:pt-16px border-t border-gray-100 dark:border-dark-600 flex-wrap items-center justify-between gap-10px"
+          class="flex mt-14px sm:mt-18px pt-14px sm:pt-16px border-t border-gray-100 dark:border-dark-600 flex-wrap items-center justify-between gap-10px"
         >
           <div class="flex items-center gap-6px text-13px text-gray-600 dark:text-gray-300">
             <span>已选 <strong class="text-blue-600 dark:text-blue-400 font-bold font-mono text-16px">{{ selections.length }}</strong> 门</span>
@@ -1045,11 +1049,11 @@ onMounted(loadCatalog);
       </div>
     </div>
 
-    <!-- ================= 移动端专属吸底操作栏 (带全面屏安全区，只要查出课程即驻留底端) ================= -->
+    <!-- ================= 移动端专属吸底操作栏 (层级 z-index: 96 高于全局页脚 95，带全面屏安全区) ================= -->
     <div
       v-if="totalCourses > 0"
-      class="fixed bottom-0 left-0 right-0 z-50 p-10px sm:p-12px bg-white/95 dark:bg-dark-700/95 backdrop-blur-md border-t border-gray-200/80 dark:border-dark-500 shadow-2xl flex items-center justify-between gap-10px lg:hidden"
-      style="padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));"
+      class="fixed bottom-0 left-0 right-0 p-10px sm:p-12px bg-white/95 dark:bg-dark-700/95 backdrop-blur-md border-t border-gray-200/80 dark:border-dark-500 shadow-2xl flex items-center justify-between gap-10px lg:hidden"
+      style="z-index: 96; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));"
     >
       <div class="flex flex-col justify-center min-w-0 flex-1">
         <div class="flex items-center gap-6px text-12px text-gray-700 dark:text-gray-200">
