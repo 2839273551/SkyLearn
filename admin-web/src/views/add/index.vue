@@ -531,7 +531,7 @@ onMounted(loadCatalog);
 </script>
 
 <template>
-  <div class="w-full max-w-1680px mx-auto p-8px sm:p-20px font-sans pb-115px lg:pb-20px">
+  <div class="w-full max-w-1680px mx-auto p-8px sm:p-20px font-sans">
     <!-- 下单全站通知 -->
     <NAlert v-if="notice" type="warning" title="全站下单通知" :show-icon="true" class="mb-10px sm:mb-16px rounded-8px text-12px sm:text-13px">
       <div class="whitespace-pre-wrap leading-relaxed">{{ notice }}</div>
@@ -1047,44 +1047,6 @@ onMounted(loadCatalog);
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- ================= 移动端专属吸底操作栏 (层级 z-index: 96 高于全局页脚 95，带全面屏安全区) ================= -->
-    <div
-      v-if="totalCourses > 0"
-      class="fixed bottom-0 left-0 right-0 p-10px sm:p-12px bg-white/95 dark:bg-dark-700/95 backdrop-blur-md border-t border-gray-200/80 dark:border-dark-500 shadow-2xl flex items-center justify-between gap-10px lg:hidden"
-      style="z-index: 96; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));"
-    >
-      <div class="flex flex-col justify-center min-w-0 flex-1">
-        <div class="flex items-center gap-6px text-12px text-gray-700 dark:text-gray-200">
-          <span>已选 <strong class="text-blue-600 dark:text-blue-400 font-bold font-mono text-15px">{{ selections.length }}</strong>/{{ totalCourses }} 门</span>
-          <button
-            type="button"
-            class="text-12px font-bold text-gray-700 dark:text-gray-300 hover:text-blue-600 underline bg-transparent border-0 cursor-pointer p-0 ml-4px active:scale-95"
-            @click="toggleSelectAll"
-          >
-            {{ allSelected ? '反选' : '全选' }}
-          </button>
-        </div>
-
-        <div v-if="selectedProduct && selections.length > 0" class="text-rose-600 dark:text-rose-400 font-black font-mono text-14px truncate">
-          预计扣费 ¥{{ estimatedSubmitCost }} 积分
-        </div>
-        <div v-else class="text-12px text-gray-600 dark:text-gray-300">
-          勾选课程后即可下单
-        </div>
-      </div>
-
-      <NButton
-        type="primary"
-        size="large"
-        :loading="submitLoading"
-        :disabled="selections.length === 0"
-        class="px-20px font-bold rounded-10px bg-blue-600 shadow-md shrink-0 active:scale-95 text-14px"
-        @click="submitOrders"
-      >
-        🚀 立即下单 {{ selections.length > 0 ? `(${selections.length})` : '' }}
-      </NButton>
     </div>
   </div>
 </template>
