@@ -2366,7 +2366,7 @@ if ($action === 'webmsg-info') {
     $systemInfo = array(
         'appName' => isset($conf['sitename']) && $conf['sitename'] ? (string) $conf['sitename'] : '网课管理中心',
         'author' => 'SkyLearn',
-        'version' => '8.8.0',
+        'version' => '8.8.1',
         'domain' => $domain,
         'serverIp' => $serverIp,
         'phpVersion' => PHP_VERSION,
@@ -2374,6 +2374,11 @@ if ($action === 'webmsg-info') {
     );
 
     $timeline = array(
+        array(
+            'version' => 'v8.8.1',
+            'time' => '2026-10-12',
+            'desc' => '【移动端下单体验精致规整与纯净排版】彻底移除移动端底部易遮挡的多余悬浮吸底栏，统一保留课程卡片内置原生态提交与全选操作栏；修复分步切换在移动端多类名优先级冲突导致的前后卡片重叠缺陷；优化查课按钮自适应弹性排版与清空输入按钮对齐，滚动容器平滑置顶。'
+        ),
         array(
             'version' => 'v8.8.0',
             'time' => '2026-10-12',
