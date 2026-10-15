@@ -29,14 +29,25 @@ const submitLoading = ref(false);
 // 目录与分类商品
 const categories = ref<Api.OrderEntry.Category[]>([]);
 const products = ref<Api.OrderEntry.Product[]>([]);
-const categoryId = ref('all');
+const USERINFO_STORAGE_KEY = 'SK_ADD_ORDER_USERINFO';
+const USERINFO_CAT_KEY = 'SK_ADD_ORDER_USERINFO_CAT';
+const CATEGORY_STORAGE_KEY = 'SK_ADD_ORDER_CATEGORY';
+
+const categoryId = ref(localStorage.getItem(CATEGORY_STORAGE_KEY) || 'all');
 const productId = ref('');
 
 // 页面交互控制
 const showId = ref(false); // 展示ID开关
 const filterKeyword = ref(''); // 查询结果关键字过滤
-const USERINFO_STORAGE_KEY = 'SK_ADD_ORDER_USERINFO';
-const userinfo = ref(localStorage.getItem(USERINFO_STORAGE_KEY) || ''); // 用户输入的账号信息（支持本地持久化记忆）
+
+// 仅当缓存的账号信息与当前分类完全一致时才恢复；否则彻底清除，防止跨分类留存
+const savedUserinfoCat = localStorage.getItem(USERINFO_CAT_KEY) || '';
+const initialUserinfo = savedUserinfoCat === categoryId.value ? (localStorage.getItem(USERINFO_STORAGE_KEY) || '') : '';
+if (!initialUserinfo && (localStorage.getItem(USERINFO_STORAGE_KEY) || localStorage.getItem(USERINFO_CAT_KEY))) {
+  localStorage.removeItem(USERINFO_STORAGE_KEY);
+  localStorage.removeItem(USERINFO_CAT_KEY);
+}
+const userinfo = ref(initialUserinfo); // 用户输入的账号信息（支持当前分类下的本地临时记忆）
 
 // 移动端当前激活步骤：'form' (选择项目与填写查课) 或 'results' (选课核对与下单)
 const mobileStep = ref<'form' | 'results'>('form');
@@ -54,18 +65,21 @@ function switchMobileStep(step: 'form' | 'results') {
   });
 }
 
-// 实时持久化输入内容，防止刷新或换项目丢失
+// 实时持久化输入内容（仅绑定当前分类）
 watch(userinfo, val => {
   if (val) {
     localStorage.setItem(USERINFO_STORAGE_KEY, val);
+    localStorage.setItem(USERINFO_CAT_KEY, categoryId.value);
   } else {
     localStorage.removeItem(USERINFO_STORAGE_KEY);
+    localStorage.removeItem(USERINFO_CAT_KEY);
   }
 });
 
 function clearUserinfo() {
   userinfo.value = '';
   localStorage.removeItem(USERINFO_STORAGE_KEY);
+  localStorage.removeItem(USERINFO_CAT_KEY);
   window.$message?.info('已清空输入的账号信息');
 }
 
@@ -287,6 +301,13 @@ async function loadCatalog() {
     orderEnabled.value = data.orderEnabled;
     notice.value = data.notice;
     authStore.userInfo.balance = data.balance;
+    if (categoryId.value !== 'all' && !categories.value.some(c => c.id === categoryId.value)) {
+      categoryId.value = 'all';
+      localStorage.setItem(CATEGORY_STORAGE_KEY, 'all');
+      userinfo.value = '';
+      localStorage.removeItem(USERINFO_STORAGE_KEY);
+      localStorage.removeItem(USERINFO_CAT_KEY);
+    }
     if (!productId.value && visibleProducts.value.length > 0) {
       productId.value = visibleProducts.value[0].id;
     }
@@ -486,7 +507,7 @@ async function submitOrders() {
 
     window.$notification?.success({
       title: '下单提交成功',
-      content: `已成功提交 ${data.submitted} 笔订单，实扣 ¥${data.charged} 积分。账号信息已自动保留，您可直接切换项目继续下单！`,
+      content: `已成功提交 ${data.submitted} 笔订单，实扣 ¥${data.charged} 积分。账号信息已在当前分类下保留，切换其他大类将自动清空！`,
       duration: 5000
     });
   }
@@ -512,17 +533,34 @@ const filteredResults = computed(() => {
     .filter(res => res.courses.length > 0 || !res.courses);
 });
 
-watch(categoryId, () => {
+watch(categoryId, (newCat, oldCat) => {
+  localStorage.setItem(CATEGORY_STORAGE_KEY, newCat);
   if (visibleProducts.value.length > 0) {
     productId.value = visibleProducts.value[0].id;
   } else {
     productId.value = '';
   }
+  // 方案 B：换分类立即彻底清空输入框留存并清除本地缓存
+  if (oldCat !== undefined && newCat !== oldCat) {
+    userinfo.value = '';
+    localStorage.removeItem(USERINFO_STORAGE_KEY);
+    localStorage.removeItem(USERINFO_CAT_KEY);
+  }
   results.value = [];
   selections.value = [];
 });
 
-watch(productId, () => {
+watch(productId, (newId, oldId) => {
+  if (newId && oldId && newId !== oldId) {
+    const oldProd = products.value.find(p => p.id === oldId);
+    const newProd = products.value.find(p => p.id === newId);
+    // 若在“全部类目”等跨大类选品时变更了大类所属，同样彻底抹除残留账号
+    if (oldProd && newProd && oldProd.categoryId !== newProd.categoryId) {
+      userinfo.value = '';
+      localStorage.removeItem(USERINFO_STORAGE_KEY);
+      localStorage.removeItem(USERINFO_CAT_KEY);
+    }
+  }
   results.value = [];
   selections.value = [];
 });

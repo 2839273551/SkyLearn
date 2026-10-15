@@ -289,6 +289,14 @@ watch(visibleProducts, items => {
   }
 });
 
+watch(categoryId, (newCat, oldCat) => {
+  if (oldCat !== undefined && newCat !== oldCat) {
+    userinfo.value = '';
+    results.value = [];
+    selections.value = [];
+  }
+});
+
 onMounted(() => {
   loadCatalog();
 });
