@@ -850,8 +850,8 @@ if ($action === 'dashboard') {
     $runningOrders = $DB->count('SELECT COUNT(*) FROM qingka_wangke_order' . $runningScope);
     $completedOrders = $DB->count('SELECT COUNT(*) FROM qingka_wangke_order' . $completedScope);
     $userTotal = $uid === 1
-        ? $DB->count('SELECT COUNT(*) FROM qingka_wangke_user')
-        : $DB->count("SELECT COUNT(*) FROM qingka_wangke_user WHERE uuid='" . $uid . "'");
+        ? $DB->count('SELECT COUNT(*) FROM qingka_wangke_user WHERE deleted_at IS NULL')
+        : $DB->count("SELECT COUNT(*) FROM qingka_wangke_user WHERE deleted_at IS NULL AND uuid='" . $uid . "'");
 
     // 真实近7日订单趋势
     $trendDates = array();
@@ -935,6 +935,7 @@ if ($action === 'orders') {
     if ($keyword !== '') {
         $safeKeyword = daddslashes($keyword);
         $conditions[] = "(oid LIKE '%" . $safeKeyword . "%'"
+            . " OR uid LIKE '%" . $safeKeyword . "%'"
             . " OR user LIKE '%" . $safeKeyword . "%'"
             . " OR ptname LIKE '%" . $safeKeyword . "%'"
             . " OR kcname LIKE '%" . $safeKeyword . "%'"
@@ -963,6 +964,7 @@ if ($action === 'orders') {
         $records[] = array(
             'orderId' => (string) $row['oid'],
             'ownerId' => (string) $row['uid'],
+            'uid' => (string) $row['uid'],
             'courseId' => (string) $row['cid'],
             'account' => (string) $row['user'],
             'password' => isset($row['pass']) ? (string) $row['pass'] : '',
@@ -2272,8 +2274,8 @@ if ($action === 'data-stats') {
     $yesterdayEnd = date('Y-m-d 23:59:59', strtotime('yesterday'));
     $sevenDaysAgo = date('Y-m-d', strtotime('-7 days'));
 
-    $totalUsers = $DB->count('SELECT count(*) FROM qingka_wangke_user');
-    $todayUsers = $DB->count("SELECT count(*) FROM qingka_wangke_user WHERE addtime >= '$todayStart' AND addtime <= '$todayEnd'");
+    $totalUsers = $DB->count('SELECT count(*) FROM qingka_wangke_user WHERE deleted_at IS NULL');
+    $todayUsers = $DB->count("SELECT count(*) FROM qingka_wangke_user WHERE deleted_at IS NULL AND addtime >= '$todayStart' AND addtime <= '$todayEnd'");
     $totalOrders = $DB->count('SELECT count(*) FROM qingka_wangke_order');
     $todayOrders = $DB->count("SELECT count(*) FROM qingka_wangke_order WHERE addtime >= '$todayStart' AND addtime <= '$todayEnd'");
     $yesterdayOrders = $DB->count("SELECT count(*) FROM qingka_wangke_order WHERE addtime >= '$yesterdayStart' AND addtime <= '$yesterdayEnd'");
@@ -2551,7 +2553,7 @@ if ($action === 'userlist-list') {
     $status = isset($_GET['status']) && $_GET['status'] !== '' ? intval($_GET['status']) : null;
 
     // 严密数据隔离：超级管理员看全网商户，普通代理仅看自己名下的下级代理！
-    $where = array($isSuper ? '1=1' : "uuid='$currentUid'");
+    $where = array('deleted_at IS NULL', $isSuper ? '1=1' : "uuid='$currentUid'");
     if ($keyword !== '') {
         $kw = daddslashes($keyword);
         $where[] = "(user LIKE '%$kw%' OR name LIKE '%$kw%' OR uid='$kw' OR yqm LIKE '%$kw%')";
@@ -2589,6 +2591,72 @@ if ($action === 'userlist-list') {
     ));
 }
 
+if ($action === 'userlist-delete') {
+    api_require_post();
+    api_require_login(isset($islogin) ? $islogin : 0);
+    api_require_csrf();
+
+    $currentUid = intval($userrow['uid']);
+    $input = api_read_input();
+    $uid = isset($input['uid']) ? filter_var($input['uid'], FILTER_VALIDATE_INT) : false;
+    if ($uid === false || $uid <= 0) api_respond(422, '用户参数错误');
+    if ($uid === 1) api_respond(403, '不能删除系统管理员账号');
+    if ($uid === $currentUid) api_respond(403, '不能删除当前登录账号');
+
+    try {
+        if (!$DB->query('START TRANSACTION')) {
+            throw new RuntimeException('无法启动删除事务');
+        }
+        $result = $DB->query("SELECT uid, uuid, user, money FROM qingka_wangke_user WHERE uid='$uid' AND deleted_at IS NULL LIMIT 1 FOR UPDATE");
+        if (!$result) throw new RuntimeException('读取目标代理失败: ' . $DB->error());
+        $target = $DB->fetch($result);
+        if (!$target) {
+            $DB->query('ROLLBACK');
+            api_respond(404, '目标代理不存在或已删除');
+        }
+        if ($currentUid !== 1 && intval($target['uuid']) !== $currentUid) {
+            $DB->query('ROLLBACK');
+            api_respond(403, '只能删除属于您名下的直属下级代理');
+        }
+        if ((float) $target['money'] !== 0.0) {
+            $DB->query('ROLLBACK');
+            api_respond(409, '该代理余额尚未结清，请先完成余额调账');
+        }
+
+        $dependencies = array(
+            "SELECT uid FROM qingka_wangke_user WHERE uuid='$uid' AND deleted_at IS NULL LIMIT 1" => '该代理仍有直属下级，请先处理下级代理',
+            "SELECT oid FROM qingka_wangke_pay WHERE uid='$uid' AND status=0 LIMIT 1 FOR UPDATE" => '该代理仍有未完成的充值支付，请先处理'
+        );
+        foreach ($dependencies as $sql => $message) {
+            $result = $DB->query($sql);
+            if (!$result) throw new RuntimeException('检查删除关联数据失败: ' . $DB->error());
+            if ($DB->fetch($result)) {
+                $DB->query('ROLLBACK');
+                api_respond(409, $message);
+            }
+        }
+
+        // 保留用户行，确保历史订单、退款和资金流水仍能关联到原 UID。
+        $updated = $DB->query("UPDATE qingka_wangke_user SET deleted_at=NOW(), active='0', `key`='', yqm='' WHERE uid='$uid' AND deleted_at IS NULL AND money=0");
+        if (!$updated || $DB->affected() !== 1) {
+            throw new RuntimeException('代理删除状态未写入: ' . $DB->error());
+        }
+        $auditText = daddslashes(mb_substr("删除代理 UID:{$uid}，账号:{$target['user']}", 0, 255, 'UTF-8'));
+        $auditIp = daddslashes(real_ip());
+        $logged = $DB->query("INSERT INTO qingka_wangke_log (uid,type,text,money,smoney,ip) SELECT uid,'删除代理','$auditText','0',money,'$auditIp' FROM qingka_wangke_user WHERE uid='$currentUid'");
+        if (!$logged || $DB->affected() !== 1) {
+            throw new RuntimeException('删除代理审计记录未写入: ' . $DB->error());
+        }
+        if (!$DB->query('COMMIT')) throw new RuntimeException('删除事务提交失败: ' . $DB->error());
+    } catch (Throwable $error) {
+        $DB->query('ROLLBACK');
+        error_log('userlist-delete uid=' . $uid . ': ' . $error->getMessage());
+        api_respond(500, '删除代理失败，请稍后重试', null, 500);
+    }
+
+    api_respond(0, '代理已删除');
+}
+
 if ($action === 'userlist-status') {
     api_require_post();
     api_require_login(isset($islogin) ? $islogin : 0);
@@ -2601,14 +2669,13 @@ if ($action === 'userlist-status') {
     $active = isset($input['active']) && intval($input['active']) === 1 ? 1 : 0;
     if ($uid <= 0) api_respond(422, '用户参数错误');
 
-    if (!$isSuper) {
-        $target = $DB->get_row("SELECT uuid FROM qingka_wangke_user WHERE uid='$uid' LIMIT 1");
-        if (!$target || intval($target['uuid']) !== $currentUid) {
-            api_respond(403, '只能管理属于您名下的直属下级代理');
-        }
+    $target = $DB->get_row("SELECT uuid FROM qingka_wangke_user WHERE uid='$uid' AND deleted_at IS NULL LIMIT 1");
+    if (!$target) api_respond(404, '目标代理不存在或已删除');
+    if (!$isSuper && intval($target['uuid']) !== $currentUid) {
+        api_respond(403, '只能管理属于您名下的直属下级代理');
     }
 
-    $DB->query("UPDATE qingka_wangke_user SET active='$active' WHERE uid='$uid'");
+    $DB->query("UPDATE qingka_wangke_user SET active='$active' WHERE uid='$uid' AND deleted_at IS NULL");
     api_respond(0, $active === 1 ? '已解封该代理账号' : '已封禁该代理账号');
 }
 
@@ -2621,73 +2688,69 @@ if ($action === 'userlist-recharge') {
     $isSuper = ($currentUid === 1);
     $input = api_read_input();
     $uid = isset($input['uid']) ? intval($input['uid']) : 0;
-    $amount = isset($input['amount']) ? abs(floatval($input['amount'])) : 0;
+    $amount = isset($input['amount']) ? round(abs(floatval($input['amount'])), 2) : 0;
     $type = isset($input['type']) && $input['type'] === 'deduct' ? 'deduct' : 'add';
     $remark = isset($input['remark']) ? trim(strip_tags($input['remark'])) : '';
 
     if ($uid <= 0) api_respond(422, '用户参数错误');
-    if ($amount <= 0) api_respond(422, '变动金额必须大于 0');
+    if (!is_finite($amount) || $amount <= 0) api_respond(422, '变动金额必须大于 0');
 
-    $target = $DB->get_row("SELECT uid, uuid, user, name, money FROM qingka_wangke_user WHERE uid='$uid' LIMIT 1");
-    if (!$target) api_respond(404, '目标代理不存在');
+    $reject = function ($code, $message) use ($DB) {
+        $DB->query('ROLLBACK');
+        api_respond($code, $message);
+    };
+    $execute = function ($sql) use ($DB) {
+        if (!$DB->query($sql)) throw new RuntimeException($DB->error());
+    };
+    $writeLog = function ($logUid, $type, $text, $money) use ($DB, $execute) {
+        $type = daddslashes($type);
+        $text = daddslashes(mb_substr($text, 0, 255, 'UTF-8'));
+        $ip = daddslashes(real_ip());
+        $execute("INSERT INTO qingka_wangke_log (uid,type,text,money,smoney,ip) SELECT uid,'$type','$text','$money',money,'$ip' FROM qingka_wangke_user WHERE uid='$logUid'");
+        if ($DB->affected() !== 1) throw new RuntimeException('余额调账流水未写入');
+    };
 
-    $targetMoney = floatval($target['money']);
+    try {
+        $execute('START TRANSACTION');
+        // 与删除操作共用行锁，确保下级收款和上级划款整体提交或回滚。
+        $result = $DB->query("SELECT uid, uuid, user, name, money FROM qingka_wangke_user WHERE uid IN ($currentUid,$uid) AND deleted_at IS NULL ORDER BY uid FOR UPDATE");
+        if (!$result) throw new RuntimeException($DB->error());
+        $accounts = array();
+        while ($account = $DB->fetch($result)) $accounts[intval($account['uid'])] = $account;
+        if (!isset($accounts[$currentUid])) $reject(403, '当前代理不存在或已删除');
+        if (!isset($accounts[$uid])) $reject(404, '目标代理不存在或已删除');
+        $target = $accounts[$uid];
+        if (!$isSuper && intval($target['uuid']) !== $currentUid) {
+            $reject(403, '只能管理属于您名下的直属下级代理');
+        }
+        $targetMoney = floatval($target['money']);
+        $myMoney = floatval($accounts[$currentUid]['money']);
+        if ($type === 'deduct' && $targetMoney < $amount) {
+            $reject(400, "该代理当前可用余额仅 ¥ {$targetMoney}，不足以扣减 ¥ {$amount}");
+        }
+        if (!$isSuper && $type === 'add' && $myMoney < $amount) {
+            $reject(400, "您的可用余额不足！当前余额: ¥ {$myMoney}，充值需要: ¥ {$amount}");
+        }
 
-    if ($isSuper) {
-        // 超管自由调账（加钱 / 减钱）
-        if ($type === 'deduct') {
-            if ($targetMoney < $amount) {
-                api_respond(400, "扣款失败！该代理当前可用余额仅 ¥ {$targetMoney}，不足以扣减 ¥ {$amount}");
-            }
-            $newMoney = round($targetMoney - $amount, 2);
-            $DB->query("UPDATE qingka_wangke_user SET money='$newMoney' WHERE uid='$uid'");
-            if (function_exists('wlog')) {
-                $desc = "管理员扣减余额 -{$amount} 元" . ($remark ? " (备注: {$remark})" : '') . "，扣减后余额 {$newMoney} 元";
-                wlog($uid, "管理员扣款", $desc, "-{$amount}");
-            }
-            api_respond(0, "扣款成功！已成功扣减 ¥ {$amount}，该代理当前剩余余额: ¥ {$newMoney}");
-        } else {
-            // 加钱充值
-            $newMoney = round($targetMoney + $amount, 2);
-            $DB->query("UPDATE qingka_wangke_user SET money='$newMoney', zcz=zcz+'$amount' WHERE uid='$uid'");
-            if (function_exists('wlog')) {
-                $desc = "管理员增加余额 +{$amount} 元" . ($remark ? " (备注: {$remark})" : '') . "，增加后余额 {$newMoney} 元";
-                wlog($uid, "管理员充值", $desc, "+{$amount}");
-            }
-            api_respond(0, "充值加款成功！已成功增加 ¥ {$amount}，该代理当前余额: ¥ {$newMoney}");
+        $delta = $type === 'deduct' ? -$amount : $amount;
+        $rechargeSql = $type === 'add' ? ", zcz=zcz+'$amount'" : '';
+        $execute("UPDATE qingka_wangke_user SET money=money+($delta) $rechargeSql WHERE uid='$uid' AND deleted_at IS NULL");
+        if ($DB->affected() !== 1) throw new RuntimeException('目标代理余额未写入');
+        if (!$isSuper) {
+            $execute("UPDATE qingka_wangke_user SET money=money-($delta) WHERE uid='$currentUid' AND deleted_at IS NULL");
+            if ($DB->affected() !== 1) throw new RuntimeException('上级代理余额未写入');
+            $writeLog($currentUid, $type === 'deduct' ? '下级扣款返还' : '代理充值', "为直属下级 {$target['name']}({$target['user']}) 调账 {$delta} 元" . ($remark ? " (备注: {$remark})" : ''), -$delta);
         }
-    } else {
-        // 普通代理为直属下级充值转账或扣款
-        if (intval($target['uuid']) !== $currentUid) {
-            api_respond(403, '只能管理属于您名下的直属下级代理');
-        }
-        if ($type === 'deduct') {
-            if ($targetMoney < $amount) {
-                api_respond(400, "下级代理当前余额仅 ¥ {$targetMoney}，不足以扣减 ¥ {$amount}");
-            }
-            $newTargetMoney = round($targetMoney - $amount, 2);
-            $DB->query("UPDATE qingka_wangke_user SET money=money-'$amount' WHERE uid='$uid' LIMIT 1");
-            $DB->query("UPDATE qingka_wangke_user SET money=money+'$amount' WHERE uid='$currentUid' LIMIT 1");
-            if (function_exists('wlog')) {
-                wlog($uid, "上级扣款", "上级从您的账户扣减 {$amount} 元" . ($remark ? " (备注: {$remark})" : ''), "-{$amount}");
-                wlog($currentUid, "下级扣款返还", "从下级 {$target['name']}({$target['user']}) 扣回 {$amount} 元", "+{$amount}");
-            }
-            api_respond(0, "扣款成功！已扣减下级 ¥ {$amount} 并返还到您的账户，下级当前余额: ¥ {$newTargetMoney}");
-        } else {
-            $myMoney = floatval($userrow['money']);
-            if ($myMoney < $amount) {
-                api_respond(400, "您的可用余额不足！当前余额: ¥ {$myMoney}，充值需要: ¥ {$amount}");
-            }
-            $DB->query("UPDATE qingka_wangke_user SET money=money-'$amount' WHERE uid='$currentUid' LIMIT 1");
-            $DB->query("UPDATE qingka_wangke_user SET money=money+'$amount', zcz=zcz+'$amount' WHERE uid='$uid' LIMIT 1");
-            $newTargetMoney = round($targetMoney + $amount, 2);
-            if (function_exists('wlog')) {
-                wlog($currentUid, "代理充值", "为直属下级 {$target['name']}({$target['user']}) 充值 {$amount} 元" . ($remark ? " (备注: {$remark})" : ''), "-{$amount}");
-                wlog($uid, "上级充值", "上级 {$userrow['name']}({$userrow['user']}) 为您充值 {$amount} 元", "+{$amount}");
-            }
-            api_respond(0, "充值成功！已从您的账户划扣 ¥ {$amount}，目标下级当前余额: ¥ {$newTargetMoney}");
-        }
+        $logType = $isSuper ? ($type === 'deduct' ? '管理员扣款' : '管理员充值') : ($type === 'deduct' ? '上级扣款' : '上级充值');
+        $writeLog($uid, $logType, "上级 UID:{$currentUid} 调账 {$delta} 元" . ($remark ? " (备注: {$remark})" : ''), $delta);
+        $execute('COMMIT');
+    } catch (Throwable $error) {
+        $DB->query('ROLLBACK');
+        error_log('userlist-recharge uid=' . $uid . ': ' . $error->getMessage());
+        api_respond(500, '余额调账失败，请稍后重试', null, 500);
     }
+    $newMoney = round($targetMoney + $delta, 2);
+    api_respond(0, ($type === 'deduct' ? '扣款成功' : '充值成功') . "，目标代理当前余额: ¥ {$newMoney}");
 }
 
 // 代理管理：一键开通/关闭/重置对接密钥
@@ -2704,7 +2767,7 @@ if ($action === 'userlist-toggle-key') {
 
     if ($uid <= 0) api_respond(422, '参数错误');
 
-    $target = $DB->get_row("SELECT uid, uuid, user, name, `key` FROM qingka_wangke_user WHERE uid='$uid' LIMIT 1");
+    $target = $DB->get_row("SELECT uid, uuid, user, name, `key` FROM qingka_wangke_user WHERE uid='$uid' AND deleted_at IS NULL LIMIT 1");
     if (!$target) api_respond(404, '目标代理不存在');
 
     if (!$isSuper && intval($target['uuid']) !== $currentUid) {
@@ -2712,11 +2775,11 @@ if ($action === 'userlist-toggle-key') {
     }
 
     if ($operation === 'close') {
-        $DB->query("UPDATE qingka_wangke_user SET `key`='' WHERE uid='$uid'");
+        $DB->query("UPDATE qingka_wangke_user SET `key`='' WHERE uid='$uid' AND deleted_at IS NULL");
         api_respond(0, "已成功关闭代理 [{$target['name']}] 的对接密钥", array('key' => ''));
     } else {
         $newKey = md5(uniqid(mt_rand(), true) . microtime());
-        $DB->query("UPDATE qingka_wangke_user SET `key`='$newKey' WHERE uid='$uid'");
+        $DB->query("UPDATE qingka_wangke_user SET `key`='$newKey' WHERE uid='$uid' AND deleted_at IS NULL");
         $msg = $operation === 'reset' ? "已重置代理 [{$target['name']}] 的对接密钥" : "已成功为代理 [{$target['name']}] 开通对接密钥";
         api_respond(0, $msg, array('key' => $newKey));
     }
@@ -2738,7 +2801,7 @@ if ($action === 'userlist-login-as') {
         api_respond(422, '您当前已经是该账号');
     }
 
-    $target = $DB->get_row("SELECT uid, uuid, user, pass, name, active FROM qingka_wangke_user WHERE uid='$uid' LIMIT 1");
+    $target = $DB->get_row("SELECT uid, uuid, user, pass, name, active FROM qingka_wangke_user WHERE uid='$uid' AND deleted_at IS NULL LIMIT 1");
     if (!$target) api_respond(404, '目标代理不存在');
 
     if (!$isSuper && intval($target['uuid']) !== $currentUid) {
@@ -2779,7 +2842,7 @@ if ($action === 'userlist-rate') {
     $rateNum = floatval($rate);
     if ($rateNum < 0.01 || $rateNum > 10.0) api_respond(422, '费率系数不合理');
 
-    $target = $DB->get_row("SELECT uid, uuid, user, name, addprice FROM qingka_wangke_user WHERE uid='$uid' LIMIT 1");
+    $target = $DB->get_row("SELECT uid, uuid, user, name, addprice FROM qingka_wangke_user WHERE uid='$uid' AND deleted_at IS NULL LIMIT 1");
     if (!$target) api_respond(404, '目标代理不存在');
 
     if (!$isSuper) {
@@ -2793,7 +2856,7 @@ if ($action === 'userlist-rate') {
     }
 
     $safeRate = daddslashes($rate);
-    $DB->query("UPDATE qingka_wangke_user SET addprice='$safeRate' WHERE uid='$uid'");
+    $DB->query("UPDATE qingka_wangke_user SET addprice='$safeRate' WHERE uid='$uid' AND deleted_at IS NULL");
     api_respond(0, '费率修改成功');
 }
 
@@ -3182,9 +3245,9 @@ if ($action === 'user-profile') {
 
     $today = date('Y-m-d');
     $totalOrders = $DB->count("SELECT count(oid) FROM qingka_wangke_order WHERE uid='$uid'");
-    $agentTotal = $DB->count("SELECT count(uid) FROM qingka_wangke_user WHERE uuid='$uid'");
-    $agentRegToday = $DB->count("SELECT count(uid) FROM qingka_wangke_user WHERE uuid='$uid' AND addtime>='$today'");
-    $agentLoginToday = $DB->count("SELECT count(uid) FROM qingka_wangke_user WHERE uuid='$uid' AND endtime>='$today'");
+    $agentTotal = $DB->count("SELECT count(uid) FROM qingka_wangke_user WHERE deleted_at IS NULL AND uuid='$uid'");
+    $agentRegToday = $DB->count("SELECT count(uid) FROM qingka_wangke_user WHERE deleted_at IS NULL AND uuid='$uid' AND addtime>='$today'");
+    $agentLoginToday = $DB->count("SELECT count(uid) FROM qingka_wangke_user WHERE deleted_at IS NULL AND uuid='$uid' AND endtime>='$today'");
     $orderToday = $DB->count("SELECT count(oid) FROM qingka_wangke_order WHERE uid='$uid' AND addtime>='$today'");
 
     $rawKey = isset($currentUser['key']) ? trim((string) $currentUser['key']) : '';
@@ -3840,7 +3903,7 @@ if ($action === 'userlist-reset-password') {
         api_respond(422, '自己不能在此重置自己的密码，请前往修改密码页面');
     }
 
-    $target = $DB->get_row("SELECT uid, uuid, user, name FROM qingka_wangke_user WHERE uid='$uid' LIMIT 1");
+    $target = $DB->get_row("SELECT uid, uuid, user, name FROM qingka_wangke_user WHERE uid='$uid' AND deleted_at IS NULL LIMIT 1");
     if (!$target) api_respond(404, '目标代理不存在');
 
     if (!$isSuper) {
@@ -3850,7 +3913,7 @@ if ($action === 'userlist-reset-password') {
     }
 
     $passSafe = daddslashes($password);
-    $DB->query("UPDATE qingka_wangke_user SET pass='$passSafe' WHERE uid='$uid'");
+    $DB->query("UPDATE qingka_wangke_user SET pass='$passSafe' WHERE uid='$uid' AND deleted_at IS NULL");
 
     if (function_exists('wlog')) {
         wlog($uid, "重置密码", "上级 " . ($isSuper ? "管理员" : $userrow['user']) . " 重置了代理 [{$target['user']}] 的登录密码", 0);

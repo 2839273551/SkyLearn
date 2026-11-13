@@ -28,6 +28,7 @@ import { useAuthStore } from '@/store/modules/auth';
 import {
   adjustUserBalance,
   createUser,
+  deleteUser,
   fetchGradeOptions,
   fetchUserlistList,
   loginAsUser,
@@ -48,6 +49,9 @@ const route = useRoute();
 const loading = ref(false);
 const list = ref<Api.ProfileArea.UserItem[]>([]);
 const total = ref(0);
+const deleteModal = ref(false);
+const deleteLoading = ref(false);
+const deleteTarget = ref<Api.ProfileArea.UserItem | null>(null);
 
 const query = reactive({
   page: 1,
@@ -81,6 +85,26 @@ function openRateModal(row: Api.ProfileArea.UserItem) {
   currentUserName.value = row.name || row.user;
   targetRate.value = row.addprice;
   rateModal.value = true;
+}
+
+function openDeleteModal(row: Api.ProfileArea.UserItem) {
+  deleteTarget.value = row;
+  deleteModal.value = true;
+}
+
+async function handleDeleteUser() {
+  if (!deleteTarget.value || deleteLoading.value) return;
+  deleteLoading.value = true;
+  try {
+    const { error } = await deleteUser(deleteTarget.value.uid);
+    if (error) return;
+    window.$message?.success('代理已删除');
+    deleteModal.value = false;
+    if (list.value.length === 1 && query.page > 1) query.page -= 1;
+    await loadData();
+  } finally {
+    deleteLoading.value = false;
+  }
 }
 
 function getAvatarSrc(user: string) {
@@ -369,7 +393,7 @@ const columns: DataTableColumns<Api.ProfileArea.UserItem> = [
   {
     title: '操作',
     key: 'actions',
-    width: 300,
+    width: 360,
     fixed: 'right',
     render: row =>
       h(NSpace, { size: 6, align: 'center' }, () => [
@@ -412,6 +436,16 @@ const columns: DataTableColumns<Api.ProfileArea.UserItem> = [
             onClick: () => openResetPwdModal(row)
           },
           { default: () => '🔑 重置密码' }
+        ),
+        h(
+          NButton,
+          {
+            size: 'tiny',
+            type: 'error',
+            secondary: true,
+            onClick: () => openDeleteModal(row)
+          },
+          { default: () => '删除代理' }
         )
       ])
   }
@@ -567,6 +601,7 @@ onMounted(() => {
                 <NButton type="primary" secondary @click="openBalanceModal(row)">余额调账</NButton>
                 <NButton type="info" secondary @click="openRateModal(row)">调整费率</NButton>
                 <NButton type="warning" secondary @click="openResetPwdModal(row)">重置密码</NButton>
+                <NButton type="error" secondary class="agent-delete" @click="openDeleteModal(row)">删除代理</NButton>
               </div>
             </article>
           </div>
@@ -599,6 +634,35 @@ onMounted(() => {
         />
       </div>
     </NCard>
+
+    <NModal
+      v-model:show="deleteModal"
+      preset="card"
+      title="删除代理"
+      class="userlist-modal"
+      style="width: 460px"
+      :mask-closable="!deleteLoading"
+      :close-on-esc="!deleteLoading"
+      :closable="!deleteLoading"
+    >
+      <div v-if="deleteTarget" class="flex flex-col gap-14px">
+        <NAlert type="warning">
+          删除后，账号将停用并从代理列表移除，对接密钥和邀请码同时失效。历史订单与资金流水保留。
+        </NAlert>
+        <div class="text-14px">
+          <div>代理名称：<strong>{{ deleteTarget.name || deleteTarget.user }}</strong></div>
+          <div class="mt-6px">账号：{{ deleteTarget.user }}（UID：{{ deleteTarget.uid }}）</div>
+          <div class="mt-6px">当前余额：¥ {{ deleteTarget.money }}</div>
+        </div>
+        <p class="m-0 text-13px text-gray-500">请先结清余额、处理直属下级及未完成的充值支付，再确认删除。</p>
+      </div>
+      <template #footer>
+        <div class="userlist-modal-actions">
+          <NButton :disabled="deleteLoading" @click="deleteModal = false">取消</NButton>
+          <NButton type="error" :loading="deleteLoading" @click="handleDeleteUser">确认删除代理</NButton>
+        </div>
+      </template>
+    </NModal>
 
     <!-- 余额调整弹窗 (加钱 / 减钱) -->
     <NModal v-model:show="balanceModal" preset="card" title="代理账户余额调整" class="userlist-modal" style="width: 480px">
@@ -948,6 +1012,10 @@ onMounted(() => {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
     margin-top: 8px;
+  }
+
+  .agent-delete {
+    grid-column: 1 / -1;
   }
 
   .agent-key-actions :deep(.n-button) {

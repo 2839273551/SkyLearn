@@ -257,58 +257,79 @@ if ($action === 'user-create') {
     }
     $totalNeed = round($ktFee + $deductRecharge, 2);
 
-    $currentMoney = floatval($userrow['money']);
-    if ($currentUid !== 1 && $currentMoney < $totalNeed) {
-        api_respond(400, "可用余额不足！开户需手续费 {$ktFee} 元" . ($deductRecharge > 0 ? " 及下级首充扣款 {$deductRecharge} 元" : '') . "，当前余额 {$currentMoney} 元");
-    }
-
-    $passSafe = daddslashes($pass);
-    $now = date('Y-m-d H:i:s');
-    $yqm = substr(md5($user . time() . mt_rand(100, 999)), 0, 8);
-    $gradeName = isset($gradeRow['name']) ? trim($gradeRow['name']) : '';
-    $gradeNameSafe = daddslashes($gradeName);
-    $clientIp = function_exists('real_ip') ? real_ip() : (isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '127.0.0.1');
-    $clientIpSafe = daddslashes($clientIp);
-
-    // 严密适配 qingka_wangke_user 表结构：移除不存在的 addpriceid 字段，补齐严格模式下所有 NOT NULL 字段的安全默认值
-    $sql = "INSERT INTO `qingka_wangke_user` 
-        (`uuid`, `user`, `pass`, `name`, `qq_openid`, `nickname`, `faceimg`, `money`, `zcz`, `addprice`, `key`, `yqm`, `yqprice`, `notice`, `addtime`, `endtime`, `ip`, `grade`, `active`, `vip`, `last_sign_in_date`, `used_batches`, `daily_invites`, `freeadd`) 
-        VALUES 
-        ('$currentUid', '$userSafe', '$passSafe', '$nameSafe', '', '$nameSafe', '', '$firstRecharge', '$firstRecharge', '$targetRate', '0', '$yqm', '0.2', '', '$now', '', '$clientIpSafe', '$gradeNameSafe', '1', 0, '', '', 0, 0)";
-
-    if (!$DB->query($sql)) {
-        $dbErr = method_exists($DB, 'error') ? $DB->error() : '';
-        api_respond(500, '创建代理失败' . ($dbErr ? ": {$dbErr}" : '，请稍后重试'));
-    }
-
-    $newUid = 0;
-    if (method_exists($DB, 'insert_id')) {
-        $newUid = intval($DB->insert_id());
-    }
-    if ($newUid <= 0 && isset($DB->link)) {
-        $newUid = intval(mysqli_insert_id($DB->link));
-    }
-    if ($newUid <= 0) {
-        $createdUser = $DB->get_row("SELECT `uid` FROM `qingka_wangke_user` WHERE `user`='$userSafe' ORDER BY `uid` DESC LIMIT 1");
-        $newUid = $createdUser ? intval($createdUser['uid']) : 0;
-    }
-
-    if ($totalNeed > 0) {
-        $DB->query("UPDATE `qingka_wangke_user` SET `money`=`money`-'$totalNeed' WHERE `uid`='$currentUid' LIMIT 1");
-    }
-
-    if (function_exists('wlog')) {
-        if ($ktFee > 0) {
-            wlog($currentUid, "添加商户", "开通下级代理 {$name} (UID: {$newUid})，扣除开户费 {$ktFee} 元", -$ktFee);
+    try {
+        if (!$DB->query('START TRANSACTION')) throw new RuntimeException($DB->error());
+        // 与删除共用上级行锁，防止已删除账号继续开户或在检查下级后插入新下级。
+        $result = $DB->query("SELECT money, deleted_at FROM qingka_wangke_user WHERE uid='$currentUid' LIMIT 1 FOR UPDATE");
+        if (!$result) throw new RuntimeException($DB->error());
+        $parent = $DB->fetch($result);
+        if (!$parent || $parent['deleted_at'] !== null) {
+            $DB->query('ROLLBACK');
+            api_respond(403, '当前代理不存在或已删除');
         }
-        if ($firstRecharge > 0) {
-            if ($deductRecharge > 0) {
-                wlog($currentUid, "代理充值", "为新下级 {$name} (UID: {$newUid}) 首充 {$firstRecharge} 元，折算扣除 {$deductRecharge} 元", -$deductRecharge);
-            }
-            if ($newUid > 0) {
-                wlog($newUid, "上级充值", "上级开户赠送初始余额 {$firstRecharge} 元", +$firstRecharge);
+        $currentMoney = floatval($parent['money']);
+        if ($currentUid !== 1 && $currentMoney < $totalNeed) {
+            $DB->query('ROLLBACK');
+            api_respond(400, "可用余额不足！开户需手续费 {$ktFee} 元" . ($deductRecharge > 0 ? " 及下级首充扣款 {$deductRecharge} 元" : '') . "，当前余额 {$currentMoney} 元");
+        }
+
+        $passSafe = daddslashes($pass);
+        $now = date('Y-m-d H:i:s');
+        $yqm = substr(md5($user . time() . mt_rand(100, 999)), 0, 8);
+        $gradeName = isset($gradeRow['name']) ? trim($gradeRow['name']) : '';
+        $gradeNameSafe = daddslashes($gradeName);
+        $clientIp = function_exists('real_ip') ? real_ip() : (isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '127.0.0.1');
+        $clientIpSafe = daddslashes($clientIp);
+
+        // 严密适配 qingka_wangke_user 表结构：移除不存在的 addpriceid 字段，补齐严格模式下所有 NOT NULL 字段的安全默认值
+        $sql = "INSERT INTO `qingka_wangke_user`
+            (`uuid`, `user`, `pass`, `name`, `qq_openid`, `nickname`, `faceimg`, `money`, `zcz`, `addprice`, `key`, `yqm`, `yqprice`, `notice`, `addtime`, `endtime`, `ip`, `grade`, `active`, `vip`, `last_sign_in_date`, `used_batches`, `daily_invites`, `freeadd`)
+            VALUES
+            ('$currentUid', '$userSafe', '$passSafe', '$nameSafe', '', '$nameSafe', '', '$firstRecharge', '$firstRecharge', '$targetRate', '0', '$yqm', '0.2', '', '$now', '', '$clientIpSafe', '$gradeNameSafe', '1', 0, '', '', 0, 0)";
+
+        if (!$DB->query($sql)) {
+            $dbErr = $DB->error();
+            $DB->query('ROLLBACK');
+            api_respond(500, '创建代理失败' . ($dbErr ? ": {$dbErr}" : '，请稍后重试'));
+        }
+
+        $newUid = 0;
+        if (method_exists($DB, 'insert_id')) {
+            $newUid = intval($DB->insert_id());
+        }
+        if ($newUid <= 0 && isset($DB->link)) {
+            $newUid = intval(mysqli_insert_id($DB->link));
+        }
+        if ($newUid <= 0) {
+            $createdUser = $DB->get_row("SELECT `uid` FROM `qingka_wangke_user` WHERE `user`='$userSafe' ORDER BY `uid` DESC LIMIT 1");
+            $newUid = $createdUser ? intval($createdUser['uid']) : 0;
+        }
+
+        if ($totalNeed > 0) {
+            if (!$DB->query("UPDATE `qingka_wangke_user` SET `money`=`money`-'$totalNeed' WHERE `uid`='$currentUid' LIMIT 1") || $DB->affected() !== 1) {
+                throw new RuntimeException('开户扣款未写入: ' . $DB->error());
             }
         }
+
+        if (function_exists('wlog')) {
+            if ($ktFee > 0) {
+                wlog($currentUid, "添加商户", "开通下级代理 {$name} (UID: {$newUid})，扣除开户费 {$ktFee} 元", -$ktFee);
+            }
+            if ($firstRecharge > 0) {
+                if ($deductRecharge > 0) {
+                    wlog($currentUid, "代理充值", "为新下级 {$name} (UID: {$newUid}) 首充 {$firstRecharge} 元，折算扣除 {$deductRecharge} 元", -$deductRecharge);
+                }
+                if ($newUid > 0) {
+                    wlog($newUid, "上级充值", "上级开户赠送初始余额 {$firstRecharge} 元", +$firstRecharge);
+                }
+            }
+        }
+
+        if (!$DB->query('COMMIT')) throw new RuntimeException($DB->error());
+    } catch (Throwable $error) {
+        $DB->query('ROLLBACK');
+        error_log('user-create: ' . $error->getMessage());
+        api_respond(500, '创建代理失败，请稍后重试', null, 500);
     }
 
     api_respond(0, "代理账号开通成功！UID: {$newUid}", array(
@@ -343,23 +364,43 @@ if ($action === 'user-migrate') {
         api_respond(422, '不能将上级迁移为自己');
     }
 
-    $targetUser = $DB->get_row("SELECT uid, user, name, yqm, addprice FROM `qingka_wangke_user` WHERE uid='$targetUid' LIMIT 1");
-    if (!$targetUser) {
-        api_respond(404, '目标上级用户不存在');
-    }
-    if ($targetUser['yqm'] !== $yqm) {
-        api_respond(400, '目标上级专属邀请码校验不匹配');
-    }
+    try {
+        if (!$DB->query('START TRANSACTION')) throw new RuntimeException($DB->error());
+        $result = $DB->query("SELECT uid, user, name, yqm, addprice, deleted_at FROM qingka_wangke_user WHERE uid IN ($currentUid,$targetUid) ORDER BY uid FOR UPDATE");
+        if (!$result) throw new RuntimeException($DB->error());
+        $accounts = array();
+        while ($account = $DB->fetch($result)) $accounts[intval($account['uid'])] = $account;
+        if (!isset($accounts[$currentUid]) || $accounts[$currentUid]['deleted_at'] !== null) {
+            $DB->query('ROLLBACK');
+            api_respond(403, '当前代理不存在或已删除');
+        }
+        $targetUser = isset($accounts[$targetUid]) && $accounts[$targetUid]['deleted_at'] === null ? $accounts[$targetUid] : null;
+        if (!$targetUser) {
+            $DB->query('ROLLBACK');
+            api_respond(404, '目标上级用户不存在');
+        }
+        if ($targetUser['yqm'] !== $yqm) {
+            $DB->query('ROLLBACK');
+            api_respond(400, '目标上级专属邀请码校验不匹配');
+        }
 
-    // 检查自己当前是否已经是该上级
-    if (intval($userrow['uuid']) === $targetUid) {
-        api_respond(400, '您当前已经在该上级团队名下，无需重复迁移');
-    }
+        // 检查自己当前是否已经是该上级
+        if (intval($userrow['uuid']) === $targetUid) {
+            $DB->query('ROLLBACK');
+            api_respond(400, '您当前已经在该上级团队名下，无需重复迁移');
+        }
 
-    // 执行迁移
-    $DB->query("UPDATE `qingka_wangke_user` SET uuid='$targetUid' WHERE uid='$currentUid' LIMIT 1");
-    if (function_exists('wlog')) {
-        wlog($currentUid, "上级迁移", "成功将团队上级迁移至 UID: {$targetUid} ({$targetUser['user']})", 0);
+        // 执行迁移
+        if (!$DB->query("UPDATE `qingka_wangke_user` SET uuid='$targetUid' WHERE uid='$currentUid' LIMIT 1")) throw new RuntimeException($DB->error());
+        if (function_exists('wlog')) {
+            wlog($currentUid, "上级迁移", "成功将团队上级迁移至 UID: {$targetUid} ({$targetUser['user']})", 0);
+        }
+
+        if (!$DB->query('COMMIT')) throw new RuntimeException($DB->error());
+    } catch (Throwable $error) {
+        $DB->query('ROLLBACK');
+        error_log('user-migrate: ' . $error->getMessage());
+        api_respond(500, '上级迁移失败，请稍后重试', null, 500);
     }
 
     api_respond(0, "团队上级已成功迁移至: [UID {$targetUid}] {$targetUser['name']}");
@@ -384,7 +425,7 @@ if ($action === 'user-batch-rate') {
         api_respond(422, "下级费率不能低于您自身的费率 ({$myRate}×)");
     }
 
-    $uidScope = $currentUid === 1 ? '' : " AND uuid='$currentUid'";
+    $uidScope = " AND deleted_at IS NULL" . ($currentUid === 1 ? '' : " AND uuid='$currentUid'");
     $updated = 0;
 
     if (!empty($targetUids)) {
@@ -394,9 +435,9 @@ if ($action === 'user-batch-rate') {
     } else {
         // 全量下级改价
         if ($currentUid !== 1) {
-            $res = $DB->query("UPDATE `qingka_wangke_user` SET addprice='$rate' WHERE uuid='$currentUid'");
+            $res = $DB->query("UPDATE `qingka_wangke_user` SET addprice='$rate' WHERE uuid='$currentUid' AND deleted_at IS NULL");
         } else {
-            $res = $DB->query("UPDATE `qingka_wangke_user` SET addprice='$rate' WHERE uid > 1");
+            $res = $DB->query("UPDATE `qingka_wangke_user` SET addprice='$rate' WHERE uid > 1 AND deleted_at IS NULL");
         }
     }
 
@@ -407,7 +448,7 @@ if ($action === 'my-referrals') {
     api_require_login(isset($islogin) ? $islogin : 0);
     $currentUid = intval($userrow['uid']);
 
-    $res = $DB->query("SELECT uid, user, name, addprice, money, addtime, active FROM `qingka_wangke_user` WHERE uuid='$currentUid' ORDER BY uid DESC LIMIT 100");
+    $res = $DB->query("SELECT uid, user, name, addprice, money, addtime, active FROM `qingka_wangke_user` WHERE uuid='$currentUid' AND deleted_at IS NULL ORDER BY uid DESC LIMIT 100");
     $list = array();
     while ($r = $DB->fetch($res)) {
         $orderCount = $DB->count("SELECT COUNT(*) FROM `qingka_wangke_order` WHERE uid='{$r['uid']}'");

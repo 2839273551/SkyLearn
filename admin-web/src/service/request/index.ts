@@ -42,7 +42,7 @@ export const request = createFlatRequest(
 
       return null;
     },
-    async onHttpError(error, instance) {
+    async onHttpError(error, instance): Promise<AxiosResponse | null> {
       const status = error.response?.status;
       const config = error.config as (InternalAxiosRequestConfig & { _isCsrfRetry?: boolean }) | undefined;
 

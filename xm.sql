@@ -673,6 +673,7 @@ CREATE TABLE `qingka_wangke_user` (
   `ip` varchar(255) COLLATE utf8_unicode_ci NOT NULL,
   `grade` varchar(255) COLLATE utf8_unicode_ci NOT NULL,
   `active` varchar(255) COLLATE utf8_unicode_ci NOT NULL DEFAULT '1',
+  `deleted_at` datetime DEFAULT NULL COMMENT '代理删除时间，保留关联订单与流水',
   `vip` int(11) NOT NULL DEFAULT '0' COMMENT '是否为会员',
   `last_sign_in_date` varchar(255) COLLATE utf8_unicode_ci NOT NULL COMMENT '最后签到时间',
   `daily_invites` int(11) DEFAULT '0',
@@ -691,7 +692,7 @@ CREATE TABLE `qingka_wangke_user` (
 
 LOCK TABLES `qingka_wangke_user` WRITE;
 /*!40000 ALTER TABLE `qingka_wangke_user` DISABLE KEYS */;
-INSERT INTO `qingka_wangke_user` VALUES (1,1,'2839273551','20040221c','管理员','','','',88347.92,'99999',0.20,'n2emDCNh45u7','6666','0.5','大量招代理，稳定无忧\r\n','','2026-09-16 18:32:33','','','1',0,'2024-10-18',0,'','SPT_7mtAg2lbHtPOGSHljOYsbR4WTF01','1',0,'{\"login_notification\":0,\"work_order_notification\":1,\"announcement_notification\":0,\"balance_warning\":0,\"supply_balance_warning\":1,\"supply_update_notification\":1}'),(494,1,'2477331900','1234567','2477331900','','','',48.42,'7073.26',0.20,'6fcf24177989db1305c862532605c2ab','','','','2025-08-31 22:33:17','2026-06-16 21:43:07','36.98.91.60','','1',0,'',0,'',NULL,'',0,NULL),(495,1,'3147025856','3147025856','3147025856','','','',0.32,'0.32\n',0.20,'0','','','','2025-08-31 22:33:53','','','','0',0,'',0,'',NULL,'',0,NULL),(496,1,'3529472014','3529472014','3529472014','','','',2.80,'2.80',0.20,'0','','','','2025-08-31 22:34:06','','','','0',0,'',0,'',NULL,'',0,NULL),(1106,1,'1918322984','1918322984','1918322984','','1918322984','',389.00,'389',0.20,'0','22408f2b','0.2','','2026-09-13 20:10:56','2026-09-14 13:03:18','','顶级','1',0,'',0,'',NULL,'0',0,NULL);
+INSERT INTO `qingka_wangke_user` (`uid`,`uuid`,`user`,`pass`,`name`,`qq_openid`,`nickname`,`faceimg`,`money`,`zcz`,`addprice`,`key`,`yqm`,`yqprice`,`notice`,`addtime`,`endtime`,`ip`,`grade`,`active`,`vip`,`last_sign_in_date`,`daily_invites`,`used_batches`,`pushPlusToken`,`freeadd`,`khqx`,`user_settings`) VALUES (1,1,'2839273551','20040221c','管理员','','','',88347.92,'99999',0.20,'n2emDCNh45u7','6666','0.5','大量招代理，稳定无忧\r\n','','2026-09-16 18:32:33','','','1',0,'2024-10-18',0,'','SPT_7mtAg2lbHtPOGSHljOYsbR4WTF01','1',0,'{\"login_notification\":0,\"work_order_notification\":1,\"announcement_notification\":0,\"balance_warning\":0,\"supply_balance_warning\":1,\"supply_update_notification\":1}'),(494,1,'2477331900','1234567','2477331900','','','',48.42,'7073.26',0.20,'6fcf24177989db1305c862532605c2ab','','','','2025-08-31 22:33:17','2026-06-16 21:43:07','36.98.91.60','','1',0,'',0,'',NULL,'',0,NULL),(495,1,'3147025856','3147025856','3147025856','','','',0.32,'0.32\n',0.20,'0','','','','2025-08-31 22:33:53','','','','0',0,'',0,'',NULL,'',0,NULL),(496,1,'3529472014','3529472014','3529472014','','','',2.80,'2.80',0.20,'0','','','','2025-08-31 22:34:06','','','','0',0,'',0,'',NULL,'',0,NULL),(1106,1,'1918322984','1918322984','1918322984','','1918322984','',389.00,'389',0.20,'0','22408f2b','0.2','','2026-09-13 20:10:56','2026-09-14 13:03:18','','顶级','1',0,'',0,'',NULL,'0',0,NULL);
 /*!40000 ALTER TABLE `qingka_wangke_user` ENABLE KEYS */;
 UNLOCK TABLES;
 

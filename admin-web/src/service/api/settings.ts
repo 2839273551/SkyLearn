@@ -400,6 +400,14 @@ export function updateUserStatus(uid: string | number, active: number) {
   });
 }
 
+export function deleteUser(uid: string | number) {
+  return request<null>({
+    url: 'admin-api/v1/index.php?action=userlist-delete',
+    method: 'post',
+    data: { uid }
+  });
+}
+
 export function rechargeUserBalance(uid: string | number, amount: number) {
   return request<null>({
     url: 'admin-api/v1/index.php?action=userlist-recharge',
