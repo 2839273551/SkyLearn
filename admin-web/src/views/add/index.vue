@@ -657,12 +657,12 @@ onMounted(loadCatalog);
 
           <NSpin :show="catalogLoading" class="flex-1 flex flex-col">
             <div class="flex-1 flex flex-col gap-12px sm:gap-18px">
-              <!-- 渠道分类胶囊导航 (移动端横向平滑滚动药丸，桌面端优雅排布) -->
+              <!-- 课程分类按可用宽度自动换行，电脑和手机端均完整展示 -->
               <div>
                 <div class="text-12px text-gray-500 dark:text-gray-400 mb-6px select-none font-medium">
                   选择课程大类：
                 </div>
-                <div class="flex items-center gap-6px sm:gap-8px overflow-x-auto pb-4px pt-1px scrollbar-none select-none -mx-2px px-2px">
+                <div class="flex flex-wrap items-center gap-6px sm:gap-8px pb-4px pt-1px select-none -mx-2px px-2px">
                   <button
                     type="button"
                     class="px-10px sm:px-12px py-5px sm:py-6px rounded-6px sm:rounded-8px text-12px sm:text-13px shrink-0 transition-all cursor-pointer border-0 font-medium whitespace-nowrap active:scale-95"
